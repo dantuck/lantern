@@ -1,0 +1,5 @@
+---
+interface Props { ms: number }
+const iso = new Date(Astro.props.ms).toISOString();
+---
+<time datetime={iso}>{iso.slice(0, 16).replace('T', ' ')} UTC</time>

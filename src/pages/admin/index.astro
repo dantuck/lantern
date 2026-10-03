@@ -1,0 +1,108 @@
+---
+import Base from '../../layouts/Base.astro';
+import Time from '../../components/Time.astro';
+import { env } from 'cloudflare:workers';
+import { listUsers, listPendingInvites } from '../../lib/auth/users';
+import { listAllSessions, listAudit } from '../../lib/auth/admin';
+import { flashFor } from '../../lib/messages';
+
+const me = Astro.locals.user!;
+const [users, invites, devices, audit] = await Promise.all([
+  listUsers(env.DB), listPendingInvites(env.DB), listAllSessions(env.DB), listAudit(env.DB, 50),
+]);
+const flash = flashFor(Astro.url.searchParams.get('msg'));
+const currentHash = Astro.locals.session!.idHash;
+---
+<Base title="Admin" wide>
+  <h1>Household admin</h1>
+  {flash && <div class={`notice ${flash.ok ? '' : 'error'}`} role="status">{flash.text}</div>}
+
+  <section class="card">
+    <h2>Invite someone</h2>
+    <form method="post" action="/admin/action" class="row">
+      <input type="hidden" name="action" value="invite" />
+      <div><label for="inv-email">Email</label><input id="inv-email" name="email" type="email" required maxlength="254" autocomplete="off" /></div>
+      <div style="flex:0 1 10rem"><label for="inv-role">Role</label>
+        <select id="inv-role" name="role"><option value="member">Member (view only)</option><option value="manager">Manager (can invite)</option></select></div>
+      <button type="submit">Send invite</button>
+    </form>
+    <p class="muted" style="margin-top:.75rem">Invitations expire after 7 days. The person signs in with a one-time link sent to that address.</p>
+  </section>
+
+  {invites.length > 0 && (
+    <section class="card">
+      <h2>Pending invitations</h2>
+      <table>
+        <thead><tr><th>Email</th><th>Role</th><th>Expires</th><th></th></tr></thead>
+        <tbody>
+          {invites.map((i) => (
+            <tr>
+              <td>{i.email}</td><td><span class="badge">{i.role}</span></td><td><Time ms={i.expires_at} /></td>
+              <td><form method="post" action="/admin/action"><input type="hidden" name="action" value="revoke_invite" /><input type="hidden" name="id" value={i.id} /><button class="ghost" type="submit">Revoke</button></form></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  )}
+
+  <section class="card">
+    <h2>Members</h2>
+    <table>
+      <thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Since</th><th></th></tr></thead>
+      <tbody>
+        {users.map((u) => (
+          <tr>
+            <td>{u.email}{u.id === me.id && <span class="muted"> (you)</span>}</td>
+            <td><span class={`badge ${u.role}`}>{u.role}</span></td>
+            <td>{u.disabledAt ? <span class="muted">disabled</span> : 'active'}</td>
+            <td><Time ms={u.createdAt} /></td>
+            <td>
+              {!u.disabledAt && (
+                <form method="post" action="/admin/action">
+                  <input type="hidden" name="action" value="set_role" /><input type="hidden" name="id" value={u.id} />
+                  <input type="hidden" name="role" value={u.role === 'manager' ? 'member' : 'manager'} />
+                  <button class="ghost" type="submit">{u.role === 'manager' ? 'Make member' : 'Make manager'}</button>
+                </form>
+              )}
+              <form method="post" action="/admin/action">
+                <input type="hidden" name="action" value="set_disabled" /><input type="hidden" name="id" value={u.id} />
+                <input type="hidden" name="disabled" value={u.disabledAt ? '0' : '1'} />
+                <button class={u.disabledAt ? 'ghost' : 'danger'} type="submit">{u.disabledAt ? 'Re-enable' : 'Disable'}</button>
+              </form>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Signed-in devices</h2>
+    <table>
+      <thead><tr><th>Person</th><th>Device</th><th>Last active</th><th></th></tr></thead>
+      <tbody>
+        {devices.map((d) => (
+          <tr>
+            <td>{d.email}</td>
+            <td>{d.deviceLabel}{d.idHash === currentHash && <span class="muted"> (this device)</span>}</td>
+            <td><Time ms={d.lastSeen} /></td>
+            <td><form method="post" action="/admin/action"><input type="hidden" name="action" value="revoke_session" /><input type="hidden" name="id" value={d.idHash} /><button class="ghost" type="submit">Sign out</button></form></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Recent activity</h2>
+    <table>
+      <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Detail</th></tr></thead>
+      <tbody>
+        {audit.map((a) => (
+          <tr><td><Time ms={a.at} /></td><td>{a.actorEmail ?? <span class="muted">system</span>}</td><td>{a.event}</td><td class="mono">{a.detail}</td></tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+</Base>

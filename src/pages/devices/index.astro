@@ -1,0 +1,42 @@
+---
+import Base from '../../layouts/Base.astro';
+import Time from '../../components/Time.astro';
+import { env } from 'cloudflare:workers';
+import { listSessions } from '../../lib/auth/sessions';
+import { flashFor } from '../../lib/messages';
+
+const user = Astro.locals.user!;
+const current = Astro.locals.session!.idHash;
+const sessions = await listSessions(env.DB, user.id);
+const flash = flashFor(Astro.url.searchParams.get('msg'));
+---
+<Base title="Devices" wide>
+  <h1>Your devices</h1>
+  {flash && <div class={`notice ${flash.ok ? '' : 'error'}`} role="status">{flash.text}</div>}
+  <section class="card">
+    <table>
+      <thead><tr><th>Device</th><th>Signed in</th><th>Last active</th><th></th></tr></thead>
+      <tbody>
+        {sessions.map((s) => (
+          <tr>
+            <td>{s.device_label}{s.id_hash === current && <span class="muted"> (this device)</span>}</td>
+            <td><Time ms={s.created_at} /></td>
+            <td><Time ms={s.last_seen} /></td>
+            <td><form method="post" action="/devices/action"><input type="hidden" name="action" value="revoke" /><input type="hidden" name="id" value={s.id_hash} /><button class="ghost" type="submit">Sign out</button></form></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    {sessions.length > 1 && (
+      <form method="post" action="/devices/action" style="margin-top:1rem">
+        <input type="hidden" name="action" value="revoke_others" />
+        <button class="danger" type="submit" style="width:auto">Sign out all other devices</button>
+      </form>
+    )}
+  </section>
+  <section class="card">
+    <h2>Install on this device</h2>
+    <p>Use the <strong>Install app</strong> button in the top bar if you see one. On an iPhone or iPad, open this page in Safari, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</p>
+  </section>
+  <p class="muted">Lost a phone? Sign it out here, then it needs a fresh email link to get back in.</p>
+</Base>
