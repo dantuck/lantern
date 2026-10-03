@@ -1,0 +1,23 @@
+# Headers for static files. Cloudflare serves these before the Worker runs, so the middleware's
+# security headers do not apply to them. (The adapter appends its own rule for /_astro/*.)
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: same-origin
+  X-Robots-Tag: noindex, nofollow
+  Strict-Transport-Security: max-age=63072000; includeSubDomains
+  Cross-Origin-Resource-Policy: same-origin
+
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+/manifest.webmanifest
+  Content-Type: application/manifest+json
+  Cache-Control: no-cache
+
+/offline.html
+  Cache-Control: no-cache
+  Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+
+/icons/*
+  Cache-Control: public, max-age=604800

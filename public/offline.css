@@ -1,0 +1,8 @@
+:root { color-scheme: light dark; --bg:#f6f5f2; --fg:#1d1d1b; --muted:#6b6a66; --card:#fff; --accent:#2f6f5e; --border:#dedbd3; }
+@media (prefers-color-scheme: dark) { :root { --bg:#151514; --fg:#ecebe6; --muted:#9b9a94; --card:#1f1f1d; --accent:#6fc2a9; --border:#33322e; } }
+body { margin:0; font:16px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); min-height:100dvh; }
+main { max-width:28rem; margin:0 auto; padding:4rem 1rem; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1.5rem; }
+h1 { font-size:1.4rem; margin:0 0 .5rem; }
+p { color:var(--muted); margin:.25rem 0 1rem; }
+.btn { display:inline-block; padding:.6rem 1rem; border-radius:8px; background:var(--accent); color:#fff; text-decoration:none; font-weight:600; }
