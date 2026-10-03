@@ -8,7 +8,7 @@ import { definePlugin, resolveFetchPolicy } from '../src/plugins/types';
 import { z } from 'zod';
 import { fakeKv } from './kvshim';
 
-const REQ = { apiHost: 'api.mealq.example', token: 'tok', householdId: 'h/1', from: '2026-10-03', to: '2026-10-09' };
+const REQ = { apiHost: 'api.mealq.example', token: 'tok', from: '2026-10-03', to: '2026-10-09' };
 const ok = (body: unknown) => vi.fn(async (_u: string, _i?: RequestInit) => new Response(JSON.stringify(body)));
 
 describe('contract fixture', () => {
@@ -23,11 +23,11 @@ describe('contract fixture', () => {
 });
 
 describe('fetchMealPlan', () => {
-  it('builds the contract URL with an encoded household id and bearer token', async () => {
+  it('builds the contract URL with the bearer token', async () => {
     const f = ok({ days: [] });
     await fetchMealPlan(f as never, REQ);
     const [url, init] = f.mock.calls[0]!;
-    expect(url).toBe('https://api.mealq.example/v1/households/h%2F1/meal-plan?from=2026-10-03&to=2026-10-09');
+    expect(url).toBe('https://api.mealq.example/v1/meal-plan?from=2026-10-03&to=2026-10-09');
     expect((init!.headers as Record<string, string>).Authorization).toBe('Bearer tok');
     expect(init!.method).toBeUndefined(); // GET
   });
@@ -74,13 +74,13 @@ describe('mealq plugin', () => {
     expect(policy).toEqual({ hosts: ['api.mealq.example'] });
   });
   it('declares only its own secrets', () => {
-    expect(plugin.secrets).toEqual(['MEALQ_API_TOKEN', 'MEALQ_HOUSEHOLD_ID']);
+    expect(plugin.secrets).toEqual(['MEALQ_API_TOKEN']);
   });
 
   const enabled = (apiHost = 'api.mealq.example') =>
     buildRegistry({ './mealq/plugin.ts': plugin }, { title: 't', plugins: [{ id: 'mealq', config: { apiHost, timeZone: 'America/New_York' } }] }).enabled[0]!;
   const kv = fakeKv;
-  const env = { MEALQ_API_TOKEN: 't', MEALQ_HOUSEHOLD_ID: 'h1' };
+  const env = { MEALQ_API_TOKEN: 't' };
 
   it('runs through the host: requests today..today+6 in the household time zone', async () => {
     const f = ok(fixture);
@@ -91,7 +91,7 @@ describe('mealq plugin', () => {
   });
   it('is unconfigured without its secrets, and the loader never runs', async () => {
     const f = ok(fixture);
-    expect(await loadPluginData(enabled(), { env: { MEALQ_API_TOKEN: 't' }, kv: kv(), fetchImpl: f as never })).toEqual({ status: 'unconfigured', missing: ['MEALQ_HOUSEHOLD_ID'] });
+    expect(await loadPluginData(enabled(), { env: {}, kv: kv(), fetchImpl: f as never })).toEqual({ status: 'unconfigured', missing: ['MEALQ_API_TOKEN'] });
     expect(f).not.toHaveBeenCalled();
   });
   it('is blocked from contacting any host other than the configured one', async () => {

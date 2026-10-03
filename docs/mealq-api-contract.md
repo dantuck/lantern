@@ -7,21 +7,20 @@ The dashboard only ever sends `GET`. It never writes to MealQ.
 ## Authentication
 
 - `Authorization: Bearer <token>` with an opaque, high-entropy **read-only token**.
-- Scope: `mealplan:read`, bound to **exactly one household**. The token must not allow any write, and must not reveal anything about other households or members.
-- Revocable by a household manager in MealQ; MealQ should store only a hash of it.
+- Scope: `mealplan:read`, bound to **exactly one household**, which the API takes from the token. The token must not allow any write, and must not reveal anything about other households or members.
+- Created by any household member; revocable (and its scope changeable) by its creator or a household manager in MealQ; MealQ should store only a hash of it.
 - Long-lived is fine (the dashboard cannot do interactive login), so rotation and revocation matter more than expiry.
 
 ## Request
 
 ```
-GET https://{api-host}/v1/households/{householdId}/meal-plan?from=2026-10-03&to=2026-10-09
+GET https://{api-host}/v1/meal-plan?from=2026-10-03&to=2026-10-09
 Authorization: Bearer <token>
 Accept: application/json
 ```
 
 | Param | Meaning |
 |---|---|
-| `householdId` | The household the token is bound to. A different id returns `404` (not `403`, so ids can't be probed). |
 | `from`, `to` | Inclusive calendar dates (`YYYY-MM-DD`) in the household's own calendar. Range is at most 31 days. |
 
 The dashboard sends no cookies and follows no cross-host redirects, so the endpoint must answer directly over HTTPS.
@@ -58,7 +57,6 @@ The dashboard sends no cookies and follows no cross-host redirects, so the endpo
 | Status | Meaning | Dashboard behaviour |
 |---|---|---|
 | `401` | Missing, invalid or revoked token | Shows last saved plan, or "couldn't load" |
-| `404` | Unknown household | same |
 | `429` | Rate limited (send `Retry-After`) | same |
 | `5xx` | MealQ trouble | same |
 
@@ -67,6 +65,6 @@ The dashboard caches a successful response for 15 minutes, so expected load is a
 ## Dashboard setup once the endpoint exists
 
 1. In `dashboard.config.ts`, set the MealQ plugin's `apiHost` to the API's hostname (no scheme, port or path) and its `timeZone`.
-2. `npx wrangler secret put MEALQ_API_TOKEN` and `npx wrangler secret put MEALQ_HOUSEHOLD_ID`.
+2. `npx wrangler secret put MEALQ_API_TOKEN`. No household id is needed; the token identifies the household.
 
 The plugin may talk to that one host only, over HTTPS.

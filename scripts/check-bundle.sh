@@ -10,7 +10,7 @@ JS=$(find "$DIR" -name '*.js' | wc -l | tr -d ' ')
 [ "$JS" -gt 0 ] || { echo "FAIL: no client JavaScript found in $DIR (scan would prove nothing)"; exit 1; }
 
 PATTERNS=(
-  RESEND_API_KEY GOOGLE_SERVICE_ACCOUNT GOOGLE_CALENDAR_ID MEALQ_API_TOKEN MEALQ_HOUSEHOLD_ID
+  RESEND_API_KEY GOOGLE_SERVICE_ACCOUNT GOOGLE_CALENDAR_ID MEALQ_API_TOKEN
   BOOTSTRAP_MANAGER_EMAIL 'PRIVATE KEY' client_email 'cloudflare:workers'
   api.resend.com oauth2.googleapis.com www.googleapis.com/calendar
   login_tokens D1Database 'Bearer '

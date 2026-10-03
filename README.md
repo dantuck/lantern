@@ -42,8 +42,7 @@ Everything runs on Cloudflare's free tier plus Resend's free tier.
    npx wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON
    npx wrangler secret put GOOGLE_CALENDAR_ID
    # MealQ plugin, once the API exists (docs/mealq-api-contract.md):
-   npx wrangler secret put MEALQ_API_TOKEN
-   npx wrangler secret put MEALQ_HOUSEHOLD_ID
+   npx wrangler secret put MEALQ_API_TOKEN          # a MealQ Access Token; it identifies the household
    ```
 6. **Configure widgets** in `dashboard.config.ts` (calendar `timeZone`, MealQ `apiHost`).
 7. **Ship.** `npm run verify && npx wrangler deploy`.

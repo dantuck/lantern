@@ -23,10 +23,10 @@ const responseSchema = z.object({
 
 const slotRank = (s: Slot) => SLOTS.indexOf(s);
 
-export interface MealPlanRequest { apiHost: string; token: string; householdId: string; from: string; to: string }
+export interface MealPlanRequest { apiHost: string; token: string; from: string; to: string }
 
 export async function fetchMealPlan(fetchFn: typeof fetch, req: MealPlanRequest): Promise<MealPlanData> {
-  const url = `https://${req.apiHost}/v1/households/${encodeURIComponent(req.householdId)}/meal-plan?${new URLSearchParams({ from: req.from, to: req.to })}`;
+  const url = `https://${req.apiHost}/v1/meal-plan?${new URLSearchParams({ from: req.from, to: req.to })}`;
   const res = await fetchFn(url, { headers: { Authorization: `Bearer ${req.token}`, Accept: 'application/json' } });
   if (!res.ok) throw new Error(`MealQ API ${res.status}`); // status only; the body is never logged or shown
   const parsed = responseSchema.safeParse(await res.json().catch(() => null));

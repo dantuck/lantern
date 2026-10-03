@@ -6,7 +6,7 @@ import { fetchMealPlan, type MealPlanData } from './client';
 
 /**
  * Read-only view of a household's MealQ meal plan. Needs the read endpoint and scoped token described in
- * docs/mealq-api-contract.md, then `wrangler secret put MEALQ_API_TOKEN` and `MEALQ_HOUSEHOLD_ID`.
+ * docs/mealq-api-contract.md, then `wrangler secret put MEALQ_API_TOKEN`. The token identifies the household.
  */
 const HOST = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
 
@@ -23,7 +23,7 @@ export default definePlugin({
   name: 'Meal plan',
   icon: '🍽️',
   configSchema,
-  secrets: ['MEALQ_API_TOKEN', 'MEALQ_HOUSEHOLD_ID'],
+  secrets: ['MEALQ_API_TOKEN'],
   // Derived from validated config, then checked again by the registry: one exact host, GET only.
   fetchPolicy: (config) => ({ hosts: [config.apiHost] }),
   cacheTtlSeconds: 900,
@@ -32,7 +32,6 @@ export default definePlugin({
     return fetchMealPlan(fetch, {
       apiHost: config.apiHost,
       token: secrets.MEALQ_API_TOKEN!,
-      householdId: secrets.MEALQ_HOUSEHOLD_ID!,
       from,
       to: addDays(from, config.daysAhead - 1),
     });
