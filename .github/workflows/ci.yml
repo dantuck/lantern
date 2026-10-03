@@ -1,0 +1,18 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - name: Local dev secrets (the e2e scripts sign in as this address)
+        run: echo "BOOTSTRAP_MANAGER_EMAIL=mom@example.com" > .dev.vars
+      - name: Unit tests, types, build, client-bundle secret scan, dependency audit
+        run: npm run verify
+      - name: End-to-end (invites, plugins, production CSP and static headers)
+        run: npm run verify:e2e
