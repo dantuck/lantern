@@ -1,0 +1,12 @@
+---
+import Base from '../../layouts/Base.astro';
+import PluginSlot from '../../components/PluginSlot.astro';
+import { getEnabledPlugin } from '../../plugins/registry';
+
+const plugin = getEnabledPlugin(Astro.params.id ?? '');
+if (!plugin) return new Response('Not found', { status: 404 });
+---
+<Base title={plugin.def.name} wide>
+  <p><a href="/">← Dashboard</a></p>
+  <PluginSlot plugin={plugin} view="page" />
+</Base>

@@ -1,0 +1,17 @@
+{
+  "days": [
+    { "date": "2026-10-03", "meals": [
+      { "id": "m_1", "slot": "dinner", "title": "Chicken tacos", "note": "Double the salsa" },
+      { "id": "m_2", "slot": "breakfast", "title": "Oatmeal with berries" },
+      { "id": "m_3", "slot": "lunch", "title": "Leftover pasta" }
+    ] },
+    { "date": "2026-10-04", "meals": [
+      { "id": "m_4", "slot": "dinner", "title": "Sheet-pan salmon and potatoes" },
+      { "id": "m_5", "slot": "snack", "title": "Apple slices" }
+    ] },
+    { "date": "2026-10-06", "meals": [
+      { "id": "m_6", "slot": "dinner", "title": "Veggie stir fry", "note": "Use the rest of the broccoli" }
+    ] },
+    { "date": "2026-10-07", "meals": [] }
+  ]
+}

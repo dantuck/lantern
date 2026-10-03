@@ -1,0 +1,36 @@
+---
+import { dayKey, dayLabel } from '../../lib/dates';
+import type { MealQConfig } from './plugin';
+import type { MealPlanData, Slot } from './client';
+
+interface Props { data: MealPlanData; config: MealQConfig }
+const { data, config } = Astro.props;
+const today = dayKey(Date.now(), config.timeZone);
+// The cache can be minutes old, so drop days that have already passed.
+const days = data.days.filter((d) => d.date >= today);
+const LABEL: Record<Slot, string> = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack', other: 'Other' };
+const planned = days.some((d) => d.meals.length > 0);
+---
+{!planned ? (
+  <p class="muted">No meals planned for the next {config.daysAhead} days.</p>
+) : (
+  <div class="agenda meals">
+    {days.map((day) => (
+      <section class="agenda-day">
+        <h3>{dayLabel(day.date, today, config.locale)}</h3>
+        {day.meals.length === 0 ? (
+          <p class="muted">Nothing planned</p>
+        ) : (
+          <ul>
+            {day.meals.map((m) => (
+              <li>
+                <span class="when">{LABEL[m.slot]}</span>
+                <span class="what">{m.title}{m.note && <span class="muted"> · {m.note}</span>}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    ))}
+  </div>
+)}

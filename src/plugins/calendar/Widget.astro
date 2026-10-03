@@ -1,0 +1,40 @@
+---
+import { dayKey, dayLabel, formatTime } from '../../lib/dates';
+import { groupByDay } from './agenda';
+import type { CalendarConfig } from './plugin';
+import type { CalendarData } from './types';
+
+interface Props { data: CalendarData; config: CalendarConfig }
+const { data, config } = Astro.props;
+const { timeZone, locale } = config;
+
+const today = dayKey(Date.now(), timeZone);
+const days = groupByDay(data.events, timeZone, today, 7).filter((d) => d.events.length > 0);
+const LIMIT = 10;
+let shown = 0;
+const total = days.reduce((n, d) => n + d.events.length, 0);
+---
+{days.length === 0 ? (
+  <p class="muted">Nothing scheduled in the next 7 days.</p>
+) : (
+  <div class="agenda">
+    {days.map((day) => {
+      const rows = day.events.slice(0, Math.max(0, LIMIT - shown));
+      shown += rows.length;
+      return rows.length > 0 && (
+        <section class="agenda-day">
+          <h3>{dayLabel(day.key, today, locale)}</h3>
+          <ul>
+            {rows.map((ev) => (
+              <li>
+                <span class="when">{ev.allDay ? 'All day' : formatTime(ev.start, timeZone, locale)}</span>
+                <span class="what">{ev.title}{ev.location && <span class="muted"> · {ev.location}</span>}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      );
+    })}
+    {total > LIMIT && <p class="muted"><a href="/p/calendar">+{total - LIMIT} more</a></p>}
+  </div>
+)}

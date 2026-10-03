@@ -1,0 +1,7 @@
+---
+import Clock from './Clock.svelte';
+interface Props { data: { message: string; generatedAt: number }; config: { greeting: string } }
+const { data } = Astro.props;
+---
+<h3>{data.message}</h3>
+<Clock client:visible generatedAt={data.generatedAt} />

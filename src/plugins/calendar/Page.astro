@@ -1,0 +1,16 @@
+---
+import MonthView from './MonthView.svelte';
+import type { CalendarConfig } from './plugin';
+import type { CalendarData } from './types';
+
+interface Props { data: CalendarData; config: CalendarConfig }
+const { data, config } = Astro.props;
+---
+<MonthView
+  client:load
+  events={data.events}
+  timeZone={config.timeZone}
+  locale={config.locale}
+  nowMs={Date.now()}
+  windowEnd={data.windowEnd}
+/>

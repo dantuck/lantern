@@ -1,0 +1,14 @@
+---
+import Base from '../layouts/Base.astro';
+import PluginSlot from '../components/PluginSlot.astro';
+import { registry } from '../plugins/registry';
+import dashboard from '../../dashboard.config';
+---
+<Base title={dashboard.title} wide>
+  <h1>{dashboard.title}</h1>
+  {registry.enabled.length === 0 && <p class="muted">No widgets are enabled yet.</p>}
+  <div class="grid">
+    {/* Each slot is an async component, so Astro streams fast widgets before slow ones finish. */}
+    {registry.enabled.map((plugin) => <PluginSlot plugin={plugin} />)}
+  </div>
+</Base>

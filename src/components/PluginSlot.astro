@@ -1,0 +1,36 @@
+---
+import { env } from 'cloudflare:workers';
+import { loadPluginData } from '../plugins/host';
+import type { EnabledPlugin } from '../plugins/registry';
+import Time from './Time.astro';
+
+// Convention: src/plugins/<id>/Widget.astro (required) and Page.astro (optional full-page view).
+const widgets = import.meta.glob<{ default: any }>('../plugins/*/Widget.astro', { eager: true });
+const pages = import.meta.glob<{ default: any }>('../plugins/*/Page.astro', { eager: true });
+
+interface Props { plugin: EnabledPlugin; view?: 'card' | 'page' }
+const { plugin, view = 'card' } = Astro.props;
+const manager = Astro.locals.user?.role === 'manager';
+
+const result = await loadPluginData(plugin, { env: env as unknown as Record<string, unknown>, kv: env.CACHE });
+const id = plugin.def.id;
+const View = (view === 'page' ? pages[`../plugins/${id}/Page.astro`] : undefined)?.default ?? widgets[`../plugins/${id}/Widget.astro`]?.default;
+---
+<section class={`card plugin ${plugin.span === 2 ? 'span-2' : ''}`} data-plugin={id}>
+  <header class="plugin-head">
+    <h2><span aria-hidden="true">{plugin.def.icon}</span> {plugin.def.name}</h2>
+    {view === 'card' && <a href={`/p/${id}`} class="muted">Open</a>}
+  </header>
+  {(result.status === 'ok' || result.status === 'stale') && View ? (
+    <>
+      {result.status === 'stale' && (
+        <p class="notice">Showing saved data from <Time ms={result.fetchedAt} />. Live data is unavailable right now.</p>
+      )}
+      <View data={result.data} config={plugin.config} />
+    </>
+  ) : result.status === 'unconfigured' ? (
+    <p class="muted">This widget isn't set up yet.{manager && <> Missing: <code>{result.missing.join(', ')}</code>.</>}</p>
+  ) : (
+    <p class="muted">This widget couldn't load. It will retry automatically.</p>
+  )}
+</section>
