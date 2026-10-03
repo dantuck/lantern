@@ -1,0 +1,81 @@
+# Family Dashboard
+
+A private, read-only dashboard for one household, installable as a PWA. Astro + Svelte on Cloudflare Workers.
+Sign-in is by emailed magic link only; **managers** invite everyone else. Widgets are plugins (Google Calendar and MealQ meal plan today).
+
+- Nobody can edit anything through it: the only write paths are sign-in, sign-out and manager invites.
+- No self sign-up. An address that has not been invited gets exactly the same response as one that has.
+- Writing a plugin: [`src/plugins/README.md`](src/plugins/README.md). MealQ API requirements: [`docs/mealq-api-contract.md`](docs/mealq-api-contract.md).
+
+## Develop locally
+
+```bash
+npm ci
+cp .dev.vars.example .dev.vars        # set BOOTSTRAP_MANAGER_EMAIL to your address
+npm run db:migrate:local
+npm run dev                           # http://localhost:4321, runs on the real Workers runtime (workerd)
+```
+
+Sign in at `/login`. In dev there is no email: the sign-in link is printed in the dev server output (`npx astro dev logs`).
+Open it in the **same browser** that requested it (links are bound to the requesting browser).
+
+| Command | What it checks |
+|---|---|
+| `npm run verify` | Unit tests, type-check, build, **no server secrets in the client bundle**, dependency audit |
+| `npm run verify:e2e` | Boots real servers: invites/roles/devices flows, plugin API, production CSP and static headers |
+
+Both must pass before deploying. `docs/pwa-manual-check.md` is the one manual step (service worker and offline behaviour).
+
+## Deploy
+
+Everything runs on Cloudflare's free tier plus Resend's free tier.
+
+1. **Domain.** Put your domain on Cloudflare. In `wrangler.jsonc` set `routes[0].pattern` to the hostname (e.g. `dashboard.example.com`) and `vars.APP_ORIGIN` to `https://` plus that hostname. The app refuses to send any link if `APP_ORIGIN` is missing, not `https`, or still `localhost`. `workers_dev` and preview URLs are off on purpose: the app is reachable only on your domain.
+2. **Database.** `npx wrangler d1 create family-dashboard`, paste the printed `database_id` into `wrangler.jsonc`, then `npm run db:migrate:remote`.
+3. **Cache.** The `CACHE` KV namespace is provisioned on first deploy (or run `npx wrangler kv namespace create CACHE` and add its `id`).
+4. **Email (Resend).** Create an account, add and verify your sending domain (SPF and DKIM records), and add a DMARC record (`v=DMARC1; p=quarantine; rua=mailto:you@yourdomain`). Create an API key with *sending access* only. Set `vars.MAIL_FROM` to an address on that domain. Leave **link and open tracking off** (the default): tracking rewrites URLs and breaks the sign-in link.
+5. **Secrets.**
+   ```bash
+   npx wrangler secret put RESEND_API_KEY
+   npx wrangler secret put BOOTSTRAP_MANAGER_EMAIL     # your address; creates the first manager
+   # Calendar plugin (see src/plugins/calendar/plugin.ts for service-account setup):
+   npx wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON
+   npx wrangler secret put GOOGLE_CALENDAR_ID
+   # MealQ plugin, once the API exists (docs/mealq-api-contract.md):
+   npx wrangler secret put MEALQ_API_TOKEN
+   npx wrangler secret put MEALQ_HOUSEHOLD_ID
+   ```
+6. **Configure widgets** in `dashboard.config.ts` (calendar `timeZone`, MealQ `apiHost`).
+7. **Ship.** `npm run verify && npx wrangler deploy`.
+8. **First sign-in.** Open the site, enter the bootstrap address, click the emailed link. Then **delete the bootstrap secret**: `npx wrangler secret delete BOOTSTRAP_MANAGER_EMAIL`. (It only works while there are zero users, but there is no reason to keep it.)
+9. **Invite the household** from *Admin*. Run through `docs/pwa-manual-check.md` on a phone.
+
+Optional second layer: put the hostname behind Cloudflare Access with an email allow-list. The app does not need it, but it costs nothing and hides the login page from strangers.
+
+## How access works
+
+1. You enter an email. The response is always the same ("if that address is invited, a link is on its way").
+2. If the address belongs to an active user, a single-use link is emailed, valid 10 minutes. Only its SHA-256 is stored.
+3. The link carries its token in the URL fragment (never sent to servers, logs or `Referer`). It only works in the browser that asked for it (a host-only `__Host-` cookie holds a nonce), so email scanners, forwarded links and shoulder-surfed links are useless.
+4. Success starts a session: random 256-bit id (hash stored), HttpOnly, Secure, SameSite=Lax cookie. 30 days idle, 90 days absolute.
+5. Every route except sign-in is denied without a session. `/admin` also needs the manager role. Everyone can see and revoke their own devices; managers can revoke anyone's.
+
+Other protections: strict CSP (hashes, no `unsafe-inline` for scripts), HSTS, `frame-ancestors 'none'`, same-origin `Origin` check on every state-changing request, atomic rate limits (per IP, per address-and-IP, and an address-wide backstop), an audit log (400 days), and last-manager protection that holds under concurrency.
+
+## Operating it
+
+- **Someone lost a phone / left the household:** *Devices* (own) or *Admin → Signed-in devices* (anyone) to sign devices out; *Admin → Members → Disable* removes access and signs them out everywhere immediately.
+- **Locked out of every manager account** (the last manager is protected from being demoted or disabled in the app, but a lost mailbox can still do it): promote an existing user directly in the database, then sign in normally with a fresh link:
+  ```bash
+  npx wrangler d1 execute family-dashboard --remote --command "UPDATE users SET role = 'manager', disabled_at = NULL WHERE email = 'you@example.com'"
+  ```
+- **Rotate a plugin secret:** `wrangler secret put` it again; the cache refreshes within the plugin's TTL.
+- **Backups:** `npx wrangler d1 export family-dashboard --remote --output backup.sql` (users, invites, audit log; nothing else of value is stored).
+- **Offline copies:** the service worker keeps a copy of the dashboard for 24 hours so it opens without signal, and wipes it on sign-out or revocation. To disable that entirely, set `OFFLINE_PAGES = false` in `public/sw.js` and bump `VERSION`.
+- **Dependency audit:** `scripts/audit.mjs` fails the build on any high/critical advisory not explicitly accepted. One is accepted (`http-cache-semantics`, an Astro build-time dependency that is not shipped); the reasoning is recorded in that file.
+
+## Known limits
+
+- A known address takes a few milliseconds longer to answer than an unknown one (it writes a token). Responses are identical and rate limits make probing impractical, but it is not constant-time.
+- Plugins run in the same Worker as the app. Their network and secret restrictions stop mistakes, not malicious code: only add plugins you have read.
+- Requesting a second sign-in link replaces the first (only the newest link works in that browser).
