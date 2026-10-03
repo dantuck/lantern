@@ -1,0 +1,37 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Signing in">
+  <main>
+    <div class="card">
+      <h1>Signing you in…</h1>
+      <p id="status">One moment.</p>
+      <noscript><p>JavaScript is required to complete sign-in.</p></noscript>
+    </div>
+  </main>
+  <script>
+    // The token lives in the URL fragment so it never reaches servers, logs or Referer headers.
+    const token = new URLSearchParams(location.hash.slice(1)).get('token');
+    history.replaceState(null, '', location.pathname);
+    const status = document.getElementById('status')!;
+    const fail = () => {
+      const link = document.createElement('a');
+      link.href = '/login';
+      link.textContent = 'Request a new link';
+      status.textContent = 'This link is invalid, expired, or was opened in a different browser than the one you requested it from. ';
+      status.appendChild(link);
+      status.appendChild(document.createTextNode('.'));
+    };
+    if (!token) fail();
+    else {
+      fetch('/auth/confirm', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token }),
+      })
+        .then((r) => (r.ok ? location.replace('/') : fail()))
+        .catch(fail);
+    }
+  </script>
+</Base>

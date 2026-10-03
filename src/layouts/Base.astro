@@ -1,0 +1,41 @@
+---
+import '../styles/global.css';
+interface Props { title?: string; wide?: boolean }
+const { title = 'Family Dashboard', wide = false } = Astro.props;
+const user = Astro.locals.user;
+const path = Astro.url.pathname;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#2f6f5e" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Family" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>{title}</title>
+  </head>
+  <body>
+    {user && (
+      <nav class="nav">
+        <a href="/" aria-current={path === '/' ? 'page' : undefined}>Dashboard</a>
+        <a href="/devices" aria-current={path === '/devices' ? 'page' : undefined}>Devices</a>
+        {user.role === 'manager' && <a href="/admin" aria-current={path === '/admin' ? 'page' : undefined}>Admin</a>}
+        <span class="spacer"></span>
+        <button id="install-app" class="link" type="button" hidden>Install app</button>
+        <span class="who">{user.email}</span>
+        <form method="post" action="/auth/logout"><button class="link" type="submit">Sign out</button></form>
+      </nav>
+    )}
+    <main class={wide ? 'wide' : undefined}><slot /></main>
+    <script>
+      import '../scripts/localtime';
+      import '../scripts/pwa';
+    </script>
+  </body>
+</html>
