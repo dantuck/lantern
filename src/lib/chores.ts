@@ -1,5 +1,5 @@
 import { addDays, weekdayOf } from './dates';
-import { isDue, itemDue, type ChoreList, type ChoreState, type Period } from './choreTypes';
+import { fitItemDays, isDue, itemDue, type ChoreList, type ChoreState, type Period } from './choreTypes';
 import { rewardState } from './rewards';
 
 export const MAX_LISTS = 40;
@@ -52,14 +52,17 @@ export interface ListInput {
 /** Creates a list (with optional starting chores) or, given an id, updates its settings. */
 export async function saveList(
   db: D1Database, input: ListInput, opts: { id?: string; items?: { title: string; points: number; days?: number | null | undefined }[] } = {}, now = Date.now(),
-): Promise<'ok' | 'limit' | 'not_found'> {
+): Promise<'ok' | 'limit' | 'not_found' | 'bad_request'> {
   if (opts.id) {
     const r = await db
       .prepare('UPDATE chore_lists SET name = ?, person = ?, period = ?, days = ?, once_date = ?, bonus = ? WHERE id = ?')
       .bind(input.name, input.person, input.period, input.days, input.onceDate, input.bonus, opts.id)
       .run();
-    return (r.meta.changes ?? 0) > 0 ? 'ok' : 'not_found';
+    if ((r.meta.changes ?? 0) === 0) return 'not_found';
+    await refitItems(db, opts.id, input);
+    return 'ok';
   }
+  if ((opts.items ?? []).some((i) => fitItemDays(input, i.days ?? null) === 'outside')) return 'bad_request';
   const count = await db.prepare('SELECT COUNT(*) AS n FROM chore_lists').first<{ n: number }>();
   if ((count?.n ?? 0) >= MAX_LISTS) return 'limit';
   const id = crypto.randomUUID();
@@ -71,25 +74,44 @@ export async function saveList(
   return 'ok';
 }
 
+/** After a list's schedule changes, trims its chores' own weekdays to the days it still runs. Ones left with none follow the list. */
+async function refitItems(db: D1Database, listId: string, list: { days: number; onceDate: string | null }): Promise<void> {
+  const { results } = await db.prepare('SELECT id, days FROM chore_items WHERE list_id = ? AND days IS NOT NULL').bind(listId).all<{ id: string; days: number }>();
+  for (const i of results) {
+    const trimmed = list.onceDate !== null ? 0 : i.days & list.days;
+    const next = trimmed === 0 ? null : fitItemDays(list, trimmed);
+    if (next !== i.days) await db.prepare('UPDATE chore_items SET days = ? WHERE id = ?').bind(next, i.id).run();
+  }
+}
+
 export async function removeList(db: D1Database, id: string): Promise<boolean> {
   const r = await db.prepare('DELETE FROM chore_lists WHERE id = ?').bind(id).run();
   return (r.meta.changes ?? 0) > 0;
 }
 
-export async function addItem(db: D1Database, listId: string, title: string, points: number, days: number | null = null, now = Date.now()): Promise<'ok' | 'limit' | 'not_found'> {
-  if (!(await db.prepare('SELECT 1 AS x FROM chore_lists WHERE id = ?').bind(listId).first())) return 'not_found';
+export async function addItem(db: D1Database, listId: string, title: string, points: number, days: number | null = null, now = Date.now()): Promise<'ok' | 'limit' | 'not_found' | 'bad_request'> {
+  const list = await db.prepare('SELECT days, once_date FROM chore_lists WHERE id = ?').bind(listId).first<{ days: number; once_date: string | null }>();
+  if (!list) return 'not_found';
+  const fit = fitItemDays({ days: list.days, onceDate: list.once_date }, days);
+  if (fit === 'outside') return 'bad_request';
   const count = await db.prepare('SELECT COUNT(*) AS n FROM chore_items WHERE list_id = ?').bind(listId).first<{ n: number }>();
   if ((count?.n ?? 0) >= MAX_ITEMS_PER_LIST) return 'limit';
-  await db.prepare('INSERT INTO chore_items (id, list_id, title, points, days, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(crypto.randomUUID(), listId, title, points, days, now).run();
+  await db.prepare('INSERT INTO chore_items (id, list_id, title, points, days, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(crypto.randomUUID(), listId, title, points, fit, now).run();
   return 'ok';
 }
 
 /** `days` of undefined leaves the chore's weekdays as they are; null makes it follow its list again. */
-export async function updateItem(db: D1Database, id: string, title: string, points: number, days?: number | null): Promise<boolean> {
-  const r = days === undefined
-    ? await db.prepare('UPDATE chore_items SET title = ?, points = ? WHERE id = ?').bind(title, points, id).run()
-    : await db.prepare('UPDATE chore_items SET title = ?, points = ?, days = ? WHERE id = ?').bind(title, points, days, id).run();
-  return (r.meta.changes ?? 0) > 0;
+export async function updateItem(db: D1Database, id: string, title: string, points: number, days?: number | null): Promise<'ok' | 'not_found' | 'bad_request'> {
+  let r;
+  if (days === undefined) r = await db.prepare('UPDATE chore_items SET title = ?, points = ? WHERE id = ?').bind(title, points, id).run();
+  else {
+    const list = await db.prepare('SELECT l.days, l.once_date FROM chore_items i JOIN chore_lists l ON l.id = i.list_id WHERE i.id = ?').bind(id).first<{ days: number; once_date: string | null }>();
+    if (!list) return 'not_found';
+    const fit = fitItemDays({ days: list.days, onceDate: list.once_date }, days);
+    if (fit === 'outside') return 'bad_request';
+    r = await db.prepare('UPDATE chore_items SET title = ?, points = ?, days = ? WHERE id = ?').bind(title, points, fit, id).run();
+  }
+  return (r.meta.changes ?? 0) > 0 ? 'ok' : 'not_found';
 }
 
 export async function removeItem(db: D1Database, id: string): Promise<boolean> {

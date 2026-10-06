@@ -1,5 +1,5 @@
 // Browser-safe. The demo has no database, so this applies the same actions as /api/chores to a copy of the state held in the page.
-import { isDue, itemDue, type ChoreState } from './choreTypes';
+import { fitItemDays, isDue, itemDue, type ChoreState } from './choreTypes';
 
 let seq = 0;
 const uid = (p: string) => `${p}-${++seq}`;
@@ -42,7 +42,10 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
     case 'list_save': {
       const fields = { name: p.name, person: p.person, period: p.period, days: p.days, onceDate: p.onceDate, bonus: p.bonus };
       const existing = p.id ? owner(p.id) : undefined;
-      if (existing) Object.assign(existing, fields);
+      if (existing) {
+        Object.assign(existing, fields);
+        for (const i of existing.items) if (i.days !== null) { const t = existing.onceDate !== null ? 0 : i.days & existing.days; i.days = t === 0 ? null : fitItemDays(existing, t) as number | null; }
+      }
       else if (!p.id) s.lists.push({ id: uid('l'), ...fields, due: false, bonusEarned: false, items: (p.items ?? []).map((i: { title: string; points: number; days?: number | null }) => ({ id: uid('c'), title: i.title, points: i.points, done: false, days: i.days ?? null, due: false })) });
       refresh();
       break;
@@ -51,8 +54,8 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
       s.lists = s.lists.filter((l) => l.id !== p.id);
       for (const r of s.rewards) if (r.listIds) r.listIds = r.listIds.filter((id) => id !== p.id); // a scoped reward never falls back to everyone
       break;
-    case 'item_add': owner(p.listId)?.items.push({ id: uid('c'), title: p.title, points: p.points, done: false, days: p.days ?? null, due: false }); refresh(); break;
-    case 'item_update': for (const l of s.lists) for (const i of l.items) if (i.id === p.id) { i.title = p.title; i.points = p.points; if (p.days !== undefined) i.days = p.days; } refresh(); break;
+    case 'item_add': owner(p.listId)?.items.push({ id: uid('c'), title: p.title, points: p.points, done: false, days: (() => { const f = fitItemDays(owner(p.listId)!, p.days ?? null); return f === 'outside' ? null : f; })(), due: false }); refresh(); break;
+    case 'item_update': for (const l of s.lists) for (const i of l.items) if (i.id === p.id) { i.title = p.title; i.points = p.points; if (p.days !== undefined) { const f = fitItemDays(l, p.days); if (f !== 'outside') i.days = f; } } refresh(); break;
     case 'item_remove': for (const l of s.lists) l.items = l.items.filter((i) => i.id !== p.id); break;
     case 'reward_save': {
       const r = p.id ? s.rewards.find((x) => x.id === p.id) : undefined;

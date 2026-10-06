@@ -90,7 +90,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
       case 'list_remove': if (!(await removeList(db, b.id))) result = 'not_found'; break;
       case 'item_add': result = await addItem(db, b.listId, b.title, b.points, b.days ?? null); break;
-      case 'item_update': if (!(await updateItem(db, b.id, b.title, b.points, b.days))) result = 'not_found'; break;
+      case 'item_update': result = await updateItem(db, b.id, b.title, b.points, b.days); break;
       case 'item_remove': if (!(await removeItem(db, b.id))) result = 'not_found'; break;
       case 'reward_save': result = await saveReward(db, { name: b.name, cost: b.cost, ...(b.listIds !== undefined ? { listIds: b.listIds } : {}) }, b.id); break;
       case 'reward_remove': if (!(await removeReward(db, b.id))) result = 'not_found'; break;

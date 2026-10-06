@@ -71,6 +71,16 @@ export const isDue = (s: { days: number; onceDate: string | null }, day: string)
 export const itemDue = (list: { days: number; onceDate: string | null }, itemDays: number | null, day: string): boolean =>
   isDue(list, day) && (itemDays === null || list.onceDate !== null || hasDay(itemDays, weekdayOf(day)));
 
+/**
+ * A chore's weekdays made to fit its list: null follows the list, one-off lists have no weekdays to choose, and days the
+ * list does not run are not allowed (`'outside'`). Picking every day the list runs is the same as following it.
+ */
+export function fitItemDays(list: { days: number; onceDate: string | null }, itemDays: number | null): number | null | 'outside' {
+  if (itemDays === null || list.onceDate !== null) return null;
+  if ((itemDays & ~list.days) !== 0) return 'outside';
+  return itemDays === list.days ? null : itemDays;
+}
+
 /** Short weekday names from Sunday, matching the bit order of `days`. */
 export const WEEKDAY_SHORT: readonly string[] = Array.from({ length: 7 }, (_, i) => formatDay(`2023-01-0${1 + i}`, { weekday: 'short' }));
 export const toggleDay = (days: number, weekday: number): number => days ^ (1 << weekday);

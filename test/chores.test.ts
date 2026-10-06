@@ -60,7 +60,7 @@ describe('chore lists', () => {
     const l = await firstList();
     expect(await saveList(db, { ...routine, name: 'Evening', person: null, days: WEEKDAYS_MASK }, { id: l.id })).toBe('ok');
     expect(await saveList(db, routine, { id: 'nope' })).toBe('not_found');
-    expect(await updateItem(db, l.items[0]!.id, 'B', 5)).toBe(true);
+    expect(await updateItem(db, l.items[0]!.id, 'B', 5)).toBe('ok');
     const after = await firstList();
     expect([after.name, after.person, after.days, after.items[0]!.title, after.items[0]!.points]).toEqual(['Evening', null, WEEKDAYS_MASK, 'B', 5]);
   });
@@ -258,6 +258,7 @@ describe('migration 0005', () => {
 describe('chore schedules inside a list', () => {
   let db: D1Database;
   beforeEach(() => { db = createTestDb(); });
+  const firstList = async () => (await choreState(db, WED, false)).lists[0]!;
   const items = async (day: string) => (await choreState(db, day, false)).lists[0]!.items;
 
   it('follows the list unless the chore has its own weekdays', async () => {
@@ -290,5 +291,25 @@ describe('chore schedules inside a list', () => {
   it('ignores a chore\'s weekdays on a one-off list', async () => {
     await saveList(db, { ...routine, days: 0, onceDate: THU }, { items: [{ title: 'Party', points: 1, days: 1 << 3 }] }, T);
     expect((await items(THU))[0]!.due).toBe(true);
+  });
+  it("keeps a chore inside its list's days", async () => {
+    await saveList(db, { ...routine, days: WEEKDAYS_MASK }, { items: [{ title: 'Bins', points: 1 }] }, T);
+    const id = (await items(WED))[0]!.id;
+    const listId = (await firstList()).id;
+    expect(await updateItem(db, id, 'Bins', 1, 1 << 6)).toBe('bad_request'); // Saturday is not a list day
+    expect(await addItem(db, listId, 'Sat', 1, 1)).toBe('bad_request'); // nor is Sunday
+    expect(await updateItem(db, id, 'Bins', 1, WEEKDAYS_MASK)).toBe('ok'); // every list day is the same as following it
+    expect((await items(WED))[0]!.days).toBeNull();
+    expect(await saveList(db, { ...routine, days: WEEKDAYS_MASK }, { items: [{ title: 'x', points: 0, days: 1 }] }, T)).toBe('bad_request');
+  });
+  it("trims a chore's days when the list stops running on them", async () => {
+    await saveList(db, routine, { items: [{ title: 'A', points: 1, days: (1 << 1) | (1 << 3) }, { title: 'B', points: 1, days: 1 << 6 }] }, T);
+    const listId = (await firstList()).id;
+    await saveList(db, { ...routine, days: WEEKDAYS_MASK }, { id: listId }, T); // Saturday is dropped
+    const [a, b] = await items(WED);
+    expect(a!.days).toBe((1 << 1) | (1 << 3));
+    expect(b!.days).toBeNull(); // nothing left of its own days, so it follows the list
+    await saveList(db, { ...routine, days: (1 << 1) | (1 << 3) }, { id: listId }, T); // now exactly A's days
+    expect((await items(WED))[0]!.days).toBeNull();
   });
 });
