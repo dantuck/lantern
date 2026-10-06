@@ -29,6 +29,15 @@ export function checkTimeZone(raw) {
   }
 }
 
+/** Astro 7 needs Node >= 22.12 (package.json "engines" says the same). */
+export const MIN_NODE = '22.12.0';
+export function nodeVersionOk(version, min = MIN_NODE) {
+  const [a, b = 0, c = 0] = String(version).replace(/^v/, '').split('.').map(Number);
+  const [x, y, z] = min.split('.').map(Number);
+  if ([a, b, c].some(Number.isNaN)) return false;
+  return a !== x ? a > x : b !== y ? b > y : c >= z;
+}
+
 export const checkAccountId = (raw) => (/^[0-9a-f]{32}$/.test(String(raw)) ? null : 'not a Cloudflare account id');
 export const checkDatabaseId = (raw) => (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(raw)) ? null : 'not a D1 database id');
 

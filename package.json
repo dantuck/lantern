@@ -2,6 +2,7 @@
   "name": "family-dashboard",
   "type": "module",
   "private": true,
+  "engines": { "node": ">=22.12.0" },
   "version": "0.1.0",
   "scripts": {
     "init": "node scripts/init-config.mjs",

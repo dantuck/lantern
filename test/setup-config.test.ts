@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   applyDashboardValues, applyWranglerValues, checkAccountId, checkEmail, checkHostname, checkTimeZone,
-  parseDatabaseId, readWranglerValues,
+  nodeVersionOk, parseDatabaseId, readWranglerValues,
 } from '../scripts/lib/setup-config.mjs';
 
 const wrangler = readFileSync('wrangler.template.jsonc', 'utf8');
@@ -24,6 +24,14 @@ describe('setup input checks', () => {
     expect(checkTimeZone('Mars/Base')).not.toBeNull();
     expect(checkAccountId(ACCOUNT)).toBeNull();
     expect(checkAccountId('nope')).not.toBeNull();
+  });
+  it('requires Node 22.12 or newer, as Astro does', () => {
+    for (const ok of ['22.12.0', 'v22.12.1', '22.13.0', '24.15.0', '23.0.0']) expect(nodeVersionOk(ok), ok).toBe(true);
+    for (const bad of ['20.19.0', '22.11.9', '22.0.0', 'v18.0.0', 'x']) expect(nodeVersionOk(bad), bad).toBe(false);
+  });
+  it('keeps package.json engines in step with the setup check', () => {
+    expect(JSON.parse(readFileSync('package.json', 'utf8')).engines.node).toBe('>=22.12.0');
+    expect(JSON.parse(readFileSync('node_modules/astro/package.json', 'utf8')).engines.node).toBe('>=22.12.0');
   });
   it('parses the database id from wrangler output', () => {
     expect(parseDatabaseId(`{\n "binding": "DB",\n "database_name": "family-dashboard",\n "database_id": "${DB}"\n}`)).toBe(DB);

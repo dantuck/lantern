@@ -13,7 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   applyDashboardValues, applyWranglerValues, checkAccountId, checkEmail, checkHostname, checkTimeZone,
-  normalizeHostname, parseDatabaseId, readWranglerValues,
+  MIN_NODE, nodeVersionOk, normalizeHostname, parseDatabaseId, readWranglerValues,
 } from './lib/setup-config.mjs';
 import { createPrompter } from './lib/prompt.mjs';
 import { PRIVACY_ENV } from './lib/privacy-env.mjs';
@@ -48,7 +48,7 @@ function die(msg) {
 console.log(`Family Dashboard setup${DRY ? ' (dry run: nothing will be changed)' : ''}`);
 console.log('You will need: a Cloudflare account with your domain on it, and a Resend account with that domain verified.');
 
-if (Number(process.versions.node.split('.')[0]) < 20) die(`Node 20 or newer is required (you have ${process.versions.node}).`);
+if (!nodeVersionOk(process.versions.node)) die(`Node ${MIN_NODE} or newer is required (you have ${process.versions.node}).`);
 spawnSync(process.execPath, [join(ROOT, 'scripts/init-config.mjs')], { cwd: ROOT, stdio: 'inherit' });
 if (!existsSync(WRANGLER) || !existsSync(DASHBOARD)) die('could not create wrangler.jsonc / dashboard.config.ts from the templates.');
 const current = readWranglerValues(readFileSync(WRANGLER, 'utf8'));
