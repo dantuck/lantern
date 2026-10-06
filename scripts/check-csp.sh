@@ -3,6 +3,7 @@
 # effective CSP (all policies, from headers or <meta>) covers every inline script and style, and that no
 # inline event handlers exist. Resets local D1 state.
 set -u
+export ASTRO_TELEMETRY_DISABLED=1 WRANGLER_SEND_METRICS=false DO_NOT_TRACK=1   # no tool telemetry (see scripts/lib/privacy-env.mjs)
 cd "$(dirname "$0")/.."
 P=${CSP_PORT:-8787}; B=http://localhost:$P; ST=.wrangler/state; TMP=${TMPDIR:-/tmp}
 PUBLIC_ENABLE_EXAMPLE=1 npx astro build >/dev/null 2>&1 || { echo "build failed"; exit 1; }

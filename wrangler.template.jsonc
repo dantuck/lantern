@@ -8,7 +8,13 @@
   "preview_urls": false,
   // Template: your untracked wrangler.jsonc is copied from this (npm run init). Replace with your real hostname before deploying (see README). It must match APP_ORIGIN below.
   "routes": [{ "pattern": "dashboard.example.com", "custom_domain": true }],
-  "observability": { "enabled": true },
+  // Privacy defaults. Nothing here reports to the project author; these keep Cloudflare's tooling quiet too.
+  // Logs: off. Turn on ("enabled": true) only while debugging; they are stored in YOUR Cloudflare account and can
+  // include sign-in addresses and plugin errors.
+  "observability": { "enabled": false },
+  // No usage metrics or dependency inventory sent from wrangler.
+  "send_metrics": false,
+  "dependencies_instrumentation": { "enabled": false },
   "assets": { "binding": "ASSETS", "directory": "./dist", "html_handling": "none" },
   "d1_databases": [
     { "binding": "DB", "database_name": "family-dashboard", "database_id": "REPLACE_AFTER_d1_create" }

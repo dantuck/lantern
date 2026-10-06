@@ -12,6 +12,7 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, 
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPrompter } from './lib/prompt.mjs';
+import { PRIVACY_ENV } from './lib/privacy-env.mjs';
 import { checkAccountId, checkDatabaseId, readWranglerValues } from './lib/setup-config.mjs';
 import {
   backupFileName, compareVersions, diffMigrations, entriesBetween, isVersion, parseAppliedMigrations, parseChangelog,
@@ -100,7 +101,7 @@ else if (spawnSync('npm', ['run', 'verify'], { cwd: ROOT, stdio: 'inherit' }).st
 // ---------- 4. migrations ----------
 step(4, 'Database migrations');
 const wr = (args, opts = {}) => spawnSync('npx', ['wrangler', ...args], {
-  cwd: ROOT, encoding: 'utf8', env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: account },
+  cwd: ROOT, encoding: 'utf8', env: { ...process.env, ...PRIVACY_ENV, CLOUDFLARE_ACCOUNT_ID: account },
   stdio: opts.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
 });
 const q = wr(['d1', 'execute', dbName, '--remote', '--json', '--command', 'SELECT name FROM d1_migrations ORDER BY id'], { capture: true });
@@ -135,7 +136,7 @@ if (DRY) {
   if (pending.length) dry('apply migrations');
   dry('wrangler deploy, then record the version in .deployed.json');
 } else {
-  if (pending.length && spawnSync('npm', ['run', 'db:migrate:remote'], { cwd: ROOT, stdio: 'inherit', env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: account } }).status !== 0) {
+  if (pending.length && spawnSync('npm', ['run', 'db:migrate:remote'], { cwd: ROOT, stdio: 'inherit', env: { ...process.env, ...PRIVACY_ENV, CLOUDFLARE_ACCOUNT_ID: account } }).status !== 0) {
     die(`migrations failed. The code was not deployed. Your backup is at ${backupPath}.`);
   }
   if (wr(['deploy']).status !== 0) die(`deploy failed. Migrations are applied but they are compatible with the previous release, which is still live. Backup: ${backupPath}.`);

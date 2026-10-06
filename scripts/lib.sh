@@ -4,6 +4,7 @@
 # nonce cookie, and print the session id.
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 set -u
+export ASTRO_TELEMETRY_DISABLED=1 WRANGLER_SEND_METRICS=false DO_NOT_TRACK=1   # no tool telemetry (see scripts/lib/privacy-env.mjs)
 B=http://localhost:4321; O="Origin: $B"; T=$(mktemp -d)
 pass=0; fail=0
 

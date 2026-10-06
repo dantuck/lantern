@@ -16,6 +16,7 @@ import {
   normalizeHostname, parseDatabaseId, readWranglerValues,
 } from './lib/setup-config.mjs';
 import { createPrompter } from './lib/prompt.mjs';
+import { PRIVACY_ENV } from './lib/privacy-env.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DRY = process.argv.includes('--dry-run');
@@ -28,7 +29,7 @@ const { ask, yesNo, finish } = createPrompter();
 
 // ---------- running things ----------
 function wrangler(args, { account, input, capture = false } = {}) {
-  const env = { ...process.env, ...(account ? { CLOUDFLARE_ACCOUNT_ID: account.id } : {}) };
+  const env = { ...process.env, ...PRIVACY_ENV, ...(account ? { CLOUDFLARE_ACCOUNT_ID: account.id } : {}) };
   return spawnSync('npx', ['wrangler', ...args], {
     cwd: ROOT, env, input, encoding: 'utf8',
     stdio: capture ? ['ignore', 'pipe', 'pipe'] : [input === undefined ? 'inherit' : 'pipe', 'inherit', 'inherit'],
@@ -169,7 +170,7 @@ if (!(await yesNo(`Deploy to https://${hostname} now?`))) die('stopped before de
 if (DRY) {
   dry('wrangler deploy');
 } else {
-  const env = { ...process.env, CLOUDFLARE_ACCOUNT_ID: account.id };
+  const env = { ...process.env, ...PRIVACY_ENV, CLOUDFLARE_ACCOUNT_ID: account.id };
   if (spawnSync('npx', ['wrangler', 'deploy'], { cwd: ROOT, env, stdio: 'inherit' }).status !== 0) die('deploy failed.');
 }
 
