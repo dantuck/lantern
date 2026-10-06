@@ -55,6 +55,16 @@ Everything runs on Cloudflare's free tier plus Resend's free tier.
 
 Optional second layer: put the hostname behind Cloudflare Access with an email allow-list. The app does not need it, but it costs nothing and hides the login page from strangers.
 
+## Updating
+
+```bash
+git fetch --tags && git checkout v0.2.0     # or `git pull`; read CHANGELOG.md first
+npm ci
+npm run update                              # add -- --dry-run to preview
+```
+
+`npm run update` runs `verify`, takes a database backup (`backups/`, mode 600, git-ignored), applies any new migrations, then deploys, and records what it deployed in `.deployed.json`. It shows the changelog entries since your last deploy and stops on anything marked **Action required** until you confirm. It warns if the checkout is not a release tag with a verifiable signature, has local changes, or is older than what you last deployed. Migrations only go forward and each release is compatible with the one before it, so `npx wrangler rollback` is a safe way to undo a bad deploy. Nothing contacts anyone but your own Cloudflare account.
+
 ## How access works
 
 1. You enter an email. The response is always the same ("if that address is invited, a link is on its way").
