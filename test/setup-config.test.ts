@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  applyDashboardValues, applyWranglerValues, checkAccountId, checkEmail, checkHostname, checkTimeZone,
+  applyDashboardValues, applyWranglerValues, checkAccountId, defaultSender, checkEmail, checkHostname, checkTimeZone,
   nodeVersionOk, parseDatabaseId, readWranglerValues,
 } from '../scripts/lib/setup-config.mjs';
 
@@ -32,6 +32,16 @@ describe('setup input checks', () => {
   it('keeps package.json engines in step with the setup check', () => {
     expect(JSON.parse(readFileSync('package.json', 'utf8')).engines.node).toBe('>=22.12.0');
     expect(JSON.parse(readFileSync('node_modules/astro/package.json', 'utf8')).engines.node).toBe('>=22.12.0');
+  });
+  it('suggests login@<hostname> and never guesses a parent domain', () => {
+    expect(defaultSender('dash.family.org', undefined)).toBe('login@dash.family.org');
+    expect(defaultSender('dash.family.co.uk', undefined)).toBe('login@dash.family.co.uk'); // not login@co.uk
+    expect(defaultSender('family.org', 'Family Dashboard <login@example.com>')).toBe('login@family.org');
+  });
+  it('keeps the sender already configured when setup is re-run', () => {
+    expect(defaultSender('dash.family.org', 'Family Dashboard <hello@mail.family.org>')).toBe('hello@mail.family.org');
+    expect(defaultSender('dash.family.org', 'mom@family.org')).toBe('mom@family.org');
+    expect(defaultSender('dash.family.org', 'garbage')).toBe('login@dash.family.org');
   });
   it('parses the database id from wrangler output', () => {
     expect(parseDatabaseId(`{\n "binding": "DB",\n "database_name": "family-dashboard",\n "database_id": "${DB}"\n}`)).toBe(DB);

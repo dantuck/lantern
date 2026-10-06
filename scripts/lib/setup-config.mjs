@@ -15,6 +15,16 @@ export function checkHostname(raw) {
   return null;
 }
 
+/**
+ * Suggested "from" address. On a re-run, the sender already in wrangler.jsonc wins. Otherwise login@<hostname>:
+ * guessing a parent domain needs the public-suffix list (example.co.uk would come out as co.uk), so we do not guess.
+ */
+export function defaultSender(hostname, currentMailFrom) {
+  const current = String(currentMailFrom ?? '').match(/<([^>]+)>/)?.[1] ?? String(currentMailFrom ?? '');
+  if (current && !checkEmail(current) && !/@example\./i.test(current)) return current;
+  return `login@${hostname}`;
+}
+
 export function checkEmail(raw) {
   const e = String(raw).trim();
   return /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(e) && e.length <= 254 ? null : 'not a valid email address';

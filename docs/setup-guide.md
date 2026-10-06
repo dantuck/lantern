@@ -68,7 +68,7 @@ anyone can get in.
 3. In Resend's domain settings, make sure **click tracking and open tracking are off**. Tracking rewrites the
    links in the email and breaks the sign-in link.
 4. Create an **API key** with **sending access** only (not full access) and keep it somewhere safe for step 6.
-5. Decide the sender address, for example `login@yourfamily.org`. It must be on the domain you verified.
+5. Decide the sender address, for example `login@mail.yourfamily.org`. It must be on the domain you verified in step 1. Setup suggests `login@` plus your dashboard hostname; if you verified a different domain, type that address instead.
 
 ## 4. Optional: Google Calendar widget
 

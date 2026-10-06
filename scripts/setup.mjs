@@ -12,7 +12,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  applyDashboardValues, applyWranglerValues, checkAccountId, checkEmail, checkHostname, checkTimeZone,
+  applyDashboardValues, applyWranglerValues, checkAccountId, checkEmail, defaultSender, checkHostname, checkTimeZone,
   MIN_NODE, nodeVersionOk, normalizeHostname, parseDatabaseId, readWranglerValues,
 } from './lib/setup-config.mjs';
 import { createPrompter } from './lib/prompt.mjs';
@@ -81,8 +81,8 @@ step(2, 'Your household');
 const hostname = normalizeHostname(await ask('Hostname for the dashboard (a domain on this Cloudflare account)', {
   def: isPlaceholder(current.hostname) ? undefined : current.hostname, check: checkHostname,
 }));
-const sender = await ask('Address emails are sent from (on a domain verified in Resend)', {
-  def: `login@${hostname.split('.').slice(-2).join('.')}`, check: checkEmail,
+const sender = await ask('Address emails are sent from (its domain must be verified in Resend)', {
+  def: defaultSender(hostname, current.mailFrom), check: checkEmail,
 });
 const mailFrom = `Family Dashboard <${sender}>`;
 const timeZone = await ask('Time zone (IANA name, e.g. America/Chicago)', { def: 'America/New_York', check: checkTimeZone });
