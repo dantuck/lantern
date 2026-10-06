@@ -5,6 +5,7 @@ Sign-in is by emailed magic link only; **managers** invite everyone else. Widget
 
 - Nobody can edit anything through it: the only write paths are sign-in, sign-out and manager invites.
 - No self sign-up. An address that has not been invited gets exactly the same response as one that has.
+- What it talks to, what is stored, and what telemetry exists (none): [`SECURITY.md`](SECURITY.md).
 - Writing a plugin: [`src/plugins/README.md`](src/plugins/README.md). MealQ API requirements: [`docs/mealq-api-contract.md`](docs/mealq-api-contract.md).
 
 ## Develop locally
