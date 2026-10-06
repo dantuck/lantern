@@ -1,7 +1,7 @@
 ---
 import { dayKey, dayLabel } from '../../lib/dates';
 import type { MealQConfig } from './plugin';
-import type { MealPlanData, Slot } from './client';
+import type { Meal, MealPlanData, Slot } from './client';
 
 interface Props { data: MealPlanData; config: MealQConfig }
 const { data, config } = Astro.props;
@@ -9,28 +9,51 @@ const today = dayKey(Date.now(), config.timeZone);
 // The cache can be minutes old, so drop days that have already passed.
 const days = data.days.filter((d) => d.date >= today);
 const LABEL: Record<Slot, string> = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack', other: 'Other' };
+const hasDetails = (m: Meal) => Boolean(m.ingredients?.length || m.prepMinutes || m.recipeUrl);
 const planned = days.some((d) => d.meals.length > 0);
 ---
 {!planned ? (
   <p class="muted">No meals planned for the next {config.daysAhead} days.</p>
 ) : (
-  <div class="agenda meals">
-    {days.map((day) => (
-      <section class="agenda-day">
-        <h3>{dayLabel(day.date, today, config.locale)}</h3>
-        {day.meals.length === 0 ? (
-          <p class="muted">Nothing planned</p>
-        ) : (
-          <ul>
-            {day.meals.map((m) => (
-              <li>
-                <span class="when">{LABEL[m.slot]}</span>
-                <span class="what">{m.title}{m.note && <span class="muted"> · {m.note}</span>}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    ))}
+  <div class="meal-days">
+    {days.map((day) => {
+      const expandable = day.meals.some(hasDetails);
+      const Tag = expandable ? 'details' : 'section';
+      const Head = expandable ? 'summary' : 'div';
+      return (
+        <Tag class:list={['meal-day', { today: day.date === today, empty: day.meals.length === 0 }]}>
+          <Head class="meal-head">
+            <h3>{dayLabel(day.date, today, config.locale)}</h3>
+            {day.meals.length === 0 ? (
+              <p class="muted">Nothing planned</p>
+            ) : (
+              <ul>
+                {day.meals.map((m) => (
+                  <li data-slot={m.slot}>
+                    <span class="meal-slot">{LABEL[m.slot]}</span>
+                    <span class="meal-title">{m.title}</span>
+                    {m.note && <span class="meal-note">{m.note}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Head>
+          {expandable && (
+            <div class="meal-more">
+              {day.meals.filter(hasDetails).map((m) => (
+                <section data-slot={m.slot}>
+                  <h4>{m.title}</h4>
+                  {m.prepMinutes && <p class="meal-note">Prep time: {m.prepMinutes} min</p>}
+                  {m.ingredients && (
+                    <ul class="meal-ingredients">{m.ingredients.map((i) => <li>{i}</li>)}</ul>
+                  )}
+                  {m.recipeUrl && <a href={m.recipeUrl} target="_blank" rel="noopener noreferrer">Open recipe</a>}
+                </section>
+              ))}
+            </div>
+          )}
+        </Tag>
+      );
+    })}
   </div>
 )}

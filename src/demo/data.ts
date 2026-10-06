@@ -4,7 +4,7 @@ import { DAY_MS, addDays, dayKey, startOfDayMs, weekdayOf } from '../lib/dates';
 import type { CalEvent, CalendarData } from '../plugins/calendar/types';
 import type { WeatherData } from '../plugins/calendar/weatherView';
 import { parsePeople } from '../lib/peopleConfig';
-import type { MealPlanData, Slot } from '../plugins/mealq/client';
+import type { Meal, MealPlanData, Slot } from '../plugins/mealq/client';
 
 export const DEMO_TZ = 'UTC';
 export const DEMO_LOCALE = 'en-US';
@@ -86,14 +86,21 @@ function demoWeather(now: number): WeatherData {
 const DINNERS = ['Banana pancakes', 'Taco night', 'Baked salmon & rice', 'Spaghetti (Bob’s favourite)', 'Homemade pizza', 'Chicken soup & bread', 'Grilled burgers'];
 const LUNCHES = ['Banana & peanut butter sandwiches', 'Turkey wraps', 'Tomato soup & grilled cheese', 'Pasta salad', 'Quesadillas', 'Sandwich boards'];
 
+const DINNER_DETAILS: Array<Partial<Meal> | undefined> = [
+  { ingredients: ['Bananas', 'Flour', 'Eggs', 'Milk', 'Maple syrup'], prepMinutes: 25 },
+  { ingredients: ['Tortillas', 'Ground beef', 'Cheese', 'Lettuce', 'Salsa'], prepMinutes: 30 },
+  { ingredients: ['Salmon fillets', 'Rice', 'Lemon', 'Broccoli'], prepMinutes: 40 },
+];
+
 export function demoMeals(now = Date.now(), daysAhead = 7): MealPlanData {
   const today = dayKey(now, DEMO_TZ);
   const days = Array.from({ length: daysAhead }, (_, i) => {
     const meals: MealPlanData['days'][number]['meals'] = [];
-    const add = (slot: Slot, title: string, note?: string) => meals.push({ id: `${i}-${slot}`, slot, title, ...(note ? { note } : {}) });
+    const add = (slot: Slot, title: string, note?: string, extra: Partial<Meal> = {}) =>
+      meals.push({ id: `${i}-${slot}`, slot, title, ...(note ? { note } : {}), ...extra });
     if (i !== 3) add('lunch', LUNCHES[i % LUNCHES.length]!);
     if (i === 5) add('dinner', 'Cake at the unicorn party', 'Eating out');
-    else if (i !== 6) add('dinner', DINNERS[i % DINNERS.length]!, i === 1 ? 'Minions pick toppings' : undefined);
+    else if (i !== 6) add('dinner', DINNERS[i % DINNERS.length]!, i === 1 ? 'Minions pick toppings' : undefined, DINNER_DETAILS[i % DINNERS.length]);
     if (i === 0) add('snack', 'Bananas (obviously)');
     return { date: addDays(today, i), meals };
   });

@@ -16,7 +16,10 @@ describe('contract fixture', () => {
     const plan = await fetchMealPlan(ok(fixture) as never, REQ);
     expect(plan.days.map((d) => d.date)).toEqual(['2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09']);
     expect(plan.days[0]!.meals.map((m) => m.slot)).toEqual(['breakfast', 'lunch', 'dinner']);
-    expect(plan.days[0]!.meals[2]).toEqual({ id: 'm_1', slot: 'dinner', title: 'Chicken tacos', note: 'Double the salsa' });
+    expect(plan.days[0]!.meals[2]).toEqual({
+      id: 'm_1', slot: 'dinner', title: 'Chicken tacos', note: 'Double the salsa',
+      ingredients: ['Chicken thighs', 'Tortillas', 'Salsa', 'Lime'], prepMinutes: 35, recipeUrl: 'https://recipes.example/chicken-tacos',
+    });
     expect(plan.days[2]!.meals).toEqual([]); // omitted by the API, filled in
     expect(plan.days[4]!.meals).toEqual([]); // sent empty
   });
@@ -33,13 +36,13 @@ describe('fetchMealPlan', () => {
   });
   it('maps unknown slots to other, drops unknown fields, ignores out-of-range days and merges duplicate dates', async () => {
     const plan = await fetchMealPlan(ok({ days: [
-      { date: '2026-10-03', meals: [{ id: 'a', slot: 'brunch', title: ' Pancakes ', secretField: 'x', recipeUrl: 'https://x' }] },
+      { date: '2026-10-03', meals: [{ id: 'a', slot: 'brunch', title: ' Pancakes ', secretField: 'x', memberEmail: 'a@b.c' }] },
       { date: '2026-10-03', meals: [{ id: 'b', slot: 'dinner', title: 'Soup' }] },
       { date: '2026-09-01', meals: [{ id: 'old', slot: 'dinner', title: 'Past' }] },
       { date: '2026-12-25', meals: [{ id: 'far', slot: 'dinner', title: 'Future' }] },
     ] }) as never, REQ);
     expect(plan.days[0]!.meals).toEqual([{ id: 'b', slot: 'dinner', title: 'Soup' }, { id: 'a', slot: 'other', title: 'Pancakes' }]); // dinner ranks before other
-    expect(JSON.stringify(plan)).not.toMatch(/secretField|recipeUrl|Past|Future/);
+    expect(JSON.stringify(plan)).not.toMatch(/secretField|memberEmail|Past|Future/);
   });
   it.each([
     ['not an object', 'nope'],
@@ -47,6 +50,10 @@ describe('fetchMealPlan', () => {
     ['bad date', { days: [{ date: '10/03/2026', meals: [] }] }],
     ['empty title', { days: [{ date: '2026-10-03', meals: [{ id: 'a', slot: 'dinner', title: '  ' }] }] }],
     ['oversized title', { days: [{ date: '2026-10-03', meals: [{ id: 'a', slot: 'dinner', title: 'x'.repeat(201) }] }] }],
+    ['non-https recipe url', { days: [{ date: '2026-10-03', meals: [{ id: 'a', slot: 'dinner', title: 't', recipeUrl: 'http://x.example' }] }] }],
+    ['javascript recipe url', { days: [{ date: '2026-10-03', meals: [{ id: 'a', slot: 'dinner', title: 't', recipeUrl: 'javascript:alert(1)' }] }] }],
+    ['too many ingredients', { days: [{ date: '2026-10-03', meals: [{ id: 'a', slot: 'dinner', title: 't', ingredients: Array.from({ length: 51 }, () => 'x') }] }] }],
+    ['bad prep time', { days: [{ date: '2026-10-03', meals: [{ id: 'a', slot: 'dinner', title: 't', prepMinutes: 0 }] }] }],
     ['too many meals', { days: [{ date: '2026-10-03', meals: Array.from({ length: 21 }, (_, i) => ({ id: `${i}`, slot: 'dinner', title: 't' })) }] }],
     ['too many days', { days: Array.from({ length: 32 }, (_, i) => ({ date: '2026-10-03', meals: [] , i })) }],
   ])('rejects a malformed response (%s)', async (_n, body) => {

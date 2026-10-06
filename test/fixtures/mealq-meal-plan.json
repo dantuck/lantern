@@ -1,7 +1,8 @@
 {
   "days": [
     { "date": "2026-10-03", "meals": [
-      { "id": "m_1", "slot": "dinner", "title": "Chicken tacos", "note": "Double the salsa" },
+      { "id": "m_1", "slot": "dinner", "title": "Chicken tacos", "note": "Double the salsa",
+        "ingredients": ["Chicken thighs", "Tortillas", "Salsa", "Lime"], "prepMinutes": 35, "recipeUrl": "https://recipes.example/chicken-tacos" },
       { "id": "m_2", "slot": "breakfast", "title": "Oatmeal with berries" },
       { "id": "m_3", "slot": "lunch", "title": "Leftover pasta" }
     ] },

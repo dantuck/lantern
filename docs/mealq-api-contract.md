@@ -33,7 +33,8 @@ The dashboard sends no cookies and follows no cross-host redirects, so the endpo
     {
       "date": "2026-10-03",
       "meals": [
-        { "id": "m_1", "slot": "dinner", "title": "Chicken tacos", "note": "Double the salsa" }
+        { "id": "m_1", "slot": "dinner", "title": "Chicken tacos", "note": "Double the salsa",
+          "ingredients": ["Chicken thighs", "Tortillas"], "prepMinutes": 35, "recipeUrl": "https://recipes.example/tacos" }
       ]
     }
   ]
@@ -49,8 +50,13 @@ The dashboard sends no cookies and follows no cross-host redirects, so the endpo
 | `meals[].slot` | string | One of `breakfast`, `lunch`, `dinner`, `snack`. Anything else is shown as "Other". |
 | `meals[].title` | string | 1 to 200 chars. The recipe or meal name. |
 | `meals[].note` | string, optional | At most 300 chars. |
+| `meals[].ingredients` | string[], optional | At most 50 items of 1 to 100 chars. Names only. |
+| `meals[].prepMinutes` | integer, optional | 1 to 1440. |
+| `meals[].recipeUrl` | string, optional | At most 500 chars, **`https://` only**; anything else fails validation. Shown as an "Open recipe" link. |
 
-**Do not include** member emails or names, ingredient or shopping lists, recipe URLs, or anything else not listed above. The dashboard ignores unknown fields, but they still travel over the wire and sit in a cache for up to 24 hours.
+The optional fields power the expandable day view. In MealQ they are opt-in per token (Settings → Access Tokens → "Include recipe details"); tokens without it return only the fields above them. Days where no meal has any of them are not expandable.
+
+**Do not include** member emails or names, shopping-list state, or anything else not listed above. The dashboard ignores unknown fields, but they still travel over the wire and sit in a cache for up to 24 hours.
 
 ## Errors
 
