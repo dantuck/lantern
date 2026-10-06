@@ -4,7 +4,7 @@
 # inline event handlers exist. Resets local D1 state.
 set -u
 cd "$(dirname "$0")/.."
-P=8787; B=http://localhost:$P; ST=.wrangler/state; TMP=${TMPDIR:-/tmp}
+P=${CSP_PORT:-8787}; B=http://localhost:$P; ST=.wrangler/state; TMP=${TMPDIR:-/tmp}
 PUBLIC_ENABLE_EXAMPLE=1 npx astro build >/dev/null 2>&1 || { echo "build failed"; exit 1; }
 rm -rf $ST; npx wrangler d1 migrations apply family-dashboard --local --persist-to $ST >/dev/null 2>&1
 SID=$(node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))')
