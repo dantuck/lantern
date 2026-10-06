@@ -43,6 +43,10 @@ export const definePlugin = <C, D>(p: PluginDefinition<C, D>): PluginDefinition<
 
 export interface DashboardConfig {
   title: string;
+  /** The household. Each person gets a colour on the calendar and a column in chores. See src/lib/people.ts. */
+  people?: { name: string; color?: string; match?: string[] }[];
+  /** IANA zone for chores ("today"). Defaults to the calendar plugin's, else UTC. */
+  timeZone?: string;
   /** Order here is display order. `config` is validated against the plugin's configSchema. */
   plugins: { id: string; config?: unknown; span?: 1 | 2 }[];
 }

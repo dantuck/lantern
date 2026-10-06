@@ -1,10 +1,13 @@
 ---
 import CalendarView from './CalendarView.svelte';
+import { people as householdPeople } from '../../lib/household';
+import type { Person } from '../../lib/people';
 import type { CalendarConfig } from './plugin';
 import type { CalendarData } from './types';
 
-interface Props { data: CalendarData; config: CalendarConfig }
-const { data, config } = Astro.props;
+// `people` is only passed by the demo, which has its own invented household.
+interface Props { data: CalendarData; config: CalendarConfig; people?: Person[] }
+const { data, config, people = householdPeople } = Astro.props;
 ---
 <CalendarView
   client:load
@@ -14,4 +17,6 @@ const { data, config } = Astro.props;
   nowMs={Date.now()}
   windowStart={data.windowStart}
   windowEnd={data.windowEnd}
+  people={people}
+  weather={data.weather}
 />

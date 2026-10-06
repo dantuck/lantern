@@ -1,11 +1,14 @@
 ---
 import { dayKey, dayLabel, formatTime } from '../../lib/dates';
 import { groupByDay } from './agenda';
+import { people as householdPeople } from '../../lib/household';
+import { peopleOf, type Person } from '../../lib/people';
 import type { CalendarConfig } from './plugin';
 import type { CalendarData } from './types';
 
-interface Props { data: CalendarData; config: CalendarConfig; moreHref?: string }
-const { data, config, moreHref = '/p/calendar' } = Astro.props;
+interface Props { data: CalendarData; config: CalendarConfig; moreHref?: string; people?: Person[] }
+const { data, config, moreHref = '/p/calendar', people = householdPeople } = Astro.props;
+const colorOf = (title: string) => (people.length ? (peopleOf(title, people)[0]?.color ?? 'var(--accent)') : undefined);
 const { timeZone, locale } = config;
 
 const today = dayKey(Date.now(), timeZone);
@@ -26,7 +29,7 @@ const total = days.reduce((n, d) => n + d.events.length, 0);
           <h3>{dayLabel(day.key, today, locale)}</h3>
           <ul>
             {rows.map((ev) => (
-              <li>
+              <li class={people.length ? 'tinted' : undefined} style={colorOf(ev.title) ? `--c:${colorOf(ev.title)}` : undefined}>
                 <span class="when">{ev.allDay ? 'All day' : formatTime(ev.start, timeZone, locale)}</span>
                 <span class="what">{ev.title}{ev.location && <span class="muted"> · {ev.location}</span>}</span>
               </li>

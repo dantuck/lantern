@@ -1,3 +1,5 @@
+import type { WeatherData } from './weatherView';
+
 /** Normalised event. All-day events carry calendar dates (end inclusive); timed events carry epoch ms. */
 export type CalEvent =
   | { id: string; title: string; location?: string; allDay: true; startDate: string; endDate: string }
@@ -5,6 +7,8 @@ export type CalEvent =
 
 export interface CalendarData {
   events: CalEvent[];
+  /** Daily forecast, when `weather` is configured and Open-Meteo answered. */
+  weather?: WeatherData;
   /** Range the loader fetched (epoch ms). */
   windowStart: number;
   windowEnd: number;

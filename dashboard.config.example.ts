@@ -9,8 +9,15 @@ const showExample = import.meta.env.DEV || import.meta.env.PUBLIC_ENABLE_EXAMPLE
  */
 export default {
   title: 'Family Dashboard',
+  // Your household. Each person gets a colour on the calendar and a column on the Chores page. An event goes on a
+  // person's calendar when their name (or any word in `match`) appears in its title. `color` is optional.
+  people: [
+    // { name: 'Alex', color: '#e8590c' },
+    // { name: 'Sam', match: ['Sam', 'Samantha'] },
+  ],
   plugins: [
     // Set timeZone to your household's IANA zone, e.g. 'America/Chicago'.
+    // Add `weather: { latitude: 40.71, longitude: -74.01 }` to the config for a forecast in the day headers (sent to Open-Meteo, rounded).
     { id: 'calendar', span: 2, config: { timeZone: 'America/New_York' } },
     // apiHost is MealQ's public API (docs/mealq-api-contract.md). Change it only if you run your own MealQ server.
     { id: 'mealq', config: { apiHost: 'api-mealq.plantolive.app', timeZone: 'America/New_York' } },

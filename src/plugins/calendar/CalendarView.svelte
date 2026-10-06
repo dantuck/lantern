@@ -1,15 +1,19 @@
 <script lang="ts">
   import { DAY_MS, addDays, dayKey, dayLabel, formatDay, formatTime, keyOf, parseKey, startOfDayMs } from '../../lib/dates';
   import { groupByDay, layoutDay, monthGrid, weekStartKey } from './agenda';
+  import { FAMILY, peopleOf, type Person } from '../../lib/people';
+  import { iconMarkup } from '../../lib/icons';
+  import { describeWeather, type WeatherData } from './weatherView';
   import type { CalEvent } from './types';
 
-  let { events, timeZone, locale, nowMs, windowStart, windowEnd }: {
+  let { events, timeZone, locale, nowMs, windowStart, windowEnd, people = [], weather }: {
     events: CalEvent[]; timeZone: string; locale: string; nowMs: number; windowStart: number; windowEnd: number;
+    people?: Person[]; weather?: WeatherData | undefined;
   } = $props();
 
-  type View = 'month' | 'week' | 'agenda';
+  type View = 'month' | 'week' | 'day' | 'agenda';
   const VIEWS: { id: View; label: string }[] = [
-    { id: 'month', label: 'Month' }, { id: 'week', label: 'Week' }, { id: 'agenda', label: 'Agenda' },
+    { id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }, { id: 'agenda', label: 'Agenda' },
   ];
   const AGENDA_DAYS = 14;
   const VIEW_KEY = 'calendar-view';
@@ -18,7 +22,7 @@
   const firstKey = dayKey(windowStart, timeZone);
   const lastKey = dayKey(windowEnd, timeZone);
 
-  let view = $state<View>('month');
+  let view = $state<View>('week');
   let cursor = $state(todayKey); // the focused day: selected in month view, anchors every other view
   let now = $state(nowMs);
 
@@ -46,14 +50,34 @@
   const cur = $derived(parseKey(cursor));
   const firstOfMonth = $derived(keyOf(cur.y, cur.m, 1));
 
+  // --- People: each event takes the colour of whoever its title names; the chips filter the calendar ---
+  const roster = $derived(people.length ? [...people, FAMILY] : []);
+  const whoCache = new Map<string, Person[]>();
+  function whoOf(ev: CalEvent): Person[] {
+    if (!people.length) return [];
+    let who = whoCache.get(ev.id);
+    if (!who) { const named = peopleOf(ev.title, people); who = named.length ? named : [FAMILY]; whoCache.set(ev.id, who); }
+    return who;
+  }
+  const colorOf = (ev: CalEvent) => whoOf(ev)[0]?.color;
+  let only = $state<string[]>([]);
+  const toggle = (id: string) => (only = only.includes(id) ? only.filter((x) => x !== id) : [...only, id]);
+  const visible = $derived(only.length ? events.filter((ev) => whoOf(ev).some((p) => only.includes(p.id))) : events);
+  const usesFamily = $derived(events.some((ev) => whoOf(ev).includes(FAMILY)));
+  const chips = $derived(roster.filter((p) => p !== FAMILY || usesFamily));
+
+  // --- Weather ---
+  const wx = (key: string) => (weather?.days[key] ? { ...weather.days[key]!, ...describeWeather(weather.days[key]!.code) } : null);
+
   /** The days a view covers, as [first day, count]. */
   function rangeFor(v: View, key: string): [string, number] {
     if (v === 'month') return [monthGrid(parseKey(key).y, parseKey(key).m)[0]!, 42];
     if (v === 'week') return [weekStartKey(key), 7];
+    if (v === 'day') return [key, 1];
     return [key, AGENDA_DAYS];
   }
   const range = $derived(rangeFor(view, cursor));
-  const days = $derived(groupByDay(events, timeZone, range[0], range[1]));
+  const days = $derived(groupByDay(visible, timeZone, range[0], range[1]));
   const byKey = $derived(new Map(days.map((d) => [d.key, d.events])));
   const agendaDays = $derived(days.filter((d) => d.events.length > 0));
 
@@ -67,7 +91,7 @@
       if (next.slice(0, 7) < firstKey.slice(0, 7) || next > lastKey) return null;
       return next;
     }
-    next = addDays(cursor, delta * (view === 'week' ? 7 : AGENDA_DAYS));
+    next = addDays(cursor, delta * (view === 'week' ? 7 : view === 'day' ? 1 : AGENDA_DAYS));
     const [start, count] = rangeFor(view, next);
     if (addDays(start, count - 1) < firstKey || start > lastKey) return null;
     return next;
@@ -79,6 +103,7 @@
   const title = $derived.by(() => {
     if (view === 'month') return fmt({ month: 'long', year: 'numeric' }, firstOfMonth);
     if (view === 'agenda') return 'Upcoming';
+    if (view === 'day') return fmt({ weekday: 'long', month: 'long', day: 'numeric' }, cursor);
     const at = (key: string) => { const { y, m, d } = parseKey(key); return Date.UTC(y, m - 1, d); };
     const last = addDays(range[0], range[1] - 1);
     return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }).formatRange(at(range[0]), at(last));
@@ -86,7 +111,7 @@
 
   // --- Day detail panel (opens from a day in the month view, or a day/event in the week view) ---
   let dlg = $state<HTMLDialogElement>();
-  const dayEvents = $derived(groupByDay(events, timeZone, cursor, 1)[0]!.events);
+  const dayEvents = $derived(groupByDay(visible, timeZone, cursor, 1)[0]!.events);
   const canPrevDay = $derived(addDays(cursor, -1) >= firstKey);
   const canNextDay = $derived(addDays(cursor, 1) <= lastKey);
   function openDay(key: string) {
@@ -123,14 +148,26 @@
   };
 
   const when = (ev: CalEvent) => (ev.allDay ? 'All day' : `${formatTime(ev.start, timeZone, locale)}–${formatTime(ev.end, timeZone, locale)}`);
-  const placed = (key: string) => layoutDay(byKey.get(key) ?? [], startOfDayMs(key, timeZone), startOfDayMs(addDays(key, 1), timeZone));
-  const allDayOf = (key: string) => (byKey.get(key) ?? []).filter((e) => e.allDay);
+  // Time-grid columns: one per day in the week view, one per person (or just one) in the day view.
+  interface Col { id: string; day: string; person?: Person }
+  const cols = $derived<Col[]>(
+    view === 'week' ? days.map((d) => ({ id: d.key, day: d.key }))
+    : view === 'day'
+      ? (people.length
+          ? chips.filter((p) => !only.length || only.includes(p.id)).map((p) => ({ id: p.id, day: cursor, person: p }))
+          : [{ id: cursor, day: cursor }])
+      : [],
+  );
+  const eventsOf = (c: Col) => (byKey.get(c.day) ?? []).filter((ev) => !c.person || whoOf(ev).includes(c.person));
+  const placed = (c: Col) => layoutDay(eventsOf(c), startOfDayMs(c.day, timeZone), startOfDayMs(addDays(c.day, 1), timeZone));
+  const allDayOf = (c: Col) => eventsOf(c).filter((e) => e.allDay);
   const nowMinutes = $derived((now - startOfDayMs(todayKey, timeZone)) / 60_000);
+  const initial = (p: Person) => [...p.name][0]!.toUpperCase();
 
   // Time grids open scrolled to "now" (today) or the morning.
   let scroller = $state<HTMLElement>();
   $effect(() => {
-    if (!scroller || view !== 'week') return;
+    if (!scroller || (view !== 'week' && view !== 'day')) return;
     const showsToday = range[0] <= todayKey && todayKey <= addDays(range[0], range[1] - 1);
     const minutes = showsToday ? Math.max(0, nowMinutes - 90) : 7 * 60;
     const rowPx = (scroller.querySelector<HTMLElement>('.body')?.offsetHeight ?? 0) / 24;
@@ -138,6 +175,21 @@
   });
   const hours = Array.from({ length: 24 }, (_, h) => h);
 </script>
+
+{#snippet wxBadge(key: string)}
+  {@const w = wx(key)}
+  {#if w}
+    <span class="wx" title={`${w.label}, high ${w.hi}°, low ${w.lo}°`}>
+      <svg viewBox="0 0 24 24" aria-hidden="true">{@html iconMarkup(w.icon)}</svg>
+      <b>{w.hi}°</b><i>{w.lo}°</i>
+      <span class="sr">{`${w.label}, high ${w.hi}°, low ${w.lo}°`}</span>
+    </span>
+  {/if}
+{/snippet}
+
+{#snippet dots(ev: CalEvent)}
+  {#each whoOf(ev) as p (p.id)}<i class="dot-p" style:--c={p.color} title={p.name}></i>{/each}
+{/snippet}
 
 <div class="cal">
   <header class="toolbar">
@@ -154,6 +206,17 @@
     </div>
   </header>
 
+  {#if chips.length > 0}
+    <div class="people" role="group" aria-label="Show whose events">
+      {#each chips as p (p.id)}
+        <button type="button" class="person" style:--c={p.color} aria-pressed={only.includes(p.id)} class:dim={only.length > 0 && !only.includes(p.id)} onclick={() => toggle(p.id)}>
+          <span class="avatar" aria-hidden="true">{initial(p)}</span>{p.name}
+        </button>
+      {/each}
+      {#if only.length > 0}<button type="button" class="person clear" onclick={() => (only = [])}>Show everyone</button>{/if}
+    </div>
+  {/if}
+
   {#if view === 'month'}
     <div class="grid7 head" aria-hidden="true">{#each weekdays as w}<span>{w}</span>{/each}</div>
     <div class="grid7">
@@ -169,48 +232,58 @@
           onclick={() => openDay(key)}
           aria-haspopup="dialog"
         >
-          <span class="num">{+key.slice(8, 10)}</span>
-          {#each evs.slice(0, 2) as ev (ev.id)}<span class="chip">{ev.title}</span>{/each}
-          {#if evs.length > 2}<span class="more">+{evs.length - 2}</span>{/if}
-          {#if evs.length > 0}<span class="dot" aria-hidden="true"></span>{/if}
+          <span class="cell-top"><span class="num">{+key.slice(8, 10)}</span>{@render wxBadge(key)}</span>
+          {#each evs.slice(0, 3) as ev (ev.id)}<span class="chip" style:--c={colorOf(ev)}>{ev.title}</span>{/each}
+          {#if evs.length > 3}<span class="more">+{evs.length - 3} more</span>{/if}
+          {#if evs.length > 0}<span class="dot-row" aria-hidden="true">{#each evs.slice(0, 4) as ev (ev.id)}<i class="dot-p" style:--c={colorOf(ev)}></i>{/each}</span>{/if}
         </button>
       {/each}
     </div>
-  {:else if view === 'week'}
-    <div class="tg" bind:this={scroller} style:--n={days.length}>
+  {:else if view === 'week' || view === 'day'}
+    <div class="tg" bind:this={scroller} style:--n={cols.length}>
       <div class="tg-sticky">
         <div class="line">
           <span class="gutter"></span>
-          {#each days as { key } (key)}
-            <button type="button" class="colhead" class:today={key === todayKey} onclick={() => openDay(key)} aria-haspopup="dialog"
-              aria-label={fmt({ weekday: 'long', month: 'long', day: 'numeric' }, key)}>
-              <span class="dow">{fmt({ weekday: 'short' }, key)}</span>
-              <span class="dnum">{+key.slice(8, 10)}</span>
-            </button>
+          {#each cols as c (c.id)}
+            {#if view === 'week'}
+              <button type="button" class="colhead" class:today={c.day === todayKey} onclick={() => openDay(c.day)} aria-haspopup="dialog"
+                aria-label={fmt({ weekday: 'long', month: 'long', day: 'numeric' }, c.day)}>
+                <span class="dow">{fmt({ weekday: 'short' }, c.day)}</span>
+                <span class="dnum">{+c.day.slice(8, 10)}</span>
+                {@render wxBadge(c.day)}
+              </button>
+            {:else}
+              <div class="colhead person-head" style:--c={c.person?.color}>
+                {#if c.person}<span class="avatar" aria-hidden="true">{initial(c.person)}</span><span class="pname">{c.person.name}</span>
+                {:else}<span class="dow">{fmt({ weekday: 'short' }, c.day)}</span><span class="dnum" class:today-num={c.day === todayKey}>{+c.day.slice(8, 10)}</span>{/if}
+                {#if c === cols[0]}{@render wxBadge(c.day)}{/if}
+              </div>
+            {/if}
           {/each}
         </div>
-        {#if days.some((d) => d.events.some((e) => e.allDay))}
+        {#if cols.some((c) => allDayOf(c).length > 0)}
           <div class="line allday">
             <span class="gutter">all-day</span>
-            {#each days as { key } (key)}
-              <div class="ad-cell">{#each allDayOf(key) as ev (ev.id)}<button type="button" class="chip" title={ev.title} onclick={() => openDay(key)} aria-haspopup="dialog">{ev.title}</button>{/each}</div>
+            {#each cols as c (c.id)}
+              <div class="ad-cell">{#each allDayOf(c) as ev (ev.id)}<button type="button" class="chip" style:--c={c.person?.color ?? colorOf(ev)} title={ev.title} onclick={() => openDay(c.day)} aria-haspopup="dialog">{ev.title}</button>{/each}</div>
             {/each}
           </div>
         {/if}
       </div>
       <div class="line body">
         <div class="gutter hours">{#each hours as h}<span style:top="calc(var(--hh) * {h})">{h === 0 ? '' : hourLabel(h)}</span>{/each}</div>
-        {#each days as { key } (key)}
-          <div class="daycol" class:today={key === todayKey}>
-            {#each placed(key) as p (p.ev.id)}
-              <button type="button" class="block" title={`${p.ev.title}, ${when(p.ev)}`} onclick={() => openDay(key)} aria-haspopup="dialog"
+        {#each cols as c (c.id)}
+          <div class="daycol" class:today={c.day === todayKey}>
+            {#each placed(c) as p (p.ev.id)}
+              <button type="button" class="block" title={`${p.ev.title}, ${when(p.ev)}`} onclick={() => openDay(c.day)} aria-haspopup="dialog"
+                style:--c={c.person?.color ?? colorOf(p.ev)}
                 style:top="calc(var(--hh) * {p.top / 60})" style:height="calc(var(--hh) * {p.height / 60} - 2px)"
                 style:left="calc({p.col / p.cols} * 100% + 1px)" style:width="calc({1 / p.cols} * 100% - 2px)">
                 <b>{p.ev.title}</b>
                 <span>{formatTime(p.ev.start, timeZone, locale)}{#if p.ev.location}{' · '}{p.ev.location}{/if}</span>
               </button>
             {/each}
-            {#if key === todayKey}<div class="nowline" style:top="calc(var(--hh) * {Math.min(1440, Math.max(0, nowMinutes)) / 60})"></div>{/if}
+            {#if c.day === todayKey}<div class="nowline" style:top="calc(var(--hh) * {Math.min(1440, Math.max(0, nowMinutes)) / 60})"></div>{/if}
           </div>
         {/each}
       </div>
@@ -221,10 +294,14 @@
         <p class="muted">Nothing scheduled in these {AGENDA_DAYS} days.</p>
       {/if}
       {#each agendaDays as d (d.key)}
-        <h3>{dayLabel(d.key, todayKey, locale)}</h3>
+        <h3>{dayLabel(d.key, todayKey, locale)} {@render wxBadge(d.key)}</h3>
         <ul class="list">
           {#each d.events as ev (ev.id + d.key)}
-            <li><span class="when">{ev.allDay ? 'All day' : `${formatTime(ev.start, timeZone, locale)}–${formatTime(ev.end, timeZone, locale)}`}</span><span class="what">{ev.title}{#if ev.location}{' '}<span class="muted">· {ev.location}</span>{/if}</span></li>
+            <li style:--c={colorOf(ev)}>
+              <span class="when">{ev.allDay ? 'All day' : `${formatTime(ev.start, timeZone, locale)}–${formatTime(ev.end, timeZone, locale)}`}</span>
+              <span class="what">{ev.title}{#if ev.location}{' '}<span class="muted">· {ev.location}</span>{/if}</span>
+              {#if people.length}<span class="who-dots">{@render dots(ev)}</span>{/if}
+            </li>
           {/each}
         </ul>
       {/each}
@@ -239,6 +316,7 @@
         <h3 id="day-title">{fmt({ weekday: 'long' }, cursor)}</h3>
         <p>{fmt({ month: 'long', day: 'numeric', year: 'numeric' }, cursor)}{#if cursor === todayKey}{' · Today'}{/if}</p>
       </div>
+      {@render wxBadge(cursor)}
       <button type="button" class="ghost step" onclick={() => (cursor = addDays(cursor, 1))} disabled={!canNextDay} aria-label="Next day"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg></button>
       <button type="button" class="ghost step close" onclick={() => dlg?.close()} aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button>
     </header>
@@ -247,11 +325,12 @@
     {:else}
       <ul class="evs">
         {#each dayEvents as ev (ev.id + cursor)}
-          <li>
+          <li style:--c={colorOf(ev)}>
             <div class="meta">
               <span class="t">{detailWhen(ev)}</span>
               {#if duration(ev)}<span>{duration(ev)}</span>{/if}
               {#if position(ev, cursor)}<span class="pill">{position(ev, cursor)}</span>{/if}
+              {#each people.length ? whoOf(ev) : [] as p (p.id)}<span class="pill who" style:--c={p.color}>{p.name}</span>{/each}
             </div>
             <div class="title">{ev.title}</div>
             {#if ev.location}
@@ -265,44 +344,61 @@
 </div>
 
 <style>
-  .cal { --hh: 3rem; }
+  .cal { --hh: 3.25rem; --c: var(--accent); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
   /* Toolbar */
   .toolbar { display: flex; align-items: center; gap: .75rem 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
-  .toolbar h2 { margin: 0; flex: 1 1 10rem; font-size: 1.2rem; letter-spacing: -.02em; text-align: center; }
+  .toolbar h2 { margin: 0; flex: 1 1 10rem; font-size: 1.45rem; letter-spacing: -.02em; text-align: center; }
   .steps { display: flex; gap: .35rem; align-items: center; }
   .steps button, .seg button { margin: 0; width: auto; }
-  .steps .step { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; padding: 0; border-radius: 999px; }
+  .steps .step { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: 0; border-radius: 999px; }
   .step svg { width: 1.15rem; height: 1.15rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .steps .today { padding: .45rem 1rem; border-radius: 999px; font-size: .9rem; }
+  .steps .today { padding: .55rem 1.15rem; border-radius: 999px; font-size: .9rem; }
   .steps button:disabled { opacity: .35; cursor: default; }
   .seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--card-2); border: 1px solid var(--border); border-radius: 999px; }
-  .seg button { padding: .4rem .9rem; font-size: .88rem; border-radius: 999px; background: transparent; color: var(--muted); border: 0; box-shadow: none; }
+  .seg button { padding: .5rem 1rem; font-size: .92rem; border-radius: 999px; background: transparent; color: var(--muted); border: 0; box-shadow: none; }
   .seg button:hover { color: var(--fg); filter: none; }
   .seg button[aria-pressed="true"] { background: var(--card); color: var(--accent); box-shadow: var(--shadow-sm); }
   @media (max-width: 40rem) {
     .toolbar { display: grid; grid-template-columns: 1fr auto; }
     .toolbar h2 { grid-column: 1 / -1; grid-row: 1; text-align: left; }
-    .seg { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); }
+    .seg { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); }
     .seg button { padding-inline: 0; }
     .steps { grid-column: 1 / -1; }
     .steps .today { flex: 1; }
   }
 
+  /* People */
+  .people { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1rem; }
+  .person { display: inline-flex; align-items: center; gap: .5rem; width: auto; margin: 0; padding: .3rem .85rem .3rem .3rem; border-radius: 999px; font-size: .92rem; font-weight: 600;
+    color: var(--fg); background: color-mix(in srgb, var(--c) 14%, var(--card)); border: 2px solid transparent; box-shadow: none; }
+  .person:hover { filter: none; background: color-mix(in srgb, var(--c) 24%, var(--card)); }
+  .person[aria-pressed="true"] { border-color: var(--c); }
+  .person.dim { opacity: .5; }
+  .person.clear { padding: .3rem .9rem; background: transparent; color: var(--muted); border: 1px dashed var(--border); }
+  .avatar { display: grid; place-items: center; flex: none; width: 1.9rem; height: 1.9rem; border-radius: 50%; background: var(--c); color: #fff; font-size: .85rem; font-weight: 700; }
+  .dot-p { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; background: var(--c); }
+  .wx { display: inline-flex; align-items: center; gap: .25rem; font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 500; }
+  .wx svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .wx b { color: var(--fg); font-weight: 600; }
+  .wx i { font-style: normal; opacity: .75; }
+
   /* Month */
-  .grid7 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+  .grid7 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
   .head span { text-align: center; font-size: .7rem; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: .35rem 0; }
-  .cell { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-height: 5.25rem; padding: .35rem; margin: 0;
-    text-align: left; font-weight: 400; font-size: .75rem; border-radius: 10px; background: var(--card-2); color: var(--fg);
+  .cell { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-height: 7.5rem; padding: .45rem; margin: 0;
+    text-align: left; font-weight: 400; font-size: .8rem; border-radius: 14px; background: var(--card-2); color: var(--fg);
     border: 1px solid transparent; box-shadow: none; overflow: hidden; }
   .cell:hover { background: var(--accent-soft); filter: none; }
+  .cell-top { display: flex; align-items: center; justify-content: space-between; gap: .25rem; }
   .cell.other { opacity: .4; }
-  .cell.today .num { background: var(--accent); color: var(--accent-fg); border-radius: 999px; min-width: 1.5rem; text-align: center; align-self: flex-start; }
+  .cell.today .num { background: var(--accent); color: var(--accent-fg); border-radius: 999px; min-width: 1.7rem; text-align: center; }
   .cell.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
-  .num { font-weight: 600; font-size: .8rem; line-height: 1.5rem; padding: 0 .25rem; }
-  .chip { background: var(--accent-soft); color: var(--accent); font-weight: 500; border-radius: 5px; padding: 0 .35rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .num { font-weight: 600; font-size: .95rem; line-height: 1.7rem; padding: 0 .3rem; }
+  .chip { display: block; background: color-mix(in srgb, var(--c) 18%, var(--card)); color: color-mix(in srgb, var(--c) 72%, var(--fg)); font-weight: 600; border-radius: 7px; padding: .08rem .45rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .more { color: var(--muted); padding: 0 .25rem; }
-  .dot { display: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .dot-row { display: none; gap: 3px; justify-content: center; }
 
   /* Shared event lists (month detail + agenda) */
   /* Day detail panel */
@@ -323,26 +419,32 @@
   .day .close { margin-left: .25rem; }
   .empty { padding: 1.5rem 1.25rem; margin: 0; }
   .evs { list-style: none; margin: 0; padding: .5rem 1.25rem 1rem; }
-  .evs li { padding: .85rem 0; border-top: 1px solid var(--border); }
-  .evs li:first-child { border-top: 0; }
+  .evs li { padding: .85rem 0 .85rem .9rem; border-top: 1px solid var(--border); border-left: 4px solid var(--c, var(--accent)); margin: .5rem 0; border-radius: 4px; background: color-mix(in srgb, var(--c, var(--accent)) 6%, transparent); }
+  .evs li { border-top: 0; }
   .meta { display: flex; flex-wrap: wrap; gap: .25rem .6rem; align-items: center; font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
   .meta .t { color: var(--accent); font-weight: 600; }
+  .pill.who { background: color-mix(in srgb, var(--c) 18%, var(--card)); color: color-mix(in srgb, var(--c) 72%, var(--fg)); font-weight: 600; }
   .pill { padding: .05rem .5rem; border-radius: 999px; background: var(--card-2); font-size: .75rem; }
   .title { margin-top: .15rem; font-size: 1.05rem; font-weight: 600; letter-spacing: -.01em; overflow-wrap: anywhere; }
   .loc { display: flex; align-items: center; gap: .35rem; margin-top: .2rem; font-size: .9rem; color: var(--muted); }
   .loc svg { width: .95rem; height: .95rem; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .list { list-style: none; margin: 0; padding: 0; }
-  .list li { display: flex; gap: .85rem; padding: .6rem 0; border-top: 1px solid var(--border); }
+  .list li { display: flex; gap: .85rem; align-items: baseline; padding: .7rem 0 .7rem .8rem; border-top: 1px solid var(--border); border-left: 4px solid var(--c, var(--accent)); }
+  .who-dots { display: inline-flex; gap: 3px; margin-left: auto; }
   .list li:first-child { border-top: 0; }
   .when { color: var(--muted); min-width: 8.5rem; font-size: .9rem; font-variant-numeric: tabular-nums; }
   .what { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
   .what .muted { font-weight: 400; }
-  .agenda-view h3 { margin: 1.25rem 0 .5rem; font-size: .72rem; font-weight: 650; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+  .agenda-view h3 { display: flex; align-items: center; gap: .75rem; margin: 1.25rem 0 .5rem; font-size: .72rem; font-weight: 650; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
   .agenda-view h3:first-child { margin-top: 0; }
 
   /* Week / day time grid */
-  .tg { --gutter: 3.5rem; max-height: 38rem; overflow: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--card); position: relative; }
+  .tg { --gutter: 3.5rem; max-height: max(30rem, calc(100dvh - 15rem)); overflow: auto; border: 1px solid var(--border); border-radius: 16px; background: var(--card); position: relative; }
   .line { min-width: 40rem; }
+  .person-head { flex-direction: row; justify-content: center; gap: .5rem; padding: .7rem .25rem; flex-wrap: wrap; }
+  .person-head .pname { font-weight: 650; }
+  .person-head .wx { flex-basis: 100%; justify-content: center; }
+  .today-num { background: var(--accent); color: var(--accent-fg); }
   .line { display: grid; grid-template-columns: var(--gutter) repeat(var(--n), minmax(0, 1fr)); }
   .tg-sticky { position: sticky; top: 0; z-index: 3; background: var(--card); border-bottom: 1px solid var(--border); }
   .gutter { font-size: .7rem; color: var(--muted); text-align: right; padding: .3rem .5rem 0 0; }
@@ -350,13 +452,13 @@
     background: transparent; color: var(--fg); box-shadow: none; font-weight: 400; }
   .colhead:hover { background: var(--card-2); filter: none; }
   .dow { font-size: .7rem; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-  .dnum { font-size: 1.15rem; font-weight: 600; text-align: center; min-width: 2rem; line-height: 2rem; border-radius: 999px; }
+  .dnum { font-size: 1.3rem; font-weight: 600; text-align: center; min-width: 2rem; line-height: 2rem; border-radius: 999px; }
   .colhead.today .dnum { background: var(--accent); color: var(--accent-fg); }
   .colhead.today .dow { color: var(--accent); }
   .allday { border-top: 1px solid var(--border); }
   .allday .gutter { align-self: center; padding: 0 .5rem 0 0; }
-  .ad-cell .chip { width: 100%; margin: 0; border: 0; box-shadow: none; text-align: left; font-size: .75rem; line-height: 1.5; cursor: pointer; }
-  .ad-cell .chip:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); filter: none; }
+  .ad-cell .chip { width: 100%; margin: 0; border: 0; box-shadow: none; text-align: left; font-size: .8rem; line-height: 1.5; cursor: pointer; }
+  .ad-cell .chip:hover { background: color-mix(in srgb, var(--c) 30%, var(--card)); filter: none; }
   .ad-cell { display: grid; gap: 2px; padding: .25rem; border-left: 1px solid var(--border); align-content: start; min-width: 0; }
   .body { position: relative; grid-template-rows: calc(var(--hh) * 24); }
   .hours { position: relative; }
@@ -364,16 +466,16 @@
   .daycol { position: relative; border-left: 1px solid var(--border);
     background-image: linear-gradient(to bottom, var(--border) 1px, transparent 1px); background-size: 100% var(--hh); }
   .daycol.today { background-color: color-mix(in srgb, var(--accent) 5%, transparent); }
-  .block { display: block; margin: 0; text-align: left; font-weight: 400; cursor: pointer; border-top: 0; border-right: 0; border-bottom: 0; box-shadow: none; position: absolute; box-sizing: border-box; overflow: hidden; padding: .15rem .4rem; border-radius: 8px; font-size: .75rem; line-height: 1.25;
-    background: color-mix(in srgb, var(--accent) 16%, var(--card)); border-left: 3px solid var(--accent); color: var(--fg); min-height: 1.1rem; }
-  .block:hover { background: color-mix(in srgb, var(--accent) 26%, var(--card)); filter: none; }
+  .block { display: block; margin: 0; text-align: left; font-weight: 400; cursor: pointer; border-top: 0; border-right: 0; border-bottom: 0; box-shadow: none; position: absolute; box-sizing: border-box; overflow: hidden; padding: .2rem .5rem; border-radius: 10px; font-size: .8rem; line-height: 1.25;
+    background: color-mix(in srgb, var(--c) 18%, var(--card)); border-left: 4px solid var(--c); color: var(--fg); min-height: 1.1rem; }
+  .block:hover { background: color-mix(in srgb, var(--c) 30%, var(--card)); filter: none; }
   .block b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .block span { display: block; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .nowline { position: absolute; left: 0; right: 0; height: 2px; background: var(--danger); z-index: 2; pointer-events: none; }
   .nowline::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
 
   @media (max-width: 40rem) {
-    .cell { min-height: 3.25rem; align-items: center; } .cell .chip { display: none; } .more { display: none; } .dot { display: block; }
+    .cell { min-height: 3.75rem; align-items: center; } .cell .chip, .cell .wx { display: none; } .more { display: none; } .dot-row { display: flex; } .cell-top { justify-content: center; }
     .when { min-width: 6.5rem; } .grid7 { gap: 2px; }
     .tg { --gutter: 2.75rem; }
   }
