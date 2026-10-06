@@ -4,5 +4,6 @@
   "0003_chores_lists.sql": "937faa635b1f0ab719b942305eae8088edcff7fc765b48439c36d2430ab5b4ea",
   "0004_features.sql": "6fa07cbc4cd5048a0389d752561e9d4d660d75fdc82621dc29819c692f6c3796",
   "0005_chore_routines.sql": "d00a0a7ad2cdd984683ebe1e7b924e2ab96da28ecdb6e178242fac6c621e3961",
-  "0006_reward_scope.sql": "209625fa7bfb2506a27dab08b8da8a525f0753d00ce74ef8a3ac73469af32343"
+  "0006_reward_scope.sql": "209625fa7bfb2506a27dab08b8da8a525f0753d00ce74ef8a3ac73469af32343",
+  "0007_people.sql": "0ddf899b9f78117de68d71ba7ee82faebde357ea05e6789182c4d4c3f9c8de7a"
 }

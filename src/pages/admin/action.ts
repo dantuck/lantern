@@ -7,6 +7,7 @@ import { inviteEmail, selectMailer } from '../../lib/mailer';
 import { safeAppOrigin } from '../../lib/origin';
 import { readForm } from '../../lib/http';
 import { setFeature, switchableIds } from '../../lib/features';
+import { removePerson, savePerson } from '../../lib/peopleStore';
 import { registry } from '../../plugins/registry';
 import type { FlashCode } from '../../lib/messages';
 
@@ -57,6 +58,17 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       const enabled = s('enabled') === '1';
       const ok = await setFeature(db, me, switchableIds(registry.enabled.map((p) => p.def.id)), s('id'), enabled);
       msg = ok ? (enabled ? 'feature_enabled' : 'feature_disabled') : 'not_found';
+      break;
+    }
+    case 'person_save': {
+      const match = s('match').split(',').map((w) => w.trim()).filter(Boolean);
+      const r = await savePerson(db, me, { name: s('name'), color: s('color'), match }, s('id') || undefined);
+      msg = r === 'ok' ? 'person_saved' : r === 'duplicate' ? 'person_duplicate' : r === 'limit' ? 'person_limit' : r === 'not_found' ? 'not_found' : 'bad_request';
+      break;
+    }
+    case 'person_remove': {
+      const r = await removePerson(db, me, s('id'));
+      msg = r === 'ok' ? 'person_removed' : r === 'last_person' ? 'last_person' : 'not_found';
       break;
     }
     case 'revoke_session':

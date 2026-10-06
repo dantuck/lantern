@@ -1,13 +1,15 @@
 ---
 import CalendarView from './CalendarView.svelte';
-import { people as householdPeople } from '../../lib/household';
+import { env } from 'cloudflare:workers';
+import { loadPeople } from '../../lib/peopleStore';
 import type { Person } from '../../lib/people';
 import type { CalendarConfig } from './plugin';
 import type { CalendarData } from './types';
 
 // `people` is only passed by the demo, which has its own invented household.
 interface Props { data: CalendarData; config: CalendarConfig; people?: Person[] }
-const { data, config, people = householdPeople } = Astro.props;
+const { data, config, people: givenPeople } = Astro.props;
+const people = givenPeople ?? (await loadPeople(env.DB));
 ---
 <CalendarView
   client:load

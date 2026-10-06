@@ -4,7 +4,8 @@ import Base from '../../layouts/Base.astro';
 import ChoreManager from '../../components/ChoreManager.svelte';
 import { choreState } from '../../lib/chores';
 import { dayKey } from '../../lib/dates';
-import { householdZone, people } from '../../lib/household';
+import { householdZone } from '../../lib/household';
+import { loadPeople } from '../../lib/peopleStore';
 import { isOn } from '../../lib/features';
 import { isManager } from '../../lib/http';
 
@@ -12,7 +13,7 @@ import { isManager } from '../../lib/http';
 if (!isManager(Astro.locals)) return new Response('Forbidden', { status: 403 });
 if (!isOn(Astro.locals.disabled, 'chores')) return new Response('Not found', { status: 404 });
 
-const state = await choreState(env.DB, dayKey(Date.now(), householdZone), true);
+const [state, people] = await Promise.all([choreState(env.DB, dayKey(Date.now(), householdZone), true), loadPeople(env.DB)]);
 ---
 <Base title="Manage chores" wide>
   <p><a href="/chores">&larr; Back to chores</a></p>

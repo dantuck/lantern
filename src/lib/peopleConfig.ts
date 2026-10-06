@@ -4,14 +4,14 @@ import { FAMILY, type Person } from './people';
 /** Warm, distinct colours handed out in order to people who don't pick their own. */
 export const PALETTE = ['#e8590c', '#1c7ed6', '#2f9e44', '#ae3ec9', '#d6336c', '#0ca678', '#f08c00', '#4263eb'] as const;
 
-const personSchema = z.object({
+export const personSchema = z.object({
   name: z.string().trim().min(1).max(30),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'must look like #e8590c').optional(),
   match: z.array(z.string().trim().min(1).max(40)).max(10).optional(),
 });
 export const peopleSchema = z.array(personSchema).max(12);
 
-const slug = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || 'person';
+export const slug = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || 'person';
 
 /** Validates the `people` setting from dashboard.config.ts. Throws a readable error on mistakes. */
 export function parsePeople(raw: unknown): Person[] {

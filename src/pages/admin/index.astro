@@ -6,11 +6,12 @@ import { listUsers, listPendingInvites } from '../../lib/auth/users';
 import { listAllSessions, listAudit } from '../../lib/auth/admin';
 import { flashFor } from '../../lib/messages';
 import { BUILT_IN_FEATURES } from '../../lib/features';
+import { loadPeople, MAX_PEOPLE } from '../../lib/peopleStore';
 import { registry } from '../../plugins/registry';
 
 const me = Astro.locals.user!;
-const [users, invites, devices, audit] = await Promise.all([
-  listUsers(env.DB), listPendingInvites(env.DB), listAllSessions(env.DB), listAudit(env.DB, 50),
+const [users, invites, devices, audit, household] = await Promise.all([
+  listUsers(env.DB), listPendingInvites(env.DB), listAllSessions(env.DB), listAudit(env.DB, 50), loadPeople(env.DB),
 ]);
 const flash = flashFor(Astro.url.searchParams.get('msg'));
 const currentHash = Astro.locals.session!.idHash;
@@ -45,6 +46,42 @@ const features = [
       </tbody>
     </table>
     <p class="muted hint">Turning something off hides it from everyone; its data is kept. Which widgets exist at all is set in <code>dashboard.config.ts</code>.</p>
+  </section>
+
+  <section class="card">
+    <h2>People</h2>
+    <p class="muted hint">The kids and adults who get a colour on the calendar and a column on the Chores page. A person is just a name; they do not need a login. Chore lists are assigned to them under Chores &rarr; Manage.</p>
+    {household.length > 0 && (
+      <table>
+        <thead><tr><th>Name</th><th>Colour</th><th>Calendar words</th><th></th></tr></thead>
+        <tbody>
+          {household.map((p) => (
+            <tr>
+              <td colspan="4">
+                <form method="post" action="/admin/action" class="row">
+                  <input type="hidden" name="action" value="person_save" /><input type="hidden" name="id" value={p.id} />
+                  <div><label for={`pn-${p.id}`}>Name</label><input id={`pn-${p.id}`} name="name" value={p.name} required maxlength="30" /></div>
+                  <div><label for={`pc-${p.id}`}>Colour</label><input id={`pc-${p.id}`} name="color" type="color" value={p.color} /></div>
+                  <div><label for={`pm-${p.id}`}>Calendar words</label><input id={`pm-${p.id}`} name="match" value={p.match.join(', ')} maxlength="200" /></div>
+                  <button class="ghost" type="submit">Save</button>
+                  <button class="danger" type="submit" name="action" value="person_remove" formnovalidate aria-label={`Remove ${p.name}`}>Remove</button>
+                </form>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+    {household.length < MAX_PEOPLE && (
+      <form method="post" action="/admin/action" class="row">
+        <input type="hidden" name="action" value="person_save" />
+        <div><label for="pn-new">Name</label><input id="pn-new" name="name" required maxlength="30" autocomplete="off" /></div>
+        <div><label for="pc-new">Colour</label><input id="pc-new" name="color" type="color" value="#1c7ed6" /></div>
+        <div><label for="pm-new">Calendar words</label><input id="pm-new" name="match" maxlength="200" placeholder="optional, comma separated" /></div>
+        <button type="submit">Add person</button>
+      </form>
+    )}
+    <p class="muted hint">Calendar words put an event on someone's calendar when they appear in its title, such as a nickname. The name itself always counts. Removing someone keeps their chore lists, which then show under Anyone.</p>
   </section>
 
   <section class="card">

@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { addItem, choreState, removeItem, removeList, saveList, setCheck, updateItem } from '../../lib/chores';
 import { PERIODS } from '../../lib/choreTypes';
 import { adjustPoints, decideRedemption, removeReward, requestRedemption, saveReward } from '../../lib/rewards';
-import { householdZone, people } from '../../lib/household';
+import { householdZone } from '../../lib/household';
+import { loadPeople } from '../../lib/peopleStore';
 import { dayKey } from '../../lib/dates';
 import { isManager, json, readJson } from '../../lib/http';
 import { isOn } from '../../lib/features';
@@ -12,7 +13,7 @@ import { isOn } from '../../lib/features';
 const id = z.string().min(1).max(64);
 const title = z.string().trim().min(1).max(80);
 const points = z.number().int().min(0).max(100);
-const person = z.string().refine((p) => people.some((x) => x.id === p), 'unknown person');
+const person = z.string().min(1).max(64); // checked against the household's people in POST
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const list = {
@@ -44,6 +45,12 @@ const managerBody = z.discriminatedUnion('action', [
   z.object({ action: z.literal('adjust'), person, delta: z.number().int().min(-1000).max(1000).refine((n) => n !== 0), note: z.string().trim().max(60) }),
 ]);
 
+/** Whether a request's `person`, if it names one, is someone in the household. */
+const knows = async (b: object) => {
+  const who = 'person' in b ? (b.person as string | null) : null;
+  return who === null || (await loadPeople(env.DB)).some((p) => p.id === who);
+};
+
 const today = () => dayKey(Date.now(), householdZone);
 
 /** Middleware has already required a session and a same-origin Origin. Reading and ticking are open to every member. */
@@ -64,12 +71,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const asMember = memberBody.safeParse(raw);
   if (asMember.success) {
     const b = asMember.data;
+    if (!(await knows(b))) return json({ error: 'bad_request' }, 400);
     result = b.action === 'check' ? await setCheck(db, b.id, today(), b.done) : await requestRedemption(db, b.person, b.rewardId);
   } else {
     const parsed = managerBody.safeParse(raw);
     if (!parsed.success) return json({ error: 'bad_request' }, 400);
     if (!isManager(locals)) return json({ error: 'forbidden' }, 403);
     const b = parsed.data;
+    if (!(await knows(b))) return json({ error: 'bad_request' }, 400);
     const manager = locals.user!;
     switch (b.action) {
       case 'list_save': {

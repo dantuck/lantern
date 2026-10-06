@@ -2,20 +2,22 @@
 import { env } from 'cloudflare:workers';
 import Icon from './Icon.astro';
 import { choreState } from '../lib/chores';
-import type { ChoreState } from '../lib/choreTypes';
+import { todaysLists, type ChoreState } from '../lib/choreTypes';
 import { dayKey } from '../lib/dates';
-import { householdZone, people as household } from '../lib/household';
+import { householdZone } from '../lib/household';
+import { loadPeople } from '../lib/peopleStore';
 import type { Person } from '../lib/people';
 
 // The live dashboard reads D1; the demo passes its own state and people.
 interface Props { state?: ChoreState; people?: Person[]; href?: string }
-const { state: given, people = household, href = '/chores' } = Astro.props;
+const { state: given, people: givenPeople, href = '/chores' } = Astro.props;
+const people = givenPeople ?? (await loadPeople(env.DB));
 let state = given;
 if (!state) {
   try { state = await choreState(env.DB, dayKey(Date.now(), householdZone), false); }
   catch (e) { console.error('chores card: could not read chores:', e instanceof Error ? e.message : 'unknown'); }
 }
-const today = state?.lists.filter((l) => l.due) ?? [];
+const today = state ? todaysLists(state.lists) : [];
 const groups = state
   ? [...people.map((p) => ({ name: p.name, color: p.color, items: today.filter((l) => l.person === p.id).flatMap((l) => l.items) })),
      { name: 'Anyone', color: 'var(--accent)', items: today.filter((l) => !l.person || !people.some((p) => p.id === l.person)).flatMap((l) => l.items) }].filter((g) => g.items.length > 0)
