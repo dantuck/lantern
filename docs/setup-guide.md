@@ -130,6 +130,7 @@ problem and run it again: it picks up where it left off and offers your earlier 
 | No sign-in email arrives | The sending domain is not verified in Resend yet, or the sender address is not on that domain. Check spam. Check Resend's logs for the message. |
 | "This link is invalid, expired, or was opened in a different browser…" | The link is older than 10 minutes, was opened in a different browser from the one that asked for it, or a newer link was requested since (only the newest works). Request a new one and open it in the same browser. |
 | The address does not load | DNS or the Cloudflare nameserver change has not finished, or the hostname is not on a domain in the same Cloudflare account you chose. Wait, then re-check. |
+| You are not sure what is wrong | Run `npm run doctor`. It lists what is set up correctly and what is not, with a fix for each. |
 | Setup stopped halfway | Run `npm run setup` again; completed steps are reused. |
 | A widget says it is not set up or unavailable | Its secrets are missing or wrong, or the upstream (Google, MealQ) refused the request. Re-run setup, or set the secret again with `npx wrangler secret put NAME`. |
 | You locked yourself out as the only manager | The recovery command is in the README under "Operating it". |

@@ -81,6 +81,7 @@ Other protections: strict CSP (hashes, no `unsafe-inline` for scripts), HSTS, `f
 
 ## Operating it
 
+- **Not sure everything is healthy?** `npm run doctor` is a read-only check of your settings, Cloudflare login, secrets (names only), database, members and backups, with the fix for each problem. `npm run doctor -- --offline` skips the Cloudflare calls.
 - **Someone lost a phone / left the household:** *Devices* (own) or *Admin → Signed-in devices* (anyone) to sign devices out; *Admin → Members → Disable* removes access and signs them out everywhere immediately.
 - **Locked out of every manager account** (the last manager is protected from being demoted or disabled in the app, but a lost mailbox can still do it): promote an existing user directly in the database, then sign in normally with a fresh link:
   ```bash

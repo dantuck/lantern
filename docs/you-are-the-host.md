@@ -33,6 +33,8 @@ idle, 90 days at most). What you lose is security fixes, so do not leave updates
 
 ## If something goes wrong
 
+Start with `npm run doctor`. It checks your settings, Cloudflare login, secrets (names only, never values), database, members and backups without changing anything, and says how to fix what it finds.
+
 - **Someone lost a phone:** they, or you in Admin, sign that device out. A saved offline copy on the phone is
   wiped at sign-out, and expires after 24 hours regardless.
 - **A bad update:** `npx wrangler rollback` returns to the previous version. The database stays migrated; releases

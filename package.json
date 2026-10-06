@@ -8,6 +8,7 @@
     "init": "node scripts/init-config.mjs",
     "setup": "node scripts/setup.mjs",
     "update": "node scripts/update.mjs",
+    "doctor": "node scripts/doctor.mjs",
     "migrations:seal": "node scripts/seal-migrations.mjs",
     "postinstall": "node scripts/init-config.mjs",
     "predev": "node scripts/init-config.mjs",
