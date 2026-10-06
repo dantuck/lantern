@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { canAsk, PERIOD_LABEL, PERIODS, type ChoreList, type ChoreState, type Period } from '../lib/choreTypes';
+  import { canAsk, PERIOD_LABEL, PERIODS, todaysLists, type ChoreList, type ChoreState, type Period } from '../lib/choreTypes';
   import { runChores } from '../lib/choreClient';
   import { onMount } from 'svelte';
   import type { Person } from '../lib/people';
@@ -15,7 +15,7 @@
 
   /** One column per person, plus "Anyone" for lists nobody owns (and for households with no people set up). */
   const columns = $derived.by(() => {
-    const today = state.lists.filter((l) => l.due);
+    const today = todaysLists(state.lists);
     const cols: { id: string | null; name: string; person?: Person; lists: ChoreList[] }[] = people.map((p) => ({ id: p.id, name: p.name, person: p, lists: today.filter((l) => l.person === p.id) }));
     const anyone = today.filter((l) => !l.person || !people.some((p) => p.id === l.person));
     if (anyone.length > 0 || people.length === 0) cols.push({ id: null, name: 'Anyone', lists: anyone });

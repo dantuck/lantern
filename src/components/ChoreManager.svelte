@@ -1,6 +1,6 @@
 <script lang="ts">
   import ChoreListForm, { type ListFields } from './ChoreListForm.svelte';
-  import { describeSchedule, listPoints, PERIOD_LABEL, type ChoreState } from '../lib/choreTypes';
+  import { describeSchedule, hasDay, listPoints, PERIOD_LABEL, toggleDay, WEEKDAY_SHORT, type ChoreItem, type ChoreList, type ChoreState } from '../lib/choreTypes';
   import { runChores } from '../lib/choreClient';
   import type { Person } from '../lib/people';
 
@@ -21,6 +21,12 @@
     error = r.error;
     return false;
   }
+
+  /** Flips one weekday on a chore's own schedule. Turning off the last one hands it back to the list rather than hiding it forever. */
+  const flipDay = (c: ChoreItem, l: ChoreList, weekday: number) => {
+    const next = toggleDay(c.days ?? l.days, weekday);
+    return send({ action: 'item_update', id: c.id, title: c.title, points: c.points, days: next === 0 || next === l.days ? null : next });
+  };
 
   const num = (e: Event) => Number((e.currentTarget as HTMLInputElement).value) || 0;
   const text = (e: Event) => (e.currentTarget as HTMLInputElement).value.trim();
@@ -102,6 +108,17 @@
             <input class="grow" value={c.title} maxlength="80" aria-label="Chore" onchange={(e) => text(e) && send({ action: 'item_update', id: c.id, title: text(e), points: c.points })} />
             <input class="pts" type="number" min="0" max="100" value={c.points} aria-label={`Points for ${c.title}`} onchange={(e) => send({ action: 'item_update', id: c.id, title: c.title, points: num(e) })} />
             <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'item_remove', id: c.id })} aria-label={`Remove ${c.title}`}>Remove</button>
+            {#if l.onceDate === null}
+              <details class="itemdays">
+                <summary>{c.days === null ? 'Same days as the list' : describeSchedule({ days: c.days, onceDate: null })}</summary>
+                <div class="days" role="group" aria-label={`Days for ${c.title}`}>
+                  {#each WEEKDAY_SHORT as d, i (i)}
+                    <button type="button" class="chip" aria-pressed={hasDay(c.days ?? l.days, i)} disabled={busy} onclick={() => flipDay(c, l, i)}>{d}</button>
+                  {/each}
+                  {#if c.days !== null}<button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'item_update', id: c.id, title: c.title, points: c.points, days: null })}>Same as list</button>{/if}
+                </div>
+              </details>
+            {/if}
           </li>
         {/each}
       </ul>
@@ -205,6 +222,11 @@
   .asks .what { flex: 1 1 14rem; }
   .badge { display: inline-block; min-width: 1.4rem; padding: 0 .45rem; border-radius: 999px; background: var(--accent); color: #fff; font-size: .85rem; text-align: center; vertical-align: middle; }
   .rows { list-style: none; margin: 0; padding: 0; }
+  .itemdays { flex: 1 1 100%; font-size: .9rem; color: var(--muted); }
+  .itemdays summary { cursor: pointer; }
+  .itemdays .days { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0; }
+  .itemdays .chip { width: auto; margin: 0; padding: .35rem .7rem; border-radius: 999px; background: transparent; color: inherit; border: 1.5px solid var(--border); box-shadow: none; font-size: .85rem; }
+  .itemdays .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
   .rows li, form.rows { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: .5rem; }
   .rows input, .rows select { margin: 0; }
   .rows .grow { flex: 1 1 12rem; }

@@ -14,6 +14,7 @@ const id = z.string().min(1).max(64);
 const title = z.string().trim().min(1).max(80);
 const points = z.number().int().min(0).max(100);
 const person = z.string().min(1).max(64); // checked against the household's people in POST
+const itemDays = z.number().int().min(1).max(127).nullable().optional(); // weekday bitmask, or null to follow the list
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const list = {
@@ -34,10 +35,10 @@ const memberBody = z.discriminatedUnion('action', [
 
 /** What only a manager may do: everything that shapes the routines and the rewards. */
 const managerBody = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('list_save'), id: id.optional(), ...list, items: z.array(z.object({ title, points })).max(30).optional() }),
+  z.object({ action: z.literal('list_save'), id: id.optional(), ...list, items: z.array(z.object({ title, points, days: itemDays })).max(30).optional() }),
   z.object({ action: z.literal('list_remove'), id }),
-  z.object({ action: z.literal('item_add'), listId: id, title, points }),
-  z.object({ action: z.literal('item_update'), id, title, points }),
+  z.object({ action: z.literal('item_add'), listId: id, title, points, days: itemDays }),
+  z.object({ action: z.literal('item_update'), id, title, points, days: itemDays }),
   z.object({ action: z.literal('item_remove'), id }),
   z.object({ action: z.literal('reward_save'), id: id.optional(), name: z.string().trim().min(1).max(60), cost: z.number().int().min(1).max(100_000), listIds: z.array(id).max(40).nullable().optional() }),
   z.object({ action: z.literal('reward_remove'), id }),
@@ -88,8 +89,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         break;
       }
       case 'list_remove': if (!(await removeList(db, b.id))) result = 'not_found'; break;
-      case 'item_add': result = await addItem(db, b.listId, b.title, b.points); break;
-      case 'item_update': if (!(await updateItem(db, b.id, b.title, b.points))) result = 'not_found'; break;
+      case 'item_add': result = await addItem(db, b.listId, b.title, b.points, b.days ?? null); break;
+      case 'item_update': if (!(await updateItem(db, b.id, b.title, b.points, b.days))) result = 'not_found'; break;
       case 'item_remove': if (!(await removeItem(db, b.id))) result = 'not_found'; break;
       case 'reward_save': result = await saveReward(db, { name: b.name, cost: b.cost, ...(b.listIds !== undefined ? { listIds: b.listIds } : {}) }, b.id); break;
       case 'reward_remove': if (!(await removeReward(db, b.id))) result = 'not_found'; break;

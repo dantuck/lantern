@@ -77,7 +77,7 @@ describe('chore lists', () => {
     for (let i = 0; i < MAX_LISTS; i++) await saveList(db, { ...routine, name: `L${i}` }, {}, T);
     expect(await saveList(db, routine, {}, T)).toBe('limit');
     const id = (await firstList()).id;
-    for (let i = 0; i < MAX_ITEMS_PER_LIST; i++) await addItem(db, id, `c${i}`, 0, T + i);
+    for (let i = 0; i < MAX_ITEMS_PER_LIST; i++) await addItem(db, id, `c${i}`, 0, null, T + i);
     expect(await addItem(db, id, 'one too many', 0)).toBe('limit');
     expect(await addItem(db, 'nope', 'x', 0)).toBe('not_found');
   });
@@ -252,5 +252,43 @@ describe('migration 0005', () => {
     ]);
     expect(sqlite.prepare('SELECT item_id, day FROM chore_checks').all()).toEqual([{ item_id: 'a', day: '2026-10-07' }]);
     expect(sqlite.prepare("SELECT name FROM sqlite_master WHERE name IN ('chores', 'chore_done')").all()).toEqual([]);
+  });
+});
+
+describe('chore schedules inside a list', () => {
+  let db: D1Database;
+  beforeEach(() => { db = createTestDb(); });
+  const items = async (day: string) => (await choreState(db, day, false)).lists[0]!.items;
+
+  it('follows the list unless the chore has its own weekdays', async () => {
+    await saveList(db, routine, { items: [{ title: 'Brush teeth', points: 1 }, { title: 'Bins', points: 2, days: 1 << 3 }] }, T); // bins on Wednesdays
+    expect((await items(WED)).map((i) => [i.title, i.due])).toEqual([['Brush teeth', true], ['Bins', true]]);
+    expect((await items(THU)).map((i) => [i.title, i.due])).toEqual([['Brush teeth', true], ['Bins', false]]);
+  });
+  it('refuses to tick a chore on a day it is not scheduled', async () => {
+    await saveList(db, routine, { items: [{ title: 'Bins', points: 2, days: 1 << 3 }] }, T);
+    const id = (await items(WED))[0]!.id;
+    expect(await setCheck(db, id, THU, true, T)).toBe('not_due');
+    expect(await setCheck(db, id, WED, true, T)).toBe('ok');
+  });
+  it('pays the all-done bonus without the chores that are off today', async () => {
+    await saveList(db, { ...routine, bonus: 4 }, { items: [{ title: 'Teeth', points: 1 }, { title: 'Bins', points: 1, days: 1 << 3 }] }, T);
+    const [teeth] = await items(THU);
+    await setCheck(db, teeth!.id, THU, true, T);
+    expect((await choreState(db, THU, false)).balances.agnes).toBe(5); // 1 + the 4 bonus; the Wednesday-only chore is not required
+  });
+  it('edits and clears a chore\'s weekdays, and leaves them alone when not given', async () => {
+    await saveList(db, routine, { items: [{ title: 'Bins', points: 2 }] }, T);
+    const id = (await items(WED))[0]!.id;
+    await updateItem(db, id, 'Bins', 2, 1 << 2);
+    expect((await items(WED))[0]!.days).toBe(1 << 2);
+    await updateItem(db, id, 'Bins!', 2);
+    expect((await items(WED))[0]!.days).toBe(1 << 2);
+    await updateItem(db, id, 'Bins!', 2, null);
+    expect((await items(WED))[0]!.days).toBeNull();
+  });
+  it('ignores a chore\'s weekdays on a one-off list', async () => {
+    await saveList(db, { ...routine, days: 0, onceDate: THU }, { items: [{ title: 'Party', points: 1, days: 1 << 3 }] }, T);
+    expect((await items(THU))[0]!.due).toBe(true);
   });
 });

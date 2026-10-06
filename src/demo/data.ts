@@ -140,7 +140,7 @@ export function demoChores(now = Date.now()): import('../lib/choreTypes').ChoreS
   const day = dayKey(now, DEMO_TZ);
   const lists = ROUTINES.map(([name, person, period, mask, bonus, chores], li) => {
     const days = mask === 0b0100000 || mask === 0b0001000 ? 1 << weekdayOf(day) : mask; // the one-day lists are always due in the demo
-    const items = chores.map(([title, points, done], i) => ({ id: `c${li}-${i}`, title, points, done }));
+    const items = chores.map(([title, points, done], i) => ({ id: `c${li}-${i}`, title, points, done, days: null, due: true }));
     return { id: `l${li}`, name, person, period, days, onceDate: null, bonus, due: true, bonusEarned: items.every((i) => i.done), items };
   });
   const balances: Record<string, number> = { agnes: 14, margo: 31, edith: 8, gru: 3, minions: 22 };

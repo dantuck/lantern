@@ -1,5 +1,5 @@
-import { addDays } from './dates';
-import { isDue, type ChoreList, type ChoreState, type Period } from './choreTypes';
+import { addDays, weekdayOf } from './dates';
+import { isDue, itemDue, type ChoreList, type ChoreState, type Period } from './choreTypes';
 import { rewardState } from './rewards';
 
 export const MAX_LISTS = 40;
@@ -8,7 +8,7 @@ export const MAX_ITEMS_PER_LIST = 30;
 const KEEP_CHECK_DAYS = 60;
 
 interface ListRow { id: string; name: string; person: string | null; period: Period; days: number; once_date: string | null; bonus: number }
-interface ItemRow { id: string; list_id: string; title: string; points: number }
+interface ItemRow { id: string; list_id: string; title: string; points: number; days: number | null }
 
 const PERIOD_ORDER: Record<Period, number> = { morning: 0, afternoon: 1, evening: 2, any: 3 };
 
@@ -34,7 +34,7 @@ export async function choreState(db: D1Database, day: string, manager: boolean):
       id: l.id, name: l.name, person: l.person, period: l.period, days: l.days, onceDate: l.once_date, bonus: l.bonus,
       due: isDue({ days: l.days, onceDate: l.once_date }, day),
       bonusEarned: bonusPaid.has(`${l.id}:${day}`),
-      items: (itemsByList.get(l.id) ?? []).map((i) => ({ id: i.id, title: i.title, points: i.points, done: done.has(i.id) })),
+      items: (itemsByList.get(l.id) ?? []).map((i) => ({ id: i.id, title: i.title, points: i.points, done: done.has(i.id), days: i.days, due: itemDue({ days: l.days, onceDate: l.once_date }, i.days, day) })),
     }))
     .sort((a, b) => PERIOD_ORDER[a.period] - PERIOD_ORDER[b.period]); // stable, so creation order holds within a period
   return { day, manager, lists: view, ...rewards };
@@ -51,7 +51,7 @@ export interface ListInput {
 
 /** Creates a list (with optional starting chores) or, given an id, updates its settings. */
 export async function saveList(
-  db: D1Database, input: ListInput, opts: { id?: string; items?: { title: string; points: number }[] } = {}, now = Date.now(),
+  db: D1Database, input: ListInput, opts: { id?: string; items?: { title: string; points: number; days?: number | null | undefined }[] } = {}, now = Date.now(),
 ): Promise<'ok' | 'limit' | 'not_found'> {
   if (opts.id) {
     const r = await db
@@ -67,7 +67,7 @@ export async function saveList(
     .prepare('INSERT INTO chore_lists (id, name, person, period, days, once_date, bonus, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
     .bind(id, input.name, input.person, input.period, input.days, input.onceDate, input.bonus, now)
     .run();
-  for (const [i, item] of (opts.items ?? []).slice(0, MAX_ITEMS_PER_LIST).entries()) await addItem(db, id, item.title, item.points, now + i);
+  for (const [i, item] of (opts.items ?? []).slice(0, MAX_ITEMS_PER_LIST).entries()) await addItem(db, id, item.title, item.points, item.days ?? null, now + i);
   return 'ok';
 }
 
@@ -76,16 +76,19 @@ export async function removeList(db: D1Database, id: string): Promise<boolean> {
   return (r.meta.changes ?? 0) > 0;
 }
 
-export async function addItem(db: D1Database, listId: string, title: string, points: number, now = Date.now()): Promise<'ok' | 'limit' | 'not_found'> {
+export async function addItem(db: D1Database, listId: string, title: string, points: number, days: number | null = null, now = Date.now()): Promise<'ok' | 'limit' | 'not_found'> {
   if (!(await db.prepare('SELECT 1 AS x FROM chore_lists WHERE id = ?').bind(listId).first())) return 'not_found';
   const count = await db.prepare('SELECT COUNT(*) AS n FROM chore_items WHERE list_id = ?').bind(listId).first<{ n: number }>();
   if ((count?.n ?? 0) >= MAX_ITEMS_PER_LIST) return 'limit';
-  await db.prepare('INSERT INTO chore_items (id, list_id, title, points, created_at) VALUES (?, ?, ?, ?, ?)').bind(crypto.randomUUID(), listId, title, points, now).run();
+  await db.prepare('INSERT INTO chore_items (id, list_id, title, points, days, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(crypto.randomUUID(), listId, title, points, days, now).run();
   return 'ok';
 }
 
-export async function updateItem(db: D1Database, id: string, title: string, points: number): Promise<boolean> {
-  const r = await db.prepare('UPDATE chore_items SET title = ?, points = ? WHERE id = ?').bind(title, points, id).run();
+/** `days` of undefined leaves the chore's weekdays as they are; null makes it follow its list again. */
+export async function updateItem(db: D1Database, id: string, title: string, points: number, days?: number | null): Promise<boolean> {
+  const r = days === undefined
+    ? await db.prepare('UPDATE chore_items SET title = ?, points = ? WHERE id = ?').bind(title, points, id).run()
+    : await db.prepare('UPDATE chore_items SET title = ?, points = ?, days = ? WHERE id = ?').bind(title, points, days, id).run();
   return (r.meta.changes ?? 0) > 0;
 }
 
@@ -101,11 +104,11 @@ export async function removeItem(db: D1Database, id: string): Promise<boolean> {
  */
 export async function setCheck(db: D1Database, id: string, day: string, done: boolean, now = Date.now()): Promise<'ok' | 'not_found' | 'not_due'> {
   const row = await db
-    .prepare('SELECT i.title, i.points, l.id AS list_id, l.person, l.days, l.once_date, l.bonus FROM chore_items i JOIN chore_lists l ON l.id = i.list_id WHERE i.id = ?')
+    .prepare('SELECT i.title, i.points, i.days AS item_days, l.id AS list_id, l.person, l.days, l.once_date, l.bonus FROM chore_items i JOIN chore_lists l ON l.id = i.list_id WHERE i.id = ?')
     .bind(id)
-    .first<{ title: string; points: number; list_id: string; person: string | null; days: number; once_date: string | null; bonus: number }>();
+    .first<{ title: string; points: number; item_days: number | null; list_id: string; person: string | null; days: number; once_date: string | null; bonus: number }>();
   if (!row) return 'not_found';
-  if (done && !isDue({ days: row.days, onceDate: row.once_date }, day)) return 'not_due';
+  if (done && !itemDue({ days: row.days, onceDate: row.once_date }, row.item_days, day)) return 'not_due';
   const ref = `${id}:${day}`;
   if (done) {
     await db.prepare('INSERT INTO chore_checks (item_id, day, done_at) VALUES (?, ?, ?) ON CONFLICT (item_id, day) DO NOTHING').bind(id, day, now).run();
@@ -120,16 +123,16 @@ export async function setCheck(db: D1Database, id: string, day: string, done: bo
     await db.prepare('DELETE FROM chore_checks WHERE item_id = ? AND day = ?').bind(id, day).run();
     await db.prepare("DELETE FROM reward_ledger WHERE kind = 'chore' AND ref = ?").bind(ref).run();
   }
-  await syncBonus(db, row.list_id, row.person, row.bonus, day, now);
+  await syncBonus(db, row.list_id, row.person, row.bonus, row.once_date !== null, day, now);
   return 'ok';
 }
 
-/** Pays the list's completion bonus when every chore in it is ticked for `day`, and takes it back if one is un-ticked. */
-async function syncBonus(db: D1Database, listId: string, person: string | null, bonus: number, day: string, now: number) {
+/** Pays the list's completion bonus when every chore due that day is ticked for `day`, and takes it back if one is un-ticked. */
+async function syncBonus(db: D1Database, listId: string, person: string | null, bonus: number, once: boolean, day: string, now: number) {
   if (!person || bonus <= 0) return;
   const t = await db
-    .prepare('SELECT COUNT(*) AS total, COUNT(c.item_id) AS ticked FROM chore_items i LEFT JOIN chore_checks c ON c.item_id = i.id AND c.day = ? WHERE i.list_id = ?')
-    .bind(day, listId)
+    .prepare('SELECT COUNT(*) AS total, COUNT(c.item_id) AS ticked FROM chore_items i LEFT JOIN chore_checks c ON c.item_id = i.id AND c.day = ? WHERE i.list_id = ? AND (i.days IS NULL OR ? = 1 OR ((i.days >> ?) & 1) = 1)')
+    .bind(day, listId, once ? 1 : 0, weekdayOf(day))
     .first<{ total: number; ticked: number }>();
   const ref = `${listId}:${day}`;
   if (t && t.total > 0 && t.ticked === t.total) {

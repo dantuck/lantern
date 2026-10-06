@@ -1,5 +1,5 @@
 // Browser-safe. The demo has no database, so this applies the same actions as /api/chores to a copy of the state held in the page.
-import { isDue, type ChoreState } from './choreTypes';
+import { isDue, itemDue, type ChoreState } from './choreTypes';
 
 let seq = 0;
 const uid = (p: string) => `${p}-${++seq}`;
@@ -12,7 +12,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
     s.recent.unshift({ id: uid('e'), person, delta, kind, note, at: now });
     s.recent.length = Math.min(s.recent.length, 20);
   };
-  const refresh = () => { for (const l of s.lists) l.due = isDue(l, s.day); };
+  const refresh = () => { for (const l of s.lists) { l.due = isDue(l, s.day); for (const i of l.items) i.due = itemDue(l, i.days, s.day); } };
   const owner = (listId: string) => s.lists.find((l) => l.id === listId);
 
   switch (p.action) {
@@ -21,7 +21,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
         if (i.id !== p.id || i.done === p.done) continue;
         i.done = p.done;
         if (l.person && i.points > 0) log(l.person, p.done ? i.points : -i.points, 'chore', i.title);
-        const all = l.items.every((x) => x.done);
+        const all = l.items.filter((x) => x.due).every((x) => x.done);
         if (l.person && l.bonus > 0 && all !== l.bonusEarned) { l.bonusEarned = all; log(l.person, all ? l.bonus : -l.bonus, 'bonus', 'All done'); }
       }
       break;
@@ -43,7 +43,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
       const fields = { name: p.name, person: p.person, period: p.period, days: p.days, onceDate: p.onceDate, bonus: p.bonus };
       const existing = p.id ? owner(p.id) : undefined;
       if (existing) Object.assign(existing, fields);
-      else if (!p.id) s.lists.push({ id: uid('l'), ...fields, due: false, bonusEarned: false, items: (p.items ?? []).map((i: { title: string; points: number }) => ({ id: uid('c'), title: i.title, points: i.points, done: false })) });
+      else if (!p.id) s.lists.push({ id: uid('l'), ...fields, due: false, bonusEarned: false, items: (p.items ?? []).map((i: { title: string; points: number; days?: number | null }) => ({ id: uid('c'), title: i.title, points: i.points, done: false, days: i.days ?? null, due: false })) });
       refresh();
       break;
     }
@@ -51,8 +51,8 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
       s.lists = s.lists.filter((l) => l.id !== p.id);
       for (const r of s.rewards) if (r.listIds) r.listIds = r.listIds.filter((id) => id !== p.id); // a scoped reward never falls back to everyone
       break;
-    case 'item_add': owner(p.listId)?.items.push({ id: uid('c'), title: p.title, points: p.points, done: false }); break;
-    case 'item_update': for (const l of s.lists) for (const i of l.items) if (i.id === p.id) { i.title = p.title; i.points = p.points; } break;
+    case 'item_add': owner(p.listId)?.items.push({ id: uid('c'), title: p.title, points: p.points, done: false, days: p.days ?? null, due: false }); refresh(); break;
+    case 'item_update': for (const l of s.lists) for (const i of l.items) if (i.id === p.id) { i.title = p.title; i.points = p.points; if (p.days !== undefined) i.days = p.days; } refresh(); break;
     case 'item_remove': for (const l of s.lists) l.items = l.items.filter((i) => i.id !== p.id); break;
     case 'reward_save': {
       const r = p.id ? s.rewards.find((x) => x.id === p.id) : undefined;

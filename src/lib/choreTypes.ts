@@ -9,7 +9,16 @@ export const EVERY_DAY = 127;
 export const WEEKDAYS_MASK = 0b0111110; // Monday to Friday (bit 0 is Sunday)
 export const WEEKENDS_MASK = 0b1000001;
 
-export interface ChoreItem { id: string; title: string; points: number; done: boolean }
+export interface ChoreItem {
+  id: string;
+  title: string;
+  points: number;
+  done: boolean;
+  /** The chore's own weekdays (same bitmask as a list), or null to follow the list. */
+  days: number | null;
+  /** Whether it is on the schedule for `ChoreState.day`: its list is due and its own weekdays, if any, include the day. */
+  due: boolean;
+}
 export interface ChoreList {
   id: string;
   name: string;
@@ -58,6 +67,10 @@ export const hasDay = (days: number, weekday: number): boolean => ((days >> week
 export const isDue = (s: { days: number; onceDate: string | null }, day: string): boolean =>
   s.onceDate !== null ? s.onceDate === day : hasDay(s.days, weekdayOf(day));
 
+/** Whether a chore is on for `day`, given its own weekdays and its list's schedule. One-off lists ignore the chore's weekdays. */
+export const itemDue = (list: { days: number; onceDate: string | null }, itemDays: number | null, day: string): boolean =>
+  isDue(list, day) && (itemDays === null || list.onceDate !== null || hasDay(itemDays, weekdayOf(day)));
+
 /** Short weekday names from Sunday, matching the bit order of `days`. */
 export const WEEKDAY_SHORT: readonly string[] = Array.from({ length: 7 }, (_, i) => formatDay(`2023-01-0${1 + i}`, { weekday: 'short' }));
 export const toggleDay = (days: number, weekday: number): number => days ^ (1 << weekday);
@@ -72,7 +85,11 @@ export function describeSchedule(s: { days: number; onceDate: string | null }, n
   return picked.length > 0 ? picked.join(', ') : 'Never';
 }
 
-/** Points a list can earn in a day: its items plus the completion bonus. */
+/** The lists scheduled for `ChoreState.day`, each with only the chores due that day. A list whose chores are all off today is left out. */
+export const todaysLists = (lists: readonly ChoreList[]): ChoreList[] =>
+  lists.filter((l) => l.due && (l.items.length === 0 || l.items.some((i) => i.due))).map((l) => ({ ...l, items: l.items.filter((i) => i.due) }));
+
+/** The most a list can earn on one of its days: every chore (counting those with their own weekdays on their best day) plus the bonus. */
 export const listPoints = (l: Pick<ChoreList, 'items' | 'bonus'>): number => l.items.reduce((n, i) => n + i.points, 0) + l.bonus;
 
 /** Whether `person` may ask for `reward`: it is open to everyone, or one of its lists belongs to them. */
