@@ -15,7 +15,7 @@ import { createPrompter } from './lib/prompt.mjs';
 import { PRIVACY_ENV } from './lib/privacy-env.mjs';
 import { checkAccountId, checkDatabaseId, readWranglerValues } from './lib/setup-config.mjs';
 import {
-  assessLogin, authHint, backupFileName, compareVersions, diffMigrations, entriesBetween, isVersion, parseAppliedMigrations, parseChangelog,
+  assessLogin, authHint, migrationsDirProblem, backupFileName, compareVersions, diffMigrations, entriesBetween, isVersion, parseAppliedMigrations, parseChangelog,
 } from './lib/update-helpers.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -45,6 +45,8 @@ const config = existsSync(join(ROOT, 'wrangler.jsonc')) ? readWranglerValues(rea
 if (!config || /example\.com/.test(config.hostname ?? '') || checkDatabaseId(config.databaseId ?? '') || checkAccountId(config.accountId ?? '')) {
   die('this install is not set up yet (wrangler.jsonc has placeholders or no account_id). Run `npm run setup` first.');
 }
+const dirProblem = migrationsDirProblem(readFileSync(join(ROOT, 'wrangler.jsonc'), 'utf8'), ROOT);
+if (dirProblem) die(`${dirProblem} Nothing was changed.`);
 const account = config.accountId;
 const dbName = config.databaseName ?? 'family-dashboard';
 const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;

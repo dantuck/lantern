@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import {
-  assessLogin, authHint, backupFileName, checkMigrationSeal, compareVersions, diffMigrations, entriesBetween, parseAppliedMigrations,
+  assessLogin, authHint, migrationsDirProblem, backupFileName, checkMigrationSeal, compareVersions, diffMigrations, entriesBetween, parseAppliedMigrations,
   parseChangelog, sha256,
 } from '../scripts/lib/update-helpers.mjs';
 
@@ -98,5 +98,17 @@ describe('Cloudflare login check', () => {
     expect(authHint('The given account is not valid or is not authorized to access this service [code: 7403]')).toContain('wrangler whoami');
     expect(authHint('Authentication error [code: 10000]')).toContain('CLOUDFLARE_API_TOKEN');
     expect(authHint('no such table: d1_migrations')).toBeNull();
+  });
+});
+
+describe('migrations_dir in wrangler.jsonc', () => {
+  const cfg = (dir?: string) => `{\n  "d1_databases": [{\n    "binding": "DB",${dir ? `\n    "migrations_dir": "${dir}",` : ''}\n    "database_name": "x"\n  }]\n}`;
+  it('is fine when unset or when it points at the project folder', () => {
+    expect(migrationsDirProblem(cfg(), '/home/me/app')).toBeNull();
+    expect(migrationsDirProblem(cfg('migrations'), '/home/me/app')).toBeNull();
+    expect(migrationsDirProblem(cfg('./migrations'), '/home/me/app')).toBeNull();
+  });
+  it('names the folder it would really use when it points elsewhere', () => {
+    expect(migrationsDirProblem(cfg('../../migrations'), '/home/me/app')).toContain('/home/migrations');
   });
 });

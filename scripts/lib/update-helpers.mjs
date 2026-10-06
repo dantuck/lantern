@@ -1,5 +1,6 @@
 // Pure helpers for scripts/update.mjs and the migration seal. No I/O, so they can be unit-tested.
 import { createHash } from 'node:crypto';
+import { resolve } from 'node:path';
 
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/;
 
@@ -95,4 +96,18 @@ export function authHint(text) {
   return 'Cloudflare refused these credentials. Run `npx wrangler whoami` to see which account and permissions Wrangler is using. '
     + 'If CLOUDFLARE_API_TOKEN is set it overrides `npx wrangler login`: unset it, or use a token for this account with D1 Edit and Workers Scripts Edit. '
     + 'Otherwise run `npx wrangler login` and choose the account in wrangler.jsonc.';
+}
+
+/**
+ * wrangler.jsonc may set `migrations_dir` on the D1 binding, and it is read relative to that file. A wrong value (for example
+ * "../../migrations", which belongs to a generated config one level down) makes `d1 migrations apply` look in the wrong
+ * folder. Returns a message when it does not resolve to `<root>/migrations`, or null when it is unset or right.
+ */
+export function migrationsDirProblem(configText, root) {
+  const m = String(configText).match(/^\s*"migrations_dir"\s*:\s*"([^"]*)"/m);
+  if (!m) return null;
+  const target = resolve(root, m[1]);
+  if (target === resolve(root, 'migrations')) return null;
+  return `wrangler.jsonc sets migrations_dir to "${m[1]}", which points at ${target}, not this project's migrations folder. `
+    + 'Delete that line (Wrangler\'s default is the right folder) and re-run.';
 }
