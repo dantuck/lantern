@@ -8,6 +8,10 @@ just before the new code is deployed). A release that needs manual action says s
 
 ## [Unreleased]
 ### Added
+- A refreshed look with **light, dark and match-my-system** themes. The switch sits in the top bar (and on the sign-in and welcome pages); the choice is remembered in the browser, and the default follows the device.
+- The calendar page is now a full calendar with **Month, Week and Agenda** views: previous/next/today controls, a time-grid week view with overlapping events side by side, an all-day row, and a live "now" line. Clicking a day (or a week-view event) opens a detail panel with full times, durations, locations and multi-day progress, and arrows to step between days. It remembers your last view (phones start on Agenda), and `?view=week` links straight to one.
+- A public **product page** at `/welcome` (signed-out visitors to `/` land there): what the dashboard is, a preview, and the four steps to run your own copy.
+- A **demo mode** at `/demo`: the dashboard, month calendar, meal plan, devices and admin screens filled with invented sample data, so anyone can explore (and so the design can be checked without real data). It never reads your calendar, meal plan or database, and every action is switched off.
 - Setup explains what the MealQ widget needs (public hostname, read-only token) and defaults the hostname to MealQ's public API, `api-mealq.plantolive.app`; the example config uses it too.
 - Setup now walks through creating the Google service account and key at the calendar prompt, shows the service-account email to share the calendar with, and says where to find the Calendar ID. The setup guide has the same steps.
 - Setup guide section on using a subdomain: which names to pick, what DNS Cloudflare creates for you, and which email records (SPF, DKIM, DMARC) you add yourself. It recommends the dashboard's own hostname as the Resend sending domain, which scopes the mail records and sending reputation to the dashboard.
@@ -18,6 +22,7 @@ just before the new code is deployed). A release that needs manual action says s
 - Developer-tool telemetry (Astro, Wrangler) is switched off for everything the npm scripts, `setup` and `update` launch.
 
 ### Changed
+- New **warm orange** colour scheme (light and dark) that matches the MealQ icon; the app icons were regenerated to match. Reinstall the app on a phone if you want its home-screen icon to update.
 - Re-running setup can now add a widget you earlier declined (it used to be unable to bring the line back).
 - Setup suggests this computer's time zone instead of always America/New_York (UTC falls back to New York, since it says nothing about where the household is).
 - Setup suggests `login@<your hostname>` as the sender instead of guessing a parent domain (which came out wrong for domains like `example.co.uk`), and keeps your configured sender on a re-run.

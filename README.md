@@ -20,7 +20,7 @@ npm run db:migrate:local
 npm run dev                           # http://localhost:4321, runs on the real Workers runtime (workerd)
 ```
 
-Sign in at `/login`. In dev there is no email: the sign-in link is printed in the dev server output (`npx astro dev logs`).
+Open `/demo` to browse the whole UI with sample data (no sign-in, nothing real). Sign in at `/login`. In dev there is no email: the sign-in link is printed in the dev server output (`npx astro dev logs`).
 Open it in the **same browser** that requested it (links are bound to the requesting browser).
 
 | Command | What it checks |
