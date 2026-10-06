@@ -7,7 +7,19 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**.
 
 ## [Unreleased]
+### Action required
+- Chores, lists and the new on/off switches need two new database migrations (`0003_chores_lists.sql`, `0004_features.sql`): run `npm run update` (or `npm run db:migrate:remote`). Until you do, the dashboard's Chores and Lists cards say they could not load, and the on/off switches have no effect; everything else works.
+- Optional: add `people` (and `weather` for the calendar) to your `dashboard.config.ts`; see the README. Without `people` the calendar looks as before, in one colour.
+
 ### Added
+- **Turn widgets and features on or off.** Managers get a *Widgets and features* section in Admin to hide any widget from `dashboard.config.ts`, or the built-in Chores and Lists, for everyone. Hidden things disappear from the dashboard, the side bar and their pages and APIs; their data is kept. Each change is recorded in the activity log. Everything starts on. The demo's admin page has the same switches (remembered in the visitor's browser only), so the effect can be tried without signing in.
+- **People and colours.** List your household under `people` in `dashboard.config.ts`. Calendar events take the colour of whoever their title names, with filter chips to show one person's day, and the dashboard widget tints events the same way.
+- A **Day view** next to Day/Week/Month/Agenda, with one column per person, and a larger, rounder, touch-friendly calendar (the week view now opens by default).
+- **Weather** in the calendar's day headers from Open-Meteo (set `weather` with your latitude and longitude). It is off unless you configure it; the request carries only your rounded coordinates and time zone, and `api.open-meteo.com` is listed in `SECURITY.md`.
+- **Chores:** a page and dashboard card with a column per person, daily/weekly/one-off chores, big tap-to-tick buttons and progress bars that reset each morning.
+- **Lists:** shared lists (groceries, to-dos, wish lists) anyone signed in can add to, tick off and clear.
+- A **side rail** replaces the top bar on wide screens (icons with labels), and a **wall display mode** hides it, enlarges everything, goes fullscreen and keeps the screen awake.
+- Chores and lists in the demo, with the demo household's people, colours and weather.
 - A refreshed look with **light, dark and match-my-system** themes. The switch sits in the top bar (and on the sign-in and welcome pages); the choice is remembered in the browser, and the default follows the device.
 - The calendar page is now a full calendar with **Month, Week and Agenda** views: previous/next/today controls, a time-grid week view with overlapping events side by side, an all-day row, and a live "now" line. Clicking a day (or a week-view event) opens a detail panel with full times, durations, locations and multi-day progress, and arrows to step between days. It remembers your last view (phones start on Agenda), and `?view=week` links straight to one.
 - A public **product page** at `/welcome` (signed-out visitors to `/` land there): what the dashboard is, a preview, and the four steps to run your own copy.

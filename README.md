@@ -1,7 +1,7 @@
 # Family Dashboard
 
 A private, read-only dashboard for one household, installable as a PWA. Astro + Svelte on Cloudflare Workers.
-Sign-in is by emailed magic link only; **managers** invite everyone else. Widgets are plugins (Google Calendar and MealQ meal plan today).
+Sign-in is by emailed magic link only; **managers** invite everyone else. Widgets are plugins (Google Calendar and MealQ meal plan today). Built in: **people** with their own colours, **chores** and shared **lists**, and a **wall display** mode for a tablet or monitor on the kitchen wall.
 
 - Nobody can edit anything through it: the only write paths are sign-in, sign-out and manager invites.
 - No self sign-up. An address that has not been invited gets exactly the same response as one that has.
@@ -52,10 +52,30 @@ Everything runs on Cloudflare's free tier plus Resend's free tier.
    # MealQ plugin, once the API exists (docs/mealq-api-contract.md):
    npx wrangler secret put MEALQ_API_TOKEN          # a MealQ Access Token; it identifies the household
    ```
-6. **Configure widgets** in `dashboard.config.ts` (calendar `timeZone`, MealQ `apiHost`).
+6. **Configure widgets** in `dashboard.config.ts` (calendar `timeZone`, MealQ `apiHost`). Optionally list your household under `people` (see below) and add `weather` to the calendar.
 7. **Ship.** `npm run verify && npx wrangler deploy`.
 8. **First sign-in.** Open the site, enter the bootstrap address, click the emailed link. Then **delete the bootstrap secret**: `npx wrangler secret delete BOOTSTRAP_MANAGER_EMAIL`. (It only works while there are zero users, but there is no reason to keep it.)
 9. **Invite the household** from *Admin*. Run through `docs/pwa-manual-check.md` on a phone.
+
+### People, weather and chores
+
+In `dashboard.config.ts`:
+
+```ts
+people: [
+  { name: 'Gru', color: '#e8590c' },                                  // color is optional
+  { name: 'Minions', match: ['Minion', 'Kevin', 'Bob'] },             // extra words that put an event on their calendar
+],
+plugins: [
+  { id: 'calendar', config: { timeZone: 'America/Chicago', weather: { latitude: 41.88, longitude: -87.63, units: 'imperial' } } },
+]
+```
+
+An event goes on a person's calendar when their name (or a `match` word) appears in its title, such as "Ballet: Agnes"; events that name nobody are "Family". Colours, the filter chips and the **Day** view's per-person columns come from this list, and so do the columns on the **Chores** page. Only the event *title* is looked at, in the browser; nothing else about an event is read. `weather` is optional: it adds a forecast to the calendar and sends your coordinates (rounded to about 1 km) to Open-Meteo, a free service that needs no key.
+
+Chores and lists are stored in your D1 database and any signed-in member can change them, so run the new migration (`npm run update`, or `npm run db:migrate:remote`). The **wall display** button in the side bar hides the navigation, enlarges everything, goes fullscreen and asks the screen to stay awake; the choice is remembered per browser.
+
+Managers can switch any widget, and the built-in Chores and Lists, on or off under **Admin → Widgets and features**. `dashboard.config.ts` still decides which widgets exist; the switch only hides them (their data is kept).
 
 Optional second layer: put the hostname behind Cloudflare Access with an email allow-list. The app does not need it, but it costs nothing and hides the login page from strangers.
 

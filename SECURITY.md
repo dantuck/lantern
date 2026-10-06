@@ -13,6 +13,7 @@ here.
 |---|---|---|
 | `api.resend.com` | Sign-in and invite emails, from your Resend account | Recipient address and the message |
 | `oauth2.googleapis.com`, `www.googleapis.com` | Calendar widget, with your service account | A signed token request, then a read-only calendar query |
+| `api.open-meteo.com` | Forecast in the calendar's day headers, only if you set `weather` for the calendar | Your latitude and longitude, rounded to two decimals (about 1 km), and your time zone. Nothing that identifies you or the household |
 | The MealQ host you configure (default: MealQ's public API, `api-mealq.plantolive.app`) | Meal plan widget | Your MealQ access token and a date range |
 
 The browser only ever talks to your own domain: the Content Security Policy is `default-src 'none'` with
@@ -22,7 +23,7 @@ The browser only ever talks to your own domain: the Content Security Policy is `
 ## What is stored, and where
 
 All in **your** Cloudflare account: users, invites, hashed sessions and sign-in tokens (only SHA-256 digests are
-stored), rate-limit counters, a 400-day audit log, and a short cache of widget data in KV. Secrets are Worker
+stored), rate-limit counters, a 400-day audit log, the household's chores (with when each was ticked off, kept 60 days) and shared lists (any signed-in member can read and change them), which widgets a manager has switched off, and a short cache of widget data in KV. Secrets are Worker
 secrets. Nothing is copied anywhere else. Request logging (`observability`) is **off** by default; if you turn it on
 for debugging, logs live in your account and can include sign-in addresses.
 
