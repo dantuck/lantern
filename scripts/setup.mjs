@@ -12,7 +12,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  applyDashboardValues, applyWranglerValues, checkAccountId, checkEmail, defaultSender, checkHostname, checkTimeZone, cleanPath, defaultTimeZone,
+  applyDashboardValues, applyWranglerValues, checkAccountId, checkEmail, defaultSender, checkHostname, checkTimeZone, cleanPath, DEFAULT_MEALQ_HOST, defaultTimeZone,
   MIN_NODE, nodeVersionOk, normalizeHostname, parseDatabaseId, readWranglerValues,
 } from './lib/setup-config.mjs';
 import { createPrompter } from './lib/prompt.mjs';
@@ -134,7 +134,15 @@ const useMealq = await yesNo('Show the MealQ meal plan widget?');
 let mealqHost;
 let mealqToken;
 if (useMealq) {
-  mealqHost = normalizeHostname(await ask('  MealQ API hostname', { check: checkHostname }));
+  console.log(`
+  The meal-plan widget shows your household's MealQ meal plan, read-only. It needs:
+    - the MealQ API's public hostname: press Enter to use MealQ's own (${DEFAULT_MEALQ_HOST}); type another only
+      if you run your own MealQ server. No https://, port or path.
+    - a MealQ access token with read-only "mealplan:read" access. It identifies your household, so nothing else is
+      needed. It is secret: setup sends it straight to Cloudflare and keeps no copy. See docs/mealq-api-contract.md.
+  Not ready? Answer n at the previous question; re-run \`npm run setup\` later and answer y.
+`);
+  mealqHost = normalizeHostname(await ask('  MealQ API hostname (the public one, no https://)', { def: DEFAULT_MEALQ_HOST, check: checkHostname }));
   mealqToken = await ask('  MealQ access token (hidden)', { hidden: true, check: (v) => (v ? null : 'required') });
 }
 const resendKey = await ask('Resend API key, sending access only (hidden)', {

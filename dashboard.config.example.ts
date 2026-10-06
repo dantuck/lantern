@@ -12,8 +12,8 @@ export default {
   plugins: [
     // Set timeZone to your household's IANA zone, e.g. 'America/Chicago'.
     { id: 'calendar', span: 2, config: { timeZone: 'America/New_York' } },
-    // Set apiHost to the MealQ API hostname once it exposes the read endpoint (docs/mealq-api-contract.md).
-    { id: 'mealq', config: { apiHost: 'api.mealq.example', timeZone: 'America/New_York' } },
+    // apiHost is MealQ's public API (docs/mealq-api-contract.md). Change it only if you run your own MealQ server.
+    { id: 'mealq', config: { apiHost: 'api-mealq.plantolive.app', timeZone: 'America/New_York' } },
     ...(showExample ? [{ id: 'example', config: { greeting: 'Hello, family' } }] : []),
   ],
 } satisfies DashboardConfig;

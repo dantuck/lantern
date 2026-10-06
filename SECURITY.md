@@ -13,7 +13,7 @@ here.
 |---|---|---|
 | `api.resend.com` | Sign-in and invite emails, from your Resend account | Recipient address and the message |
 | `oauth2.googleapis.com`, `www.googleapis.com` | Calendar widget, with your service account | A signed token request, then a read-only calendar query |
-| The MealQ host *you* configure | Meal plan widget | Your MealQ access token and a date range |
+| The MealQ host you configure (default: MealQ's public API, `api-mealq.plantolive.app`) | Meal plan widget | Your MealQ access token and a date range |
 
 The browser only ever talks to your own domain: the Content Security Policy is `default-src 'none'` with
 `connect-src 'self'`, and the build fails if any client file references an external host

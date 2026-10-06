@@ -145,9 +145,15 @@ are not ready, answer **n** to the calendar question; you can run `npm run setup
 
 ## 5. Optional: MealQ widget
 
-The meal-plan widget needs MealQ's API to provide a read-only endpoint and a token that identifies your household.
-Both are described in [`mealq-api-contract.md`](mealq-api-contract.md). You will need the API hostname and an
-access token. Skip it if you do not use MealQ.
+The meal-plan widget shows your household's MealQ meal plan, read-only. You need:
+
+- **The MealQ API hostname.** Setup defaults to MealQ's own public API (`api-mealq.plantolive.app`), so press Enter
+  unless you run your own MealQ server. Type it bare, with no `https://`, port or path.
+- **A MealQ access token** with read-only `mealplan:read` access to your household. It identifies the household,
+  so no other id is needed. It is a secret: setup sends it straight to Cloudflare and keeps no copy. What the token
+  must allow, and what the dashboard asks of MealQ, is in [`mealq-api-contract.md`](mealq-api-contract.md).
+
+Skip this step if you do not use MealQ: answer **n** at the question, and run `npm run setup` again later to add it.
 
 ## 6. Run the setup
 

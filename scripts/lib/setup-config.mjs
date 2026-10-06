@@ -57,6 +57,9 @@ export function cleanPath(raw, home = '') {
   return p;
 }
 
+/** MealQ's public API. The default for the widget; only a household that self-hosts MealQ needs a different one. */
+export const DEFAULT_MEALQ_HOST = 'api-mealq.plantolive.app';
+
 export const FALLBACK_TIME_ZONE = 'America/New_York';
 
 /**

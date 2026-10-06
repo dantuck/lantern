@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  applyDashboardValues, applyWranglerValues, checkAccountId, cleanPath, defaultSender, defaultTimeZone, checkEmail, checkHostname, checkTimeZone,
+  applyDashboardValues, applyWranglerValues, checkAccountId, cleanPath, DEFAULT_MEALQ_HOST, defaultSender, defaultTimeZone, checkEmail, checkHostname, checkTimeZone,
   nodeVersionOk, parseDatabaseId, readWranglerValues,
 } from '../scripts/lib/setup-config.mjs';
 
@@ -49,6 +49,11 @@ describe('setup input checks', () => {
     for (const useless of ['UTC', 'utc', 'Etc/UTC', 'GMT', 'Etc/GMT+7', '', undefined, 'Not/AZone']) {
       expect(defaultTimeZone(useless), String(useless)).toBe('America/New_York');
     }
+  });
+  it("defaults the MealQ host to MealQ's public API, and the shipped example config agrees", () => {
+    expect(DEFAULT_MEALQ_HOST).toBe('api-mealq.plantolive.app');
+    expect(checkHostname(DEFAULT_MEALQ_HOST)).toBeNull(); // setup would accept its own default
+    expect(dashboard).toContain(`apiHost: '${DEFAULT_MEALQ_HOST}'`);
   });
   it('cleans pasted and dragged paths', () => {
     expect(cleanPath('  /Users/me/key.json  ')).toBe('/Users/me/key.json');
@@ -112,7 +117,7 @@ describe('dashboard.config.ts edits', () => {
     const noMealq = applyDashboardValues(dashboard, { timeZone: 'America/Chicago', useCalendar: true, useMealq: false }, dashboard);
     const again = applyDashboardValues(noMealq, { timeZone: 'America/Chicago', useCalendar: true, useMealq: true, mealqHost: 'api.mealq.app' }, dashboard);
     expect(again).toContain("apiHost: 'api.mealq.app'");
-    expect(again).not.toContain('api.mealq.example');
+    expect(again).not.toContain(`apiHost: '${DEFAULT_MEALQ_HOST}'`);
   });
   it('drops widgets the household does not use', () => {
     const out = applyDashboardValues(dashboard, { timeZone: 'America/Chicago', useCalendar: false, useMealq: false });
