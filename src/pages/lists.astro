@@ -1,0 +1,16 @@
+---
+import { env } from 'cloudflare:workers';
+import Base from '../layouts/Base.astro';
+import Lists from '../components/Lists.svelte';
+import { getLists } from '../lib/lists';
+import { isOn } from '../lib/features';
+
+if (!isOn(Astro.locals.disabled, 'lists')) return new Response('Not found', { status: 404 });
+
+const lists = await getLists(env.DB);
+---
+<Base title="Lists" wide>
+  <h1>Lists</h1>
+  <p>Shared by everyone in the household.</p>
+  <Lists client:load initial={lists} />
+</Base>

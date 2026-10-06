@@ -3,7 +3,9 @@ import Base from '../../layouts/Base.astro';
 import PluginCard from '../../components/PluginCard.astro';
 import CalendarWidget from '../../plugins/calendar/Widget.astro';
 import MealsWidget from '../../plugins/mealq/Widget.astro';
-import { demoCalendar, demoCalendarConfig, demoMeals, demoMealsConfig } from '../../demo/data';
+import ChoresCard from '../../components/ChoresCard.astro';
+import ListsCard from '../../components/ListsCard.astro';
+import { demoCalendar, demoCalendarConfig, demoChores, demoLists, demoMeals, demoMealsConfig, demoPeople } from '../../demo/data';
 
 const now = Date.now();
 ---
@@ -11,10 +13,12 @@ const now = Date.now();
   <h1>The Gru household</h1>
   <div class="grid">
     <PluginCard id="calendar" name="Calendar" icon="calendar" span={2} href="/demo/calendar">
-      <CalendarWidget data={demoCalendar(now)} config={demoCalendarConfig} moreHref="/demo/calendar" />
+      <CalendarWidget data={demoCalendar(now)} config={demoCalendarConfig} moreHref="/demo/calendar" people={demoPeople} />
     </PluginCard>
     <PluginCard id="mealq" name="Meal plan" icon="/icons/mealq.png" href="/demo/meals">
       <MealsWidget data={demoMeals(now)} config={demoMealsConfig} />
     </PluginCard>
+    <ChoresCard state={demoChores(now)} people={demoPeople} href="/demo/chores" />
+    <ListsCard lists={demoLists()} href="/demo/lists" />
   </div>
 </Base>

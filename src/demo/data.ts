@@ -1,7 +1,9 @@
 // Fixture data for /demo. Everything here is invented; nothing is fetched, stored, or tied to a real household.
 // Dates are relative to "now" so the demo always looks current. The demo runs in UTC so "today" matches its clock times.
-import { DAY_MS, addDays, dayKey, startOfDayMs } from '../lib/dates';
+import { DAY_MS, addDays, dayKey, startOfDayMs, weekdayOf } from '../lib/dates';
 import type { CalEvent, CalendarData } from '../plugins/calendar/types';
+import type { WeatherData } from '../plugins/calendar/weatherView';
+import { parsePeople } from '../lib/peopleConfig';
 import type { MealPlanData, Slot } from '../plugins/mealq/client';
 
 export const DEMO_TZ = 'UTC';
@@ -59,7 +61,26 @@ export function demoCalendar(now = Date.now()): CalendarData {
   });
   // Like the live widget, the window starts on the 1st of the month so the month grid has its earlier days.
   const windowStart = startOfDayMs(`${today.slice(0, 8)}01`, DEMO_TZ);
-  return { events, windowStart, windowEnd: now + 60 * DAY_MS };
+  return { events, windowStart, windowEnd: now + 60 * DAY_MS, weather: demoWeather(now) };
+}
+
+/** The invented household. `match` words pick whose colour an event gets from its title. */
+export const demoPeople = parsePeople([
+  { name: 'Gru', color: '#e8590c' },
+  { name: 'Lucy', color: '#ae3ec9' },
+  { name: 'Margo', color: '#1c7ed6' },
+  { name: 'Edith', color: '#d6336c' },
+  { name: 'Agnes', color: '#2f9e44' },
+  { name: 'Minions', color: '#f08c00', match: ['Minion', 'Minions', 'Kevin', 'Bob', 'Stuart'] },
+]);
+
+// [weather code, high, low] cycled across the next 16 days (°F).
+const WX: [number, number, number][] = [[0, 78, 58], [2, 75, 57], [3, 70, 55], [61, 66, 52], [80, 64, 51], [1, 72, 54], [0, 80, 60], [95, 73, 59], [71, 34, 24], [45, 62, 50]];
+function demoWeather(now: number): WeatherData {
+  const today = dayKey(now, DEMO_TZ);
+  const days: WeatherData['days'] = {};
+  for (let i = 0; i < 16; i++) { const [code, hi, lo] = WX[i % WX.length]!; days[addDays(today, i)] = { code, hi, lo }; }
+  return { unit: 'F', days };
 }
 
 const DINNERS = ['Banana pancakes', 'Taco night', 'Baked salmon & rice', 'Spaghetti (Bob’s favourite)', 'Homemade pizza', 'Chicken soup & bread', 'Grilled burgers'];
@@ -101,3 +122,42 @@ export const demoAudit = [
   { when: 'Mon, 9:15 AM', who: 'gru@example.com', event: 'disable_user', detail: 'kevin (borrowed the iPad again)' },
   { when: 'Last week', who: 'system', event: 'login_blocked', detail: 'rate limit' },
 ];
+
+// --- Chores and lists -------------------------------------------------------
+
+/** [person id or null, title, repeat, weekday (0 = Sunday) or date offset, ticked off already] */
+const CHORES: [string | null, string, 'daily' | 'weekly' | 'once', number, boolean][] = [
+  ['agnes', 'Make your bed', 'daily', 0, true],
+  ['agnes', 'Feed Fluffy', 'daily', 0, false],
+  ['agnes', 'Ballet bag by the door', 'weekly', -1, false],
+  ['margo', 'Walk the dog', 'daily', 0, true],
+  ['margo', 'Homework', 'daily', 0, false],
+  ['margo', 'Empty the dishwasher', 'daily', 0, false],
+  ['edith', 'Tidy the lab bench', 'daily', 0, false],
+  ['edith', 'Practice swimming', 'once', 0, false],
+  ['gru', 'Take out the trash', 'weekly', -1, false],
+  ['gru', 'Rocket repairs', 'once', 0, false],
+  ['minions', 'Peel the bananas', 'daily', 0, true],
+  ['minions', 'Sweep the lair', 'daily', 0, false],
+  [null, 'Water the plants', 'daily', 0, false],
+];
+
+export function demoChores(now = Date.now()): import('../lib/chores').ChoreState {
+  const day = dayKey(now, DEMO_TZ);
+  const all = CHORES.map(([person, title, repeat, n], i) => ({
+    id: `c${i}`, title, person, repeat,
+    weekday: repeat === 'weekly' ? weekdayOf(day) : null,
+    dueDate: repeat === 'once' ? addDays(day, n) : null,
+  }));
+  const today = all.map((c, i) => ({ ...c, done: CHORES[i]![4] }));
+  return { day, all, today };
+}
+
+export function demoLists(): import('../lib/lists').HList[] {
+  const items = (...t: [string, boolean?][]) => t.map(([text, done], i) => ({ id: `i${i}-${text}`, text, done: !!done }));
+  return [
+    { id: 'groceries', name: 'Groceries', items: items(['Bananas (lots)'], ['Milk'], ['Pancake mix'], ['Dog food', true], ['Unicorn sprinkles']) },
+    { id: 'todo', name: 'Home to-dos', items: items(['Fix the freeze ray'], ['Book the vet'], ['Return library books', true]) },
+    { id: 'wishes', name: 'Wish list', items: items(['Bigger rocket'], ['A pet unicorn'], ['Matching pajamas']) },
+  ];
+}

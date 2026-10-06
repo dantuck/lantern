@@ -1,14 +1,25 @@
 ---
 import Base from '../layouts/Base.astro';
 import PluginSlot from '../components/PluginSlot.astro';
+import ChoresCard from '../components/ChoresCard.astro';
+import ListsCard from '../components/ListsCard.astro';
 import { registry } from '../plugins/registry';
+import { isOn } from '../lib/features';
 import dashboard from '../../dashboard.config';
+
+// Managers can switch widgets and built-ins off from the Admin page (src/lib/features.ts).
+const disabled = Astro.locals.disabled;
+const plugins = registry.enabled.filter((p) => isOn(disabled, p.def.id));
+const chores = isOn(disabled, 'chores');
+const lists = isOn(disabled, 'lists');
 ---
 <Base title={dashboard.title} wide>
   <h1>{dashboard.title}</h1>
-  {registry.enabled.length === 0 && <p class="muted">No widgets are enabled yet.</p>}
+  {plugins.length === 0 && !chores && !lists && <p class="muted">Nothing is switched on yet. A manager can turn widgets on in Admin.</p>}
   <div class="grid">
     {/* Each slot is an async component, so Astro streams fast widgets before slow ones finish. */}
-    {registry.enabled.map((plugin) => <PluginSlot plugin={plugin} />)}
+    {plugins.map((plugin) => <PluginSlot plugin={plugin} />)}
+    {chores && <ChoresCard />}
+    {lists && <ListsCard />}
   </div>
 </Base>

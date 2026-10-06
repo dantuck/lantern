@@ -1,0 +1,34 @@
+---
+import { env } from 'cloudflare:workers';
+import Icon from './Icon.astro';
+import { getLists, type HList } from '../lib/lists';
+
+interface Props { lists?: HList[]; href?: string }
+const { lists: given, href = '/lists' } = Astro.props;
+let lists = given;
+if (!lists) {
+  try { lists = await getLists(env.DB); }
+  catch (e) { console.error('lists card: could not read lists:', e instanceof Error ? e.message : 'unknown'); }
+}
+---
+<section class="card plugin" data-plugin="lists">
+  <header class="plugin-head">
+    <h2><Icon name="list" /> Lists</h2>
+    <a href={href} class="muted">Open</a>
+  </header>
+  {!lists ? <p class="muted">Lists couldn't load. Run the database migrations (<code>npm run update</code>).</p>
+  : lists.length === 0 ? <p class="muted">No lists yet. <a href={href}>Start one</a>.</p>
+  : (
+    <ul class="mini plain">
+      {lists.map((l) => {
+        const open = l.items.filter((i) => !i.done);
+        return (
+          <li>
+            <a class="mini-name" href={href}>{l.name}</a>
+            <span class="muted">{open.length === 0 ? 'All done' : `${open.length} to go`}{open.length > 0 && <>: {open.slice(0, 2).map((i) => i.text).join(', ')}{open.length > 2 ? '…' : ''}</>}</span>
+          </li>
+        );
+      })}
+    </ul>
+  )}
+</section>

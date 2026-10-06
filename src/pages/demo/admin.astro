@@ -1,9 +1,15 @@
 ---
 import Base from '../../layouts/Base.astro';
+import DemoFeatures from '../../components/DemoFeatures.svelte';
 import { demoAudit, demoUsers } from '../../demo/data';
 ---
 <Base title="Admin · Demo" wide demo>
   <h1>Household admin</h1>
+
+  <section class="card">
+    <h2>Widgets and features</h2>
+    <DemoFeatures client:load />
+  </section>
 
   <section class="card">
     <h2>Invite someone</h2>

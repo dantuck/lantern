@@ -14,8 +14,8 @@
   --ring: color-mix(in srgb, var(--accent) 45%, transparent);
   --shadow-sm: 0 1px 2px rgb(29 24 19 / .05), 0 1px 1px rgb(29 24 19 / .03);
   --shadow-md: 0 1px 2px rgb(29 24 19 / .04), 0 8px 24px -8px rgb(29 24 19 / .12);
-  --radius: 16px;
-  --radius-sm: 10px;
+  --radius: 22px;
+  --radius-sm: 14px;
   --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
 /* Theme: follows the system unless the visitor picked one (html[data-theme], set by /theme-init.js). */
@@ -52,15 +52,16 @@
 
 /* Base --------------------------------------------------------------------- */
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; font-size: 100%; }
 body {
   margin: 0; min-height: 100dvh;
-  font: 16px/1.5 var(--font); letter-spacing: -.005em;
+  font: 1rem/1.5 var(--font); letter-spacing: -.005em;
   background: var(--bg); color: var(--fg);
   -webkit-font-smoothing: antialiased;
 }
 main { max-width: 28rem; margin: 0 auto; padding: 4rem 1rem; }
 main.wide { max-width: 68rem; padding: 2rem 1.25rem 4rem; }
+main.full { max-width: none; }
 main.narrow-center { min-height: calc(100dvh - 8rem); display: grid; align-content: center; }
 h1 { font-size: 1.75rem; line-height: 1.2; font-weight: 700; letter-spacing: -.03em; margin: 0 0 .5rem; }
 main.wide > h1 { margin-bottom: 1.5rem; }
@@ -137,6 +138,45 @@ button.ghost:hover:not(:disabled) { background: var(--card-2); filter: none; }
 .nav button.link:hover { background: var(--card-2); }
 @media (max-width: 40rem) { .nav { padding-inline: .75rem; gap: 0; } .nav a { padding: .35rem .6rem; font-size: .9rem; } .nav .brand { margin-right: .25rem; } .nav .theme { margin-left: auto; } }
 
+/* Side rail: on wide screens the top bar becomes an icon rail down the left, like a wall calendar's sidebar. */
+.nav a .icon { display: none; }
+.nav .plain-link { white-space: nowrap; }
+.wall-exit { display: none; }
+@media (min-width: 56rem) {
+  body.has-rail { padding-left: 6.5rem; }
+  body.has-rail .nav {
+    position: fixed; inset: 0 auto 0 0; width: 6.5rem; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: .35rem;
+    padding: 1rem .6rem; padding-top: max(1rem, env(safe-area-inset-top)); overflow-y: auto;
+    border-bottom: 0; border-right: 1px solid var(--border); background: var(--card);
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  body.has-rail .nav .brand { justify-content: center; margin: 0 0 .75rem; }
+  body.has-rail .nav .brand img { width: 2.4rem; height: 2.4rem; }
+  body.has-rail .nav a:not(.brand), body.has-rail .nav button.link {
+    display: flex; flex-direction: column; align-items: center; gap: .3rem; padding: .7rem .2rem; border-radius: 18px; font-size: .74rem; font-weight: 600; text-align: center; line-height: 1.15;
+  }
+  body.has-rail .nav a .icon { display: block; width: 1.6rem; height: 1.6rem; }
+  body.has-rail .nav a .icon-img { width: 1.9rem; height: 1.9rem; }
+  body.has-rail .nav .spacer { flex: 1 0 1rem; }
+  body.has-rail .nav .theme { margin: 0 auto; width: 2.75rem; height: 2.75rem; }
+  body.has-rail .nav form { display: flex; justify-content: stretch; }
+  body.has-rail .nav form button.link { width: 100%; }
+  body.has-rail .demo-banner { margin-left: -6.5rem; padding-left: 7.5rem; }
+}
+
+/* Wall display: no rail, everything larger, calendar fills the screen. */
+html[data-wall] { font-size: 125%; }
+@media (min-width: 90rem) { html[data-wall] { font-size: 150%; } }
+html[data-wall] body.has-rail { padding-left: 0; }
+html[data-wall] .nav, html[data-wall] .demo-banner { display: none; }
+html[data-wall] main.wide { max-width: none; padding: 1rem 1.25rem 2rem; }
+html[data-wall] main.wide > h1 { display: none; }
+html[data-wall] .wall-exit {
+  display: grid; place-items: center; position: fixed; right: max(.75rem, env(safe-area-inset-right)); bottom: max(.75rem, env(safe-area-inset-bottom)); z-index: 30;
+  width: 3rem; height: 3rem; margin: 0; padding: 0; border-radius: 50%; background: var(--card); color: var(--muted); border: 1px solid var(--border); box-shadow: var(--shadow-md); opacity: .55;
+}
+html[data-wall] .wall-exit:hover { opacity: 1; filter: none; }
+
 /* Tables ------------------------------------------------------------------- */
 table { width: 100%; border-collapse: collapse; font-size: .93rem; }
 th, td { text-align: left; padding: .65rem .6rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
@@ -165,6 +205,17 @@ td .actions { display: flex; gap: .4rem; justify-content: flex-end; flex-wrap: w
 .plugin h3 { margin: .25rem 0; font-size: 1.15rem; letter-spacing: -.02em; }
 .clock { font-size: 2.5rem; font-weight: 600; letter-spacing: -.04em; font-variant-numeric: tabular-nums; margin: .25rem 0; color: var(--fg); }
 
+/* Compact summaries on the dashboard (chores, lists) */
+.mini { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
+.mini li { display: grid; grid-template-columns: 5.5rem 1fr auto; align-items: center; gap: .75rem; }
+.mini.plain li { grid-template-columns: 1fr; gap: 0; }
+.mini-name { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini.plain .mini-name { text-decoration: none; color: var(--fg); }
+.mini-bar { height: .55rem; border-radius: 999px; background: var(--card-2); overflow: hidden; }
+.mini-bar span { display: block; height: 100%; border-radius: inherit; background: var(--c); }
+.mini-n { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .9rem; font-weight: 600; }
+.agenda li.tinted { border-left: 4px solid var(--c, var(--accent)); padding-left: .75rem; }
+
 /* Agenda lists (calendar + meals) ------------------------------------------ */
 .agenda-day + .agenda-day { margin-top: 1.25rem; }
 .agenda-day h3 { font-size: .72rem; font-weight: 650; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0 0 .4rem; }
@@ -182,7 +233,27 @@ td .actions { display: flex; gap: .4rem; justify-content: flex-end; flex-wrap: w
 .theme:hover { background: var(--card-2); color: var(--fg); filter: none; }
 .theme .icon { grid-area: 1 / 1; width: 1.1rem; height: 1.1rem; display: none; }
 .theme[data-state="system"] .i-system, .theme[data-state="light"] .i-light, .theme[data-state="dark"] .i-dark { display: block; }
+.theme.wall-on .icon { display: block; }
 .theme-float { position: fixed; top: max(.75rem, env(safe-area-inset-top)); right: .75rem; z-index: 20; }
+
+/* Demo only: the admin page's switches hide features by setting data-demo-off on <html> (src/lib/demoFeatures.ts). */
+html[data-demo-off~="calendar"] [data-plugin="calendar"],
+html[data-demo-off~="calendar"] a[data-feature="calendar"],
+html[data-demo-off~="calendar"] main[data-feature="calendar"] > :not(.feature-off, [data-demo-back]),
+html[data-demo-off~="mealq"] [data-plugin="mealq"],
+html[data-demo-off~="mealq"] a[data-feature="mealq"],
+html[data-demo-off~="mealq"] main[data-feature="mealq"] > :not(.feature-off, [data-demo-back]),
+html[data-demo-off~="chores"] [data-plugin="chores"],
+html[data-demo-off~="chores"] a[data-feature="chores"],
+html[data-demo-off~="chores"] main[data-feature="chores"] > :not(.feature-off, [data-demo-back]),
+html[data-demo-off~="lists"] [data-plugin="lists"],
+html[data-demo-off~="lists"] a[data-feature="lists"],
+html[data-demo-off~="lists"] main[data-feature="lists"] > :not(.feature-off, [data-demo-back]) { display: none !important; }
+.feature-off { display: none; }
+html[data-demo-off~="calendar"] main[data-feature="calendar"] > .feature-off,
+html[data-demo-off~="mealq"] main[data-feature="mealq"] > .feature-off,
+html[data-demo-off~="chores"] main[data-feature="chores"] > .feature-off,
+html[data-demo-off~="lists"] main[data-feature="lists"] > .feature-off { display: flex; }
 
 /* Demo mode ---------------------------------------------------------------- */
 .demo-banner { display: flex; gap: .6rem 1rem; align-items: center; justify-content: center; flex-wrap: wrap; padding: .5rem 1rem;

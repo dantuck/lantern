@@ -5,6 +5,8 @@ import { env } from 'cloudflare:workers';
 import { listUsers, listPendingInvites } from '../../lib/auth/users';
 import { listAllSessions, listAudit } from '../../lib/auth/admin';
 import { flashFor } from '../../lib/messages';
+import { BUILT_IN_FEATURES } from '../../lib/features';
+import { registry } from '../../plugins/registry';
 
 const me = Astro.locals.user!;
 const [users, invites, devices, audit] = await Promise.all([
@@ -12,10 +14,38 @@ const [users, invites, devices, audit] = await Promise.all([
 ]);
 const flash = flashFor(Astro.url.searchParams.get('msg'));
 const currentHash = Astro.locals.session!.idHash;
+const off = Astro.locals.disabled ?? new Set<string>();
+// Plugins come from dashboard.config.ts (what is installed); managers choose which of them, and which built-ins, are shown.
+const features = [
+  ...registry.enabled.map((p) => ({ id: p.def.id, name: p.def.name, kind: 'Widget' })),
+  ...BUILT_IN_FEATURES.map((f) => ({ id: f.id, name: f.name, kind: 'Built in' })),
+];
 ---
 <Base title="Admin" wide>
   <h1>Household admin</h1>
   {flash && <div class={`notice ${flash.ok ? '' : 'error'}`} role="status">{flash.text}</div>}
+
+  <section class="card">
+    <h2>Widgets and features</h2>
+    <table>
+      <thead><tr><th>Name</th><th>Type</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {features.map((f) => (
+          <tr>
+            <td>{f.name}</td>
+            <td><span class="badge">{f.kind}</span></td>
+            <td>{off.has(f.id) ? <span class="muted">off</span> : 'on'}</td>
+            <td><div class="actions"><form method="post" action="/admin/action">
+              <input type="hidden" name="action" value="set_feature" /><input type="hidden" name="id" value={f.id} />
+              <input type="hidden" name="enabled" value={off.has(f.id) ? '1' : '0'} />
+              <button class={off.has(f.id) ? 'ghost' : 'danger'} type="submit" aria-label={`${off.has(f.id) ? 'Turn on' : 'Turn off'} ${f.name}`}>{off.has(f.id) ? 'Turn on' : 'Turn off'}</button>
+            </form></div></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <p class="muted hint">Turning something off hides it from everyone; its data is kept. Which widgets exist at all is set in <code>dashboard.config.ts</code>.</p>
+  </section>
 
   <section class="card">
     <h2>Invite someone</h2>

@@ -1,0 +1,11 @@
+---
+import Icon from './Icon.astro';
+// Wall-display mode: hides the side bar, enlarges everything, goes fullscreen and keeps the screen awake.
+// Behaviour lives in src/scripts/wall.ts. With `exit`, this is the small floating button shown only while the mode is on.
+interface Props { exit?: boolean }
+const { exit = false } = Astro.props;
+---
+<button type="button" class={exit ? 'wall-exit' : 'theme wall-on'} data-wall-toggle aria-pressed="false"
+  aria-label={exit ? 'Leave wall display mode' : 'Wall display mode'} title={exit ? 'Leave wall display' : 'Wall display'}>
+  <Icon name={exit ? 'minimize' : 'maximize'} />
+</button>

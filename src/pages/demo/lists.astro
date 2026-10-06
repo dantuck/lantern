@@ -1,0 +1,12 @@
+---
+import DemoBack from '../../components/DemoBack.astro';
+import Base from '../../layouts/Base.astro';
+import Lists from '../../components/Lists.svelte';
+import { demoLists } from '../../demo/data';
+---
+<Base title="Lists · Demo" wide demo feature="lists">
+  <DemoBack />
+  <h1>Lists</h1>
+  <p>Add, tick and remove things. In the demo nothing is saved.</p>
+  <Lists client:load initial={demoLists()} demo />
+</Base>

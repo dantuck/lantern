@@ -6,6 +6,8 @@ import { LIMITS, hit } from '../../lib/rateLimit';
 import { inviteEmail, selectMailer } from '../../lib/mailer';
 import { safeAppOrigin } from '../../lib/origin';
 import { readForm } from '../../lib/http';
+import { setFeature, switchableIds } from '../../lib/features';
+import { registry } from '../../plugins/registry';
 import type { FlashCode } from '../../lib/messages';
 
 const asRole = (v: string): Role | null => (v === 'manager' || v === 'member' ? v : null);
@@ -49,6 +51,12 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       const disabled = s('disabled') === '1';
       const r = await updateUser(db, me, s('id'), { disabled });
       msg = r.ok ? (disabled ? 'user_disabled' : 'user_enabled') : r.error;
+      break;
+    }
+    case 'set_feature': {
+      const enabled = s('enabled') === '1';
+      const ok = await setFeature(db, me, switchableIds(registry.enabled.map((p) => p.def.id)), s('id'), enabled);
+      msg = ok ? (enabled ? 'feature_enabled' : 'feature_disabled') : 'not_found';
       break;
     }
     case 'revoke_session':

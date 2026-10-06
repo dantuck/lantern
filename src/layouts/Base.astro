@@ -1,21 +1,29 @@
 ---
 import '../styles/global.css';
 import ThemeToggle from '../components/ThemeToggle.astro';
+import Icon from '../components/Icon.astro';
+import WallToggle from '../components/WallToggle.astro';
 import { registry } from '../plugins/registry';
-interface Props { title?: string; wide?: boolean; bare?: boolean; description?: string; demo?: boolean }
-const { title = 'Family Dashboard', wide = false, bare = false, description, demo = false } = Astro.props;
+import { isOn } from '../lib/features';
+// `full` lets a page (the calendar) use the whole width of a wall display instead of the usual reading width.
+interface Props { title?: string; wide?: boolean; full?: boolean; bare?: boolean; description?: string; demo?: boolean; feature?: string }
+const { title = 'Family Dashboard', wide = false, full = false, bare = false, description, demo = false, feature } = Astro.props;
 const user = Astro.locals.user;
 const path = Astro.url.pathname;
 const current = (href: string) => (path === href ? 'page' : undefined);
 // One top-bar link per enabled plugin, so each widget's full page (/p/<id>) is a click away.
-const pluginLinks = registry.enabled.map((p) => ({ href: `/p/${p.def.id}`, label: p.def.name }));
+const off = Astro.locals.disabled;
+const pluginLinks = registry.enabled.filter((p) => isOn(off, p.def.id)).map((p) => ({ href: `/p/${p.def.id}`, label: p.def.name, icon: p.def.icon }));
 const demoLinks = [
-  { href: '/demo', label: 'Dashboard' },
-  { href: '/demo/calendar', label: 'Calendar' },
-  { href: '/demo/meals', label: 'Meals' },
-  { href: '/demo/devices', label: 'Devices' },
-  { href: '/demo/admin', label: 'Admin' },
+  { href: '/demo', label: 'Dashboard', icon: 'home' },
+  { href: '/demo/calendar', label: 'Calendar', icon: 'calendar', feature: 'calendar' },
+  { href: '/demo/chores', label: 'Chores', icon: 'check-circle', feature: 'chores' },
+  { href: '/demo/lists', label: 'Lists', icon: 'list', feature: 'lists' },
+  { href: '/demo/meals', label: 'Meals', icon: '/icons/mealq.png', feature: 'mealq' },
+  { href: '/demo/devices', label: 'Devices', icon: 'smartphone' },
+  { href: '/demo/admin', label: 'Admin', icon: 'shield' },
 ];
+const hasRail = demo || !!user;
 ---
 <!doctype html>
 <html lang="en">
@@ -34,7 +42,7 @@ const demoLinks = [
     <script is:inline src="/theme-init.js"></script>
     <title>{title}</title>
   </head>
-  <body>
+  <body class={hasRail ? 'has-rail' : undefined}>
     {demo && (
       <div class="demo-banner" role="note">
         <span>Demo with sample data. Nothing here is real.</span>
@@ -44,29 +52,40 @@ const demoLinks = [
     {demo ? (
       <nav class="nav" aria-label="Demo">
         <a class="brand" href="/demo" aria-label="Demo home"><img src="/favicon.svg" alt="" width="28" height="28" /></a>
-        {demoLinks.map((l) => <a href={l.href} aria-current={current(l.href)}>{l.label}</a>)}
+        {demoLinks.map((l) => <a href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}
         <span class="spacer"></span>
+        <WallToggle />
         <ThemeToggle />
-        <a href={user ? '/' : '/welcome'}>{user ? 'Exit demo' : 'Back to site'}</a>
+        <a class="plain-link" href={user ? '/' : '/welcome'}>{user ? 'Exit demo' : 'Back to site'}</a>
       </nav>
     ) : user ? (
       <nav class="nav">
         <a class="brand" href="/" aria-label="Family Dashboard home"><img src="/favicon.svg" alt="" width="28" height="28" /></a>
-        <a href="/" aria-current={current('/')}>Dashboard</a>
-        {pluginLinks.map((l) => <a href={l.href} aria-current={current(l.href)}>{l.label}</a>)}
-        <a href="/devices" aria-current={current('/devices')}>Devices</a>
-        {user.role === 'manager' && <a href="/admin" aria-current={current('/admin')}>Admin</a>}
+        <a href="/" aria-current={current('/')}><Icon name="home" /><span>Dashboard</span></a>
+        {pluginLinks.map((l) => <a href={l.href} aria-current={current(l.href)}><Icon name={l.icon} /><span>{l.label}</span></a>)}
+        {isOn(off, 'chores') && <a href="/chores" aria-current={current('/chores')}><Icon name="check-circle" /><span>Chores</span></a>}
+        {isOn(off, 'lists') && <a href="/lists" aria-current={current('/lists')}><Icon name="list" /><span>Lists</span></a>}
+        <a href="/devices" aria-current={current('/devices')}><Icon name="smartphone" /><span>Devices</span></a>
+        {user.role === 'manager' && <a href="/admin" aria-current={current('/admin')}><Icon name="shield" /><span>Admin</span></a>}
         <span class="spacer"></span>
         <button id="install-app" class="link" type="button" hidden>Install app</button>
+        <WallToggle />
         <ThemeToggle />
         <form method="post" action="/auth/logout"><button class="link" type="submit">Sign out</button></form>
       </nav>
     ) : !bare && (
       <div class="theme-float"><ThemeToggle /></div>
     )}
-    {bare ? <slot /> : <main class={wide ? 'wide' : 'narrow-center'}><slot /></main>}
+    {hasRail && <WallToggle exit />}
+    {bare ? <slot /> : (
+      <main class={full ? 'wide full' : wide ? 'wide' : 'narrow-center'} data-feature={feature}>
+        {demo && feature && <p class="feature-off notice" data-feature-off={feature}><span>This is switched off in the demo's admin page. <a href="/demo/admin">Turn it back on</a>.</span></p>}
+        <slot />
+      </main>
+    )}
     <script>
       import '../scripts/theme';
+      import '../scripts/wall';
       import '../scripts/localtime';
       import '../scripts/pwa';
     </script>

@@ -5,6 +5,8 @@ export const MESSAGES = {
   role_changed: { text: 'Role updated.', ok: true },
   user_disabled: { text: 'User disabled and signed out everywhere.', ok: true },
   user_enabled: { text: 'User re-enabled.', ok: true },
+  feature_enabled: { text: 'Turned on.', ok: true },
+  feature_disabled: { text: 'Turned off. It is hidden from everyone until you turn it back on.', ok: true },
   session_revoked: { text: 'Device signed out.', ok: true },
   others_revoked: { text: 'All other devices signed out.', ok: true },
   invalid_email: { text: 'That email address does not look valid.', ok: false },

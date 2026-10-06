@@ -17,5 +17,7 @@ declare namespace App {
   interface Locals {
     user?: import('./lib/auth/users').User;
     session?: import('./lib/auth/sessions').Session;
+    /** Ids a manager has switched off (signed-in requests only). See src/lib/features.ts. */
+    disabled?: ReadonlySet<string>;
   }
 }

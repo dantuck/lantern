@@ -3,6 +3,7 @@ import { env } from 'cloudflare:workers';
 import { validateSession } from './lib/auth/sessions';
 import { SESSION_COOKIE } from './lib/auth/policy';
 import { clearCookie } from './lib/auth/cookies';
+import { disabledFeatures } from './lib/features';
 import { SAFE_METHODS, isPublicPath, isSameOrigin, json, requiredRole, withSecurityHeaders } from './lib/http';
 
 const enforceCsp = import.meta.env.PROD;
@@ -20,6 +21,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   if (auth) {
     locals.user = auth.user;
     locals.session = auth.session;
+    locals.disabled = await disabledFeatures(env.DB);
   } else if (sid) {
     clearCookie(cookies, SESSION_COOKIE);
   }
