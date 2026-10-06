@@ -12,7 +12,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  applyDashboardValues, applyWranglerValues, checkAccountId, checkEmail, defaultSender, checkHostname, checkTimeZone,
+  applyDashboardValues, applyWranglerValues, checkAccountId, checkEmail, defaultSender, checkHostname, checkTimeZone, defaultTimeZone,
   MIN_NODE, nodeVersionOk, normalizeHostname, parseDatabaseId, readWranglerValues,
 } from './lib/setup-config.mjs';
 import { createPrompter } from './lib/prompt.mjs';
@@ -85,7 +85,9 @@ const sender = await ask('Address emails are sent from (its domain must be verif
   def: defaultSender(hostname, current.mailFrom), check: checkEmail,
 });
 const mailFrom = `Family Dashboard <${sender}>`;
-const timeZone = await ask('Time zone (IANA name, e.g. America/Chicago)', { def: 'America/New_York', check: checkTimeZone });
+const timeZone = await ask('Time zone (IANA name, e.g. America/Chicago)', {
+  def: defaultTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone), check: checkTimeZone,
+});
 const bootstrap = await ask('Your email address (becomes the first manager)', { check: checkEmail });
 
 const useCalendar = await yesNo('Show a Google Calendar widget?');

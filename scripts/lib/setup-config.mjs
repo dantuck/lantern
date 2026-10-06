@@ -48,6 +48,18 @@ export function nodeVersionOk(version, min = MIN_NODE) {
   return a !== x ? a > x : b !== y ? b > y : c >= z;
 }
 
+export const FALLBACK_TIME_ZONE = 'America/New_York';
+
+/**
+ * Time zone to suggest: the one this computer is set to, which is usually the household's. UTC (servers, containers,
+ * misconfigured machines) says nothing about where the family lives, so it falls back to a fixed default instead.
+ */
+export function defaultTimeZone(detected) {
+  const tz = String(detected ?? '').trim();
+  if (!tz || checkTimeZone(tz) || /^(UTC|GMT|Etc\/.*|Z)$/i.test(tz)) return FALLBACK_TIME_ZONE;
+  return tz;
+}
+
 export const checkAccountId = (raw) => (/^[0-9a-f]{32}$/.test(String(raw)) ? null : 'not a Cloudflare account id');
 export const checkDatabaseId = (raw) => (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(raw)) ? null : 'not a D1 database id');
 

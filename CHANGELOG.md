@@ -16,6 +16,7 @@ just before the new code is deployed). A release that needs manual action says s
 - Developer-tool telemetry (Astro, Wrangler) is switched off for everything the npm scripts, `setup` and `update` launch.
 
 ### Changed
+- Setup suggests this computer's time zone instead of always America/New_York (UTC falls back to New York, since it says nothing about where the household is).
 - Setup suggests `login@<your hostname>` as the sender instead of guessing a parent domain (which came out wrong for domains like `example.co.uk`), and keeps your configured sender on a re-run.
 - Setup now requires Node 22.12 or newer, as Astro does (it wrongly accepted 20 before); `package.json` declares it in `engines`.
 - New installs have request logging (`observability`) **off**, plus `send_metrics` and dependency reporting off, in `wrangler.jsonc`.

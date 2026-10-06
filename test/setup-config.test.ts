@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  applyDashboardValues, applyWranglerValues, checkAccountId, defaultSender, checkEmail, checkHostname, checkTimeZone,
+  applyDashboardValues, applyWranglerValues, checkAccountId, defaultSender, defaultTimeZone, checkEmail, checkHostname, checkTimeZone,
   nodeVersionOk, parseDatabaseId, readWranglerValues,
 } from '../scripts/lib/setup-config.mjs';
 
@@ -42,6 +42,13 @@ describe('setup input checks', () => {
     expect(defaultSender('dash.family.org', 'Family Dashboard <hello@mail.family.org>')).toBe('hello@mail.family.org');
     expect(defaultSender('dash.family.org', 'mom@family.org')).toBe('mom@family.org');
     expect(defaultSender('dash.family.org', 'garbage')).toBe('login@dash.family.org');
+  });
+  it("defaults the time zone to the computer's, falling back when it says nothing useful", () => {
+    expect(defaultTimeZone('America/Denver')).toBe('America/Denver');
+    expect(defaultTimeZone(' Europe/London ')).toBe('Europe/London');
+    for (const useless of ['UTC', 'utc', 'Etc/UTC', 'GMT', 'Etc/GMT+7', '', undefined, 'Not/AZone']) {
+      expect(defaultTimeZone(useless), String(useless)).toBe('America/New_York');
+    }
   });
   it('parses the database id from wrangler output', () => {
     expect(parseDatabaseId(`{\n "binding": "DB",\n "database_name": "family-dashboard",\n "database_id": "${DB}"\n}`)).toBe(DB);
