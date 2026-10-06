@@ -8,7 +8,7 @@ just before the new code is deployed). A release that needs manual action says s
 
 ## [Unreleased]
 ### Action required
-- Chores, lists and the new on/off switches need two new database migrations (`0003_chores_lists.sql`, `0004_features.sql`): run `npm run update` (or `npm run db:migrate:remote`). Until you do, the dashboard's Chores and Lists cards say they could not load, and the on/off switches have no effect; everything else works.
+- Chores, lists, rewards and the new on/off switches need new database migrations (`0003_chores_lists.sql`, `0004_features.sql`, `0005_chore_routines.sql`, `0006_reward_scope.sql`): run `npm run update` (or `npm run db:migrate:remote`). Until you do, the dashboard's Chores and Lists cards say they could not load, and the on/off switches have no effect; everything else works.
 - Optional: add `people` (and `weather` for the calendar) to your `dashboard.config.ts`; see the README. Without `people` the calendar looks as before, in one colour.
 
 ### Added
@@ -16,7 +16,8 @@ just before the new code is deployed). A release that needs manual action says s
 - **People and colours.** List your household under `people` in `dashboard.config.ts`. Calendar events take the colour of whoever their title names, with filter chips to show one person's day, and the dashboard widget tints events the same way.
 - A **Day view** next to Day/Week/Month/Agenda, with one column per person, and a larger, rounder, touch-friendly calendar (the week view now opens by default).
 - **Weather** in the calendar's day headers from Open-Meteo (set `weather` with your latitude and longitude). It is off unless you configure it; the request carries only your rounded coordinates and time zone, and `api.open-meteo.com` is listed in `SECURITY.md`.
-- **Chores:** a page and dashboard card with a column per person, daily/weekly/one-off chores, big tap-to-tick buttons and progress bars that reset each morning.
+- **Chores:** managed by managers, ticked by everyone. A manager builds chore lists (routines) for each person, such as a morning routine, with the days they repeat, a time of day and the chores in them; the ticks reset every morning. The Chores page has a column per person with big tap-to-tick buttons and progress bars, and managers get a *Manage* page (`/chores/manage`) for lists, chores, rewards and points. Chores from earlier builds are carried over into lists by the migration.
+- **Rewards:** chores can be worth points, and a list can pay an all-done bonus. Points go to the list's person. Managers set up rewards with a point cost; anyone can ask for one they can afford and a manager approves or denies it, and can also add or remove points by hand. A reward can be limited to chosen chore lists, so only the people those lists belong to see it and can ask for it. Approvals and adjustments are recorded in the activity log.
 - **Lists:** shared lists (groceries, to-dos, wish lists) anyone signed in can add to, tick off and clear.
 - A **side rail** replaces the top bar on wide screens (icons with labels), and a **wall display mode** hides it, enlarges everything, goes fullscreen and keeps the screen awake.
 - Chores and lists in the demo, with the demo household's people, colours and weather.

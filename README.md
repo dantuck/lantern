@@ -73,7 +73,11 @@ plugins: [
 
 An event goes on a person's calendar when their name (or a `match` word) appears in its title, such as "Ballet: Agnes"; events that name nobody are "Family". Colours, the filter chips and the **Day** view's per-person columns come from this list, and so do the columns on the **Chores** page. Only the event *title* is looked at, in the browser; nothing else about an event is read. `weather` is optional: it adds a forecast to the calendar and sends your coordinates (rounded to about 1 km) to Open-Meteo, a free service that needs no key.
 
-Chores and lists are stored in your D1 database and any signed-in member can change them, so run the new migration (`npm run update`, or `npm run db:migrate:remote`). The **wall display** button in the side bar hides the navigation, enlarges everything, goes fullscreen and asks the screen to stay awake; the choice is remembered per browser.
+Chores, rewards and lists are stored in your D1 database, so run the new migrations (`npm run update`, or `npm run db:migrate:remote`). Any signed-in member can tick chores off, ask for a reward and use the lists; only **managers** create and change chores and rewards.
+
+**Chore lists (routines).** A manager creates a list for a person, such as a *Morning routine*, picks the days it repeats (every day, weekdays, certain days, or just once), a time of day, and adds the chores. Ticks are stored per day, so each routine starts fresh every morning it is scheduled; nothing needs to be reset. Manage them at **Chores → Manage** (`/chores/manage`, managers only).
+
+**Rewards.** Give each chore some points, and optionally an *all-done bonus* for finishing a whole list. Points go to the person the list is for (lists for "Anyone" earn none) and are taken back if a chore is un-ticked. Managers add rewards with a point cost; anyone can ask for one they can afford from the person's column on the Chores page, and a manager approves or denies it there, which deducts the points. A reward can be limited to certain chore lists, so only the people those lists belong to can ask for it. Managers can also add or remove points by hand. Points need `people` in your config. The **wall display** button in the side bar hides the navigation, enlarges everything, goes fullscreen and asks the screen to stay awake; the choice is remembered per browser.
 
 Managers can switch any widget, and the built-in Chores and Lists, on or off under **Admin → Widgets and features**. `dashboard.config.ts` still decides which widgets exist; the switch only hides them (their data is kept).
 

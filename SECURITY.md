@@ -23,7 +23,7 @@ The browser only ever talks to your own domain: the Content Security Policy is `
 ## What is stored, and where
 
 All in **your** Cloudflare account: users, invites, hashed sessions and sign-in tokens (only SHA-256 digests are
-stored), rate-limit counters, a 400-day audit log, the household's chores (with when each was ticked off, kept 60 days) and shared lists (any signed-in member can read and change them), which widgets a manager has switched off, and a short cache of widget data in KV. Secrets are Worker
+stored), rate-limit counters, a 400-day audit log, the household's chore lists and rewards (only managers can change them; any signed-in member can tick chores off and ask for a reward), when each chore was ticked off (kept 60 days), each person's points history and reward requests, and shared lists (any signed-in member can read and change them), which widgets a manager has switched off, and a short cache of widget data in KV. Secrets are Worker
 secrets. Nothing is copied anywhere else. Request logging (`observability`) is **off** by default; if you turn it on
 for debugging, logs live in your account and can include sign-in addresses.
 
