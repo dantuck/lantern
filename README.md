@@ -32,6 +32,8 @@ Your settings live in two **untracked** files, created from templates by `npm ci
 
 Everything runs on Cloudflare's free tier plus Resend's free tier.
 
+**Fastest path:** `npm run setup` walks through everything below on your machine with your own Cloudflare login (`npx wrangler login` first): it asks which account to use and pins it, writes your local config, creates the database and tables, runs `verify`, deploys, and sets the secrets (typed hidden, sent straight to Cloudflare, never written to disk). `npm run setup -- --dry-run` asks the questions and shows what it would do without changing anything. It is safe to re-run. You still need your domain on Cloudflare and a verified sending domain in Resend (step 4). The manual steps follow for reference.
+
 1. **Domain.** Put your domain on Cloudflare. In `wrangler.jsonc` set `routes[0].pattern` to the hostname (e.g. `dashboard.example.com`) and `vars.APP_ORIGIN` to `https://` plus that hostname. The app refuses to send any link if `APP_ORIGIN` is missing, not `https`, or still `localhost`. `workers_dev` and preview URLs are off on purpose: the app is reachable only on your domain.
 2. **Database.** `npx wrangler d1 create family-dashboard`, paste the printed `database_id` into `wrangler.jsonc`, then `npm run db:migrate:remote`.
 3. **Cache.** The `CACHE` KV namespace is provisioned on first deploy (or run `npx wrangler kv namespace create CACHE` and add its `id`).

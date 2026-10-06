@@ -5,6 +5,7 @@
   "version": "0.0.1",
   "scripts": {
     "init": "node scripts/init-config.mjs",
+    "setup": "node scripts/setup.mjs",
     "postinstall": "node scripts/init-config.mjs",
     "predev": "node scripts/init-config.mjs",
     "prebuild": "node scripts/init-config.mjs",
