@@ -8,7 +8,7 @@ A plugin is a folder `src/plugins/<id>/`. Copy `example/` to start.
 | `Widget.astro` | yes | Card body. Receives `data` (the loader's output) and `config`. Put interactive bits in a Svelte island with `client:visible`. |
 | `Page.astro` | no | Full-page view at `/p/<id>`. Falls back to `Widget.astro`. |
 
-Then enable it in `dashboard.config.ts` (order = display order; `span: 2` makes it wide).
+Then enable it in `dashboard.config.ts` (your local copy of `dashboard.config.example.ts`; add it to the example too if it should ship by default) (order = display order; `span: 2` makes it wide).
 
 ## The contract (`definePlugin`)
 

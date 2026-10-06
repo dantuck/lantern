@@ -5,6 +5,7 @@ import { guardedFetch } from '../src/plugins/fetchPolicy';
 import { loadPluginData } from '../src/plugins/host';
 import { definePlugin, type DashboardConfig } from '../src/plugins/types';
 import dashboardConfig from '../dashboard.config';
+import exampleConfig from '../dashboard.config.example';
 import { fakeKv } from './kvshim';
 
 const make = (over: Partial<Parameters<typeof definePlugin>[0]> = {}) =>
@@ -21,6 +22,11 @@ const cfg = (...ids: string[]): DashboardConfig => ({ title: 't', plugins: ids.m
 describe('registry', () => {
   it('loads the real plugins and the real dashboard config without errors', () => {
     expect(registry.enabled.map((p) => p.def.id)).toEqual(dashboardConfig.plugins.map((p) => p.id));
+  });
+  it('the shipped example config is valid, so a fresh clone always builds', () => {
+    const modules = import.meta.glob('../src/plugins/*/plugin.ts', { eager: true, import: 'default' });
+    const byDir = Object.fromEntries(Object.entries(modules).map(([k, v]) => [k.replace('../src/plugins', '.'), v]));
+    expect(() => buildRegistry(byDir as never, exampleConfig)).not.toThrow();
   });
   it('applies config defaults and span', () => {
     const r = buildRegistry(mods(make()), { title: 't', plugins: [{ id: 'demo', span: 2 }] });

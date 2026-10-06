@@ -10,7 +10,7 @@ Sign-in is by emailed magic link only; **managers** invite everyone else. Widget
 ## Develop locally
 
 ```bash
-npm ci
+npm ci                                # also creates wrangler.jsonc and dashboard.config.ts from the templates
 cp .dev.vars.example .dev.vars        # set BOOTSTRAP_MANAGER_EMAIL to your address
 npm run db:migrate:local
 npm run dev                           # http://localhost:4321, runs on the real Workers runtime (workerd)
@@ -27,6 +27,8 @@ Open it in the **same browser** that requested it (links are bound to the reques
 Both must pass before deploying. `docs/pwa-manual-check.md` is the one manual step (service worker and offline behaviour).
 
 ## Deploy
+
+Your settings live in two **untracked** files, created from templates by `npm ci` (or `npm run init`) and never overwritten: `wrangler.jsonc` (from `wrangler.template.jsonc`) and `dashboard.config.ts` (from `dashboard.config.example.ts`). Edit those, not the templates, so pulling updates never conflicts with your domain or database id.
 
 Everything runs on Cloudflare's free tier plus Resend's free tier.
 
