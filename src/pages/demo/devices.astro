@@ -1,0 +1,27 @@
+---
+import Base from '../../layouts/Base.astro';
+import { demoDevices } from '../../demo/data';
+---
+<Base title="Devices · Demo" wide demo>
+  <h1>Your devices</h1>
+  <section class="card">
+    <table>
+      <thead><tr><th>Person</th><th>Device</th><th>Last active</th><th></th></tr></thead>
+      <tbody>
+        {demoDevices.map((d) => (
+          <tr>
+            <td>{d.who}</td>
+            <td>{d.device}{d.current && <span class="muted"> (this device)</span>}</td>
+            <td>{d.last}</td>
+            <td><button class="ghost demo-off" type="button" disabled title="Not available in the demo">Sign out</button></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <p class="muted hint">In your own dashboard, anyone can sign out a lost phone from here, and managers can do it for anyone.</p>
+  </section>
+  <section class="card">
+    <h2>Install on this device</h2>
+    <p>Add the dashboard to a phone, tablet or kitchen display. On an iPhone or iPad, open it in Safari, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</p>
+  </section>
+</Base>

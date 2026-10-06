@@ -1,0 +1,20 @@
+---
+import Base from '../../layouts/Base.astro';
+import PluginCard from '../../components/PluginCard.astro';
+import CalendarWidget from '../../plugins/calendar/Widget.astro';
+import MealsWidget from '../../plugins/mealq/Widget.astro';
+import { demoCalendar, demoCalendarConfig, demoMeals, demoMealsConfig } from '../../demo/data';
+
+const now = Date.now();
+---
+<Base title="Demo · Family Dashboard" wide demo>
+  <h1>The Gru household</h1>
+  <div class="grid">
+    <PluginCard id="calendar" name="Calendar" icon="calendar" span={2} href="/demo/calendar">
+      <CalendarWidget data={demoCalendar(now)} config={demoCalendarConfig} moreHref="/demo/calendar" />
+    </PluginCard>
+    <PluginCard id="mealq" name="Meal plan" icon="/icons/mealq.png" href="/demo/meals">
+      <MealsWidget data={demoMeals(now)} config={demoMealsConfig} />
+    </PluginCard>
+  </div>
+</Base>

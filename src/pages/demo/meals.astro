@@ -1,0 +1,15 @@
+---
+import DemoBack from '../../components/DemoBack.astro';
+import Base from '../../layouts/Base.astro';
+import PluginCard from '../../components/PluginCard.astro';
+import MealsWidget from '../../plugins/mealq/Widget.astro';
+import { demoMeals, demoMealsConfig } from '../../demo/data';
+
+const config = { ...demoMealsConfig, daysAhead: 14 };
+---
+<Base title="Meal plan · Demo" wide demo>
+  <DemoBack />
+  <PluginCard id="mealq" name="Meal plan" icon="/icons/mealq.png">
+    <MealsWidget data={demoMeals(Date.now(), 14)} config={config} />
+  </PluginCard>
+</Base>

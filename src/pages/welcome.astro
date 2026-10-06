@@ -1,0 +1,105 @@
+---
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import '../styles/landing.css';
+
+const features = [
+  { icon: 'calendar', title: 'Everything at a glance', text: 'Your Google Calendar and your MealQ meal plan on one clean screen, with month, week and agenda views.' },
+  { icon: 'lock', title: 'Private and password-free', text: 'Invite-only, signed in with a one-time emailed link. Lose a phone? Sign it out from anywhere.' },
+  { icon: 'server', title: 'Yours to run', text: 'Read-only, installable on any device, no tracking, and hosted on your own free Cloudflare account.' },
+];
+
+const steps = [
+  { title: 'Get the code', body: 'You need git, Node 22.12+, a domain, and free Cloudflare and Resend accounts.', code: 'git clone <repository address> family-dashboard\ncd family-dashboard\nnpm ci' },
+  { title: 'Run the guided setup', body: 'It creates your database, deploys, and stores your secrets safely. Rehearse first with a dry run.', code: 'npm run setup -- --dry-run\nnpm run setup' },
+  { title: 'Sign in and invite your household', body: 'Open your address, use the emailed link, then invite everyone from Admin.' },
+];
+---
+<Base title="Family Dashboard: a private home screen for your household" description="A private, read-only dashboard for one household. Calendar and meal plan on one screen, invite-only, no passwords. Run your own copy on Cloudflare’s free tier." bare>
+  <div class="lp">
+    <header class="lp-nav">
+      <a class="lp-brand" href="/welcome"><img src="/favicon.svg" alt="" width="28" height="28" /> Family Dashboard</a>
+      <nav aria-label="Page sections">
+        <a href="#setup">Get your own</a>
+        <a href="/demo">Demo</a>
+        <ThemeToggle />
+        <a class="lp-btn small" href="/login">Sign in</a>
+      </nav>
+    </header>
+
+    <section class="lp-hero">
+      <h1>A calm home screen for your household.</h1>
+      <p class="lead">Today’s events and this week’s dinners on one clean page. Private, free to run, and hosted on your own account.</p>
+      <div class="cta">
+        <a class="lp-btn" href="/demo">Try the live demo</a>
+        <a class="lp-btn ghost" href="#setup">Set up your own</a>
+      </div>
+
+      <div class="mock" role="img" aria-label="Preview of the dashboard showing a calendar agenda and a meal plan">
+        <div class="mock-body">
+          <div class="mock-card wide">
+            <h2><Icon name="calendar" /> Calendar</h2>
+            <h3>Today</h3>
+            <ul>
+              <li><b>8:30 AM</b> School drop-off</li>
+              <li><b>4:00 PM</b> Piano lesson · Maple St</li>
+              <li><b>7:00 PM</b> Book club</li>
+            </ul>
+            <h3>Tomorrow</h3>
+            <ul>
+              <li><b>All day</b> Grandma visits</li>
+              <li><b>6:15 PM</b> Soccer practice</li>
+            </ul>
+          </div>
+          <div class="mock-card">
+            <h2><Icon name="/icons/mealq.png" /> Meals</h2>
+            <h3>Today</h3>
+            <ul>
+              <li><b>Dinner</b> Veggie stir-fry</li>
+            </ul>
+            <h3>Tomorrow</h3>
+            <ul>
+              <li><b>Lunch</b> Leftover stir-fry</li>
+              <li><b>Dinner</b> Taco night</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="lp-section">
+      <h2>Simple by design</h2>
+      <div class="features">
+        {features.map((f) => (
+          <article class="feature">
+            <span class="ico"><Icon name={f.icon} /></span>
+            <h3>{f.title}</h3>
+            <p>{f.text}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section id="setup" class="lp-section">
+      <h2>Get your own in three steps</h2>
+      <ol class="steps">
+        {steps.map((s) => (
+          <li>
+            <div class="step-body">
+              <h3>{s.title}</h3>
+              <p>{s.body}</p>
+              {s.code && <pre><code>{s.code}</code></pre>}
+            </div>
+          </li>
+        ))}
+      </ol>
+      <p class="more-docs">Full walkthrough: <code>docs/setup-guide.md</code> in the repository.</p>
+    </section>
+
+    <footer class="lp-foot">
+      <span>Family Dashboard · open source, self-hosted, no telemetry</span>
+      <span><a href="/demo">Demo</a> · <a href="/login">Sign in</a></span>
+    </footer>
+  </div>
+</Base>

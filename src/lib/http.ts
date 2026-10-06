@@ -1,8 +1,8 @@
 const PUBLIC_EXACT = new Set([
-  '/login', '/auth/request', '/auth/verify', '/auth/confirm',
+  '/welcome', '/demo', '/theme-init.js', '/login', '/auth/request', '/auth/verify', '/auth/confirm',
   '/manifest.webmanifest', '/sw.js', '/offline.html', '/offline.css', '/favicon.svg', '/apple-touch-icon.png', '/robots.txt',
 ]);
-const PUBLIC_PREFIX = ['/icons/', '/_astro/'];
+const PUBLIC_PREFIX = ['/demo/', '/icons/', '/_astro/'];
 
 /** Everything not listed here requires a session (default deny). */
 export function isPublicPath(pathname: string): boolean {

@@ -26,12 +26,13 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
 
   if (!auth && !isPublicPath(url.pathname)) {
     if (url.pathname.startsWith('/api/')) return finish(json({ error: 'unauthorized' }, 401));
-    return finish(ctx.redirect('/login', 302));
+    // Signed-out visitors to the front door get the product page; everything else goes to sign-in.
+    return finish(ctx.redirect(url.pathname === '/' ? '/welcome' : '/login', 302));
   }
   if (auth && requiredRole(url.pathname) === 'manager' && auth.user.role !== 'manager') {
     return finish(new Response('Forbidden', { status: 403 }));
   }
-  if (auth && url.pathname === '/login') return finish(ctx.redirect('/', 302));
+  if (auth && (url.pathname === '/login' || url.pathname === '/welcome')) return finish(ctx.redirect('/', 302));
 
   return finish(await next());
 });

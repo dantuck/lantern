@@ -22,8 +22,8 @@ WP=$!; trap 'kill -- -$WP 2>/dev/null' EXIT
 for i in $(seq 1 30); do curl -s -o /dev/null $B/login && break; sleep 1; done
 
 fail=0
-for path in / /login /auth/verify /devices /admin /p/example; do
-  case $path in /login|/auth/verify) COOKIE="X-None: 1" ;; *) COOKIE="Cookie: __Host-session=$SID" ;; esac
+for path in / /welcome /demo /demo/calendar /demo/meals /demo/devices /demo/admin /login /auth/verify /devices /admin /p/example; do
+  case $path in /welcome|/demo*|/login|/auth/verify) COOKIE="X-None: 1" ;; *) COOKIE="Cookie: __Host-session=$SID" ;; esac
   curl -s -D "$TMP/h.txt" -H "$COOKIE" $B$path -o "$TMP/p.html"
   node - "$TMP/p.html" "$TMP/h.txt" "$path" <<'JS' || fail=1
 const fs = require('fs'), crypto = require('crypto');
