@@ -115,8 +115,10 @@ const resendKey = await ask('Resend API key, sending access only (hidden)', {
 });
 if (!resendKey.startsWith('re_')) console.log('  note: Resend keys normally start with "re_"; continuing.');
 
-console.log('\nBefore going on, in Resend: your sending domain must be verified (SPF + DKIM), a DMARC record added,');
+console.log(`\nBefore going on, in Resend: the domain of ${sender} must be verified (SPF + DKIM), a DMARC record added,`);
 console.log('and link/open tracking left OFF (it rewrites the sign-in link and breaks it).');
+console.log('A separate mail subdomain (e.g. mail.yourdomain) keeps these records apart from your main domain; one _dmarc');
+console.log('record on the main domain covers its subdomains. See docs/setup-guide.md, "Using a subdomain".');
 if (!(await yesNo('Is that done?', false))) die('finish the Resend setup, then re-run `npm run setup` (your answers will be offered as defaults).');
 
 console.log(`\nSummary\n  account   ${account.name}\n  site      https://${hostname}\n  sender    ${mailFrom}\n  time zone ${timeZone}\n  manager   ${bootstrap}`);

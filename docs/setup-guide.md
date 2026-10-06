@@ -23,6 +23,41 @@ any of them.
 - A free **Resend** account (this sends the sign-in emails).
 - Optional: a Google account for the calendar widget, and a MealQ account for the meal-plan widget.
 
+## Using a subdomain (recommended)
+
+Put the dashboard on a subdomain of a domain you already own rather than on the bare domain, and send its email from
+a second subdomain. Using `yourfamily.org` as the example:
+
+| What | Example | Why |
+|---|---|---|
+| Dashboard address | `family.yourfamily.org` | Short and easy to type on a phone; becomes the home-screen icon's address |
+| Email sending domain (verified in Resend) | `mail.yourfamily.org` | Keeps its SPF and DKIM records apart from anything the main domain already uses |
+| Sender address | `login@mail.yourfamily.org` | Must be on the domain you verified in Resend |
+
+**Choosing the name.** Pick for readability, not secrecy: the address shows up in public certificate logs anyway,
+and the sign-in requirement is what protects the site. Avoid `admin`, `login`, `mail`, `www` and `api` for the
+dashboard itself, since those are common attack targets or confusing for family members. `family`, `home` and
+`dashboard` all work.
+
+**What you have to do with DNS**
+
+- **The dashboard address: nothing.** When you type it into setup and it deploys, Cloudflare creates the DNS record for
+  you. This only works if the main domain is on the same Cloudflare account you pick in setup's first step.
+- **Before you start, look at the domain's existing DNS records** in Cloudflare. If a record already exists for the
+  name you chose (an old CNAME or A record, say), delete it first or the deploy will likely complain. Check too that
+  nothing else you run, such as another app or service, already uses that name.
+- **The email domain: you add the records yourself.** In step 3, add the subdomain (`mail.yourfamily.org`) to
+  Resend. Resend then shows the exact SPF and DKIM records to create; copy them into Cloudflare's DNS page for your
+  domain (or use Resend's Cloudflare connection if it offers one). Wait for Resend to show the domain as verified.
+- **DMARC: one record, on the main domain.** A single `_dmarc` TXT record on `yourfamily.org` also covers its
+  subdomains, so you do not need one per subdomain. If your domain already has a DMARC record, keep it.
+- **Do not add a second SPF record to the same name.** A name may have only one; two break each other. Using a
+  separate `mail.` subdomain avoids this if the main domain already has one.
+
+When setup asks for the hostname, type the dashboard address (`family.yourfamily.org`). When it asks for the sender
+address it suggests `login@` plus that hostname; type `login@mail.yourfamily.org` instead, since that is the domain
+you verified.
+
 ## 1. Get the code
 
 ```bash
@@ -44,8 +79,8 @@ Read [`CHANGELOG.md`](../CHANGELOG.md) for the release you picked. If you are co
 1. In the Cloudflare dashboard, add your domain as a site (the free plan is enough).
 2. Cloudflare shows two **nameservers**. At the company where you bought the domain, replace its nameservers with
    those two. This can take from minutes to a few hours to become active; Cloudflare emails you when it is.
-3. Choose the hostname the dashboard will live at, for example `dashboard.yourfamily.org`. It must be on that
-   domain. You do not create a DNS record for it by hand; setup attaches it for you.
+3. Choose the hostname the dashboard will live at, for example `family.yourfamily.org` (see *Using a subdomain* above).
+   It must be on that domain. You do not create a DNS record for it by hand; setup attaches it for you.
 4. Log in from the terminal:
 
    ```bash
@@ -59,7 +94,7 @@ Read [`CHANGELOG.md`](../CHANGELOG.md) for the release you picked. If you are co
 The dashboard has no passwords. People sign in with a one-time link sent by email, so email must work before
 anyone can get in.
 
-1. In Resend, **add your domain** (or a subdomain such as `mail.yourfamily.org`) and add the DNS records Resend
+1. In Resend, **add your sending domain**, ideally a subdomain such as `mail.yourfamily.org`, and add the DNS records Resend
    shows you (SPF and DKIM) in Cloudflare's DNS page. If Resend offers to configure Cloudflare for you, that is
    fine. Wait until Resend shows the domain as **verified**.
 2. Add a **DMARC** record in Cloudflare DNS: a `TXT` record named `_dmarc` with the value
