@@ -2,10 +2,12 @@
   "name": "family-dashboard",
   "type": "module",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "scripts": {
     "init": "node scripts/init-config.mjs",
     "setup": "node scripts/setup.mjs",
+    "update": "node scripts/update.mjs",
+    "migrations:seal": "node scripts/seal-migrations.mjs",
     "postinstall": "node scripts/init-config.mjs",
     "predev": "node scripts/init-config.mjs",
     "prebuild": "node scripts/init-config.mjs",

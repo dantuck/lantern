@@ -70,6 +70,7 @@ export function readWranglerValues(text) {
     hostname: get(/"pattern"\s*:\s*"([^"]*)"/),
     mailFrom: get(/"MAIL_FROM"\s*:\s*"([^"]*)"/),
     databaseId: get(/"database_id"\s*:\s*"([^"]*)"/),
+    databaseName: get(/"database_name"\s*:\s*"([^"]*)"/),
     accountId: get(/"account_id"\s*:\s*"([^"]*)"/),
   };
 }

@@ -46,7 +46,7 @@ describe('wrangler.jsonc edits', () => {
   it('is idempotent and round-trips through readWranglerValues', () => {
     const once = applyWranglerValues(wrangler, { ...base, databaseId: DB, accountId: ACCOUNT });
     expect(applyWranglerValues(once, { ...base, databaseId: DB, accountId: ACCOUNT })).toBe(once);
-    expect(readWranglerValues(once)).toEqual({ hostname: 'dash.family.org', mailFrom: base.mailFrom, databaseId: DB, accountId: ACCOUNT });
+    expect(readWranglerValues(once)).toEqual({ hostname: 'dash.family.org', mailFrom: base.mailFrom, databaseId: DB, databaseName: 'family-dashboard', accountId: ACCOUNT });
   });
   it('leaves values containing $ patterns intact', () => {
     const out = applyWranglerValues(wrangler, { hostname: 'a.b.org', mailFrom: 'Me $& $1 <x@b.org>' });

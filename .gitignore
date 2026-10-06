@@ -6,3 +6,5 @@ dist
 .env*
 wrangler.jsonc
 dashboard.config.ts
+backups/
+.deployed.json

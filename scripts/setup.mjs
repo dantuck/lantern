@@ -10,13 +10,12 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
-import { Writable } from 'node:stream';
 import {
   applyDashboardValues, applyWranglerValues, checkAccountId, checkEmail, checkHostname, checkTimeZone,
   normalizeHostname, parseDatabaseId, readWranglerValues,
 } from './lib/setup-config.mjs';
+import { createPrompter } from './lib/prompt.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DRY = process.argv.includes('--dry-run');
@@ -25,44 +24,7 @@ const WRANGLER = join(ROOT, 'wrangler.jsonc');
 const DASHBOARD = join(ROOT, 'dashboard.config.ts');
 
 // ---------- prompts ----------
-let muted = false;
-let finished = false;
-const out = new Writable({ write(chunk, _enc, cb) { if (!muted) process.stdout.write(chunk); cb(); } });
-const rl = createInterface({ input: process.stdin, output: out, terminal: process.stdin.isTTY ?? false });
-// Lines are queued as they arrive so piped or pasted input is never dropped between prompts.
-const queue = [];
-let waiter = null;
-let closed = false;
-const endOfInput = () => {
-  console.error('\nInput ended before setup finished. Nothing further was changed; re-run to continue.');
-  process.exit(1);
-};
-rl.on('line', (l) => { if (waiter) { const w = waiter; waiter = null; w(l); } else queue.push(l); });
-rl.on('close', () => { closed = true; if (waiter && !finished) endOfInput(); });
-const nextLine = () => {
-  if (queue.length) return Promise.resolve(queue.shift());
-  if (closed) endOfInput();
-  return new Promise((resolve) => { waiter = resolve; });
-};
-
-async function ask(question, { def, check, hidden = false } = {}) {
-  for (;;) {
-    const suffix = def ? ` [${def}]` : '';
-    process.stdout.write(`${question}${suffix}: `);
-    muted = hidden;
-    const raw = await nextLine();
-    muted = false;
-    if (hidden) process.stdout.write('\n');
-    const value = raw.trim() || def || '';
-    const problem = check ? check(value) : null;
-    if (!problem) return value;
-    console.log(`  \u2717 ${problem}`);
-  }
-}
-async function yesNo(question, def = true) {
-  const a = (await ask(`${question} (${def ? 'Y/n' : 'y/N'})`)).toLowerCase();
-  return a === '' ? def : a.startsWith('y');
-}
+const { ask, yesNo, finish } = createPrompter();
 
 // ---------- running things ----------
 function wrangler(args, { account, input, capture = false } = {}) {
@@ -76,7 +38,7 @@ const npm = (script) => spawnSync('npm', ['run', script], { cwd: ROOT, stdio: 'i
 const step = (n, title) => console.log(`\n\u001b[1m${n}. ${title}\u001b[0m`);
 const dry = (what) => console.log(`  [dry-run] would ${what}`);
 function die(msg) {
-  finished = true;
+  finish();
   console.error(`\n✗ ${msg}`);
   process.exit(1);
 }
@@ -232,5 +194,4 @@ if (!DRY && (await yesNo('Signed in successfully?', false))) {
   console.log('  When you are signed in, run: npx wrangler secret delete BOOTSTRAP_MANAGER_EMAIL');
 }
 console.log('\nNext: invite the household from Admin, then go through docs/pwa-manual-check.md on a phone.');
-finished = true;
-rl.close();
+finish();
