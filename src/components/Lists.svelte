@@ -114,7 +114,8 @@
 </form>
 
 <style>
-  .lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); gap: 1.25rem; align-items: start; margin-bottom: 1.5rem; }
+  /* Masonry: cards of different heights pack into columns instead of leaving gaps under short ones. */
+  .lists { column-width: 19rem; column-gap: 1.25rem; margin-bottom: 1.5rem; }
   .list { margin: 0; }
   header { display: flex; align-items: baseline; gap: .75rem; margin-bottom: .5rem; }
   h3 { margin: 0; flex: 1; font-size: 1.25rem; letter-spacing: -.02em; }
@@ -142,5 +143,5 @@
   .new h3 { margin-bottom: .75rem; }
   .new .row button { align-self: end; }
   .card { margin-bottom: 1.25rem; }
-  .lists .card { margin-bottom: 0; }
+  .lists .card { margin-bottom: 1.25rem; break-inside: avoid; }
 </style>
