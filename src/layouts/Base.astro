@@ -1,11 +1,14 @@
 ---
 import '../styles/global.css';
 import ThemeToggle from '../components/ThemeToggle.astro';
+import { registry } from '../plugins/registry';
 interface Props { title?: string; wide?: boolean; bare?: boolean; description?: string; demo?: boolean }
 const { title = 'Family Dashboard', wide = false, bare = false, description, demo = false } = Astro.props;
 const user = Astro.locals.user;
 const path = Astro.url.pathname;
 const current = (href: string) => (path === href ? 'page' : undefined);
+// One top-bar link per enabled plugin, so each widget's full page (/p/<id>) is a click away.
+const pluginLinks = registry.enabled.map((p) => ({ href: `/p/${p.def.id}`, label: p.def.name }));
 const demoLinks = [
   { href: '/demo', label: 'Dashboard' },
   { href: '/demo/calendar', label: 'Calendar' },
@@ -50,6 +53,7 @@ const demoLinks = [
       <nav class="nav">
         <a class="brand" href="/" aria-label="Family Dashboard home"><img src="/favicon.svg" alt="" width="28" height="28" /></a>
         <a href="/" aria-current={current('/')}>Dashboard</a>
+        {pluginLinks.map((l) => <a href={l.href} aria-current={current(l.href)}>{l.label}</a>)}
         <a href="/devices" aria-current={current('/devices')}>Devices</a>
         {user.role === 'manager' && <a href="/admin" aria-current={current('/admin')}>Admin</a>}
         <span class="spacer"></span>
