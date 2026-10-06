@@ -52,9 +52,13 @@ export const json = (data: unknown, status = 200) =>
 export const clientIp = (request: Request) => request.headers.get('cf-connecting-ip') ?? 'unknown';
 
 /** Role a path demands beyond being signed in. Enforced in middleware so new admin pages can't forget it. */
+const MANAGER_PATHS = ['/admin', '/chores/manage'];
 export function requiredRole(pathname: string): 'manager' | null {
-  return pathname === '/admin' || pathname.startsWith('/admin/') ? 'manager' : null;
+  return MANAGER_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ? 'manager' : null;
 }
+
+/** Whether the signed-in user is a manager. Pages and APIs that vary by role use this one check. */
+export const isManager = (locals: { user?: { role: string } | undefined }): boolean => locals.user?.role === 'manager';
 
 /**
  * Reads a request body with a hard byte cap, returning null if it is exceeded. Content-Length is only a hint

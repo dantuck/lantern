@@ -1,0 +1,21 @@
+---
+import { env } from 'cloudflare:workers';
+import Base from '../../layouts/Base.astro';
+import ChoreManager from '../../components/ChoreManager.svelte';
+import { choreState } from '../../lib/chores';
+import { dayKey } from '../../lib/dates';
+import { householdZone, people } from '../../lib/household';
+import { isOn } from '../../lib/features';
+import { isManager } from '../../lib/http';
+
+// Middleware already limits this path to managers (requiredRole in src/lib/http.ts); check again so the page is safe on its own.
+if (!isManager(Astro.locals)) return new Response('Forbidden', { status: 403 });
+if (!isOn(Astro.locals.disabled, 'chores')) return new Response('Not found', { status: 404 });
+
+const state = await choreState(env.DB, dayKey(Date.now(), householdZone), true);
+---
+<Base title="Manage chores" wide>
+  <p><a href="/chores">&larr; Back to chores</a></p>
+  <h1>Manage chores</h1>
+  <ChoreManager client:load initial={state} people={people} />
+</Base>

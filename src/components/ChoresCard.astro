@@ -1,7 +1,8 @@
 ---
 import { env } from 'cloudflare:workers';
 import Icon from './Icon.astro';
-import { choreState, type ChoreState } from '../lib/chores';
+import { choreState } from '../lib/chores';
+import type { ChoreState } from '../lib/choreTypes';
 import { dayKey } from '../lib/dates';
 import { householdZone, people as household } from '../lib/household';
 import type { Person } from '../lib/people';
@@ -11,12 +12,13 @@ interface Props { state?: ChoreState; people?: Person[]; href?: string }
 const { state: given, people = household, href = '/chores' } = Astro.props;
 let state = given;
 if (!state) {
-  try { state = await choreState(env.DB, dayKey(Date.now(), householdZone)); }
+  try { state = await choreState(env.DB, dayKey(Date.now(), householdZone), false); }
   catch (e) { console.error('chores card: could not read chores:', e instanceof Error ? e.message : 'unknown'); }
 }
+const today = state?.lists.filter((l) => l.due) ?? [];
 const groups = state
-  ? [...people.map((p) => ({ name: p.name, color: p.color, items: state!.today.filter((c) => c.person === p.id) })),
-     { name: 'Anyone', color: 'var(--accent)', items: state.today.filter((c) => !c.person || !people.some((p) => p.id === c.person)) }].filter((g) => g.items.length > 0)
+  ? [...people.map((p) => ({ name: p.name, color: p.color, items: today.filter((l) => l.person === p.id).flatMap((l) => l.items) })),
+     { name: 'Anyone', color: 'var(--accent)', items: today.filter((l) => !l.person || !people.some((p) => p.id === l.person)).flatMap((l) => l.items) }].filter((g) => g.items.length > 0)
   : [];
 ---
 <section class="card plugin" data-plugin="chores">
@@ -25,7 +27,7 @@ const groups = state
     <a href={href} class="muted">Open</a>
   </header>
   {!state ? <p class="muted">Chores couldn't load. Run the database migrations (<code>npm run update</code>).</p>
-  : groups.length === 0 ? <p class="muted">No chores today. <a href={href}>Add some</a>.</p>
+  : groups.length === 0 ? <p class="muted">No chores today. <a href={href}>Open chores</a>.</p>
   : (
     <ul class="mini">
       {groups.map((g) => {

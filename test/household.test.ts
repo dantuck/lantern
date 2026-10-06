@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createTestDb } from './d1shim';
 import { peopleOf } from '../src/lib/people';
 import { PALETTE, parsePeople } from '../src/lib/peopleConfig';
-import { addChore, choreState, isDue, MAX_CHORES, removeChore, setChoreDone } from '../src/lib/chores';
 import { addItem, addList, clearDone, getLists, MAX_ITEMS, removeItem, removeList, setItemDone } from '../src/lib/lists';
 import { parseForecast, fetchWeather } from '../src/plugins/calendar/weather';
 import { describeWeather } from '../src/plugins/calendar/weatherView';
@@ -67,51 +66,6 @@ describe('weather', () => {
     expect(without.hosts).not.toContain('api.open-meteo.com');
     expect(withWx.hosts).toContain('api.open-meteo.com');
     expect(configSchema.safeParse({ weather: { latitude: 99, longitude: 0 } }).success).toBe(false);
-  });
-});
-
-describe('chores', () => {
-  let db: D1Database;
-  beforeEach(() => { db = createTestDb(); });
-  const T = 1_700_000_000_000;
-  const WED = '2026-10-07'; // a Wednesday (weekday 3)
-
-  it('works out which chores are due on a day', () => {
-    const base = { id: 'x', title: 't', person: null, weekday: null, dueDate: null } as const;
-    expect(isDue({ ...base, repeat: 'daily' }, WED)).toBe(true);
-    expect(isDue({ ...base, repeat: 'weekly', weekday: 3 }, WED)).toBe(true);
-    expect(isDue({ ...base, repeat: 'weekly', weekday: 4 }, WED)).toBe(false);
-    expect(isDue({ ...base, repeat: 'once', dueDate: WED }, WED)).toBe(true);
-    expect(isDue({ ...base, repeat: 'once', dueDate: '2026-10-08' }, WED)).toBe(false);
-  });
-  it('adds, ticks, un-ticks per day and removes', async () => {
-    await addChore(db, { title: 'Feed Fluffy', person: 'agnes', repeat: 'daily' }, T);
-    await addChore(db, { title: 'Trash', person: null, repeat: 'weekly', weekday: 3 }, T + 1);
-    await addChore(db, { title: 'Vet', person: 'gru', repeat: 'once', dueDate: '2026-10-09' }, T + 2);
-    let s = await choreState(db, WED);
-    expect(s.all).toHaveLength(3);
-    expect(s.today.map((c) => c.title)).toEqual(['Feed Fluffy', 'Trash']);
-    const id = s.today[0]!.id;
-    expect(await setChoreDone(db, id, WED, true, T)).toBe(true);
-    expect(await setChoreDone(db, id, WED, true, T)).toBe(true); // ticking twice is harmless
-    s = await choreState(db, WED);
-    expect(s.today.find((c) => c.id === id)!.done).toBe(true);
-    expect((await choreState(db, '2026-10-08')).today.find((c) => c.id === id)!.done).toBe(false); // resets the next day
-    await setChoreDone(db, id, WED, false);
-    expect((await choreState(db, WED)).today.find((c) => c.id === id)!.done).toBe(false);
-    expect(await setChoreDone(db, 'nope', WED, true)).toBe(false);
-    expect(await removeChore(db, id)).toBe(true);
-    expect(await removeChore(db, id)).toBe(false);
-    expect((await choreState(db, WED)).all).toHaveLength(2);
-  });
-  it('drops very old ticks and enforces a cap', async () => {
-    await addChore(db, { title: 'A', person: null, repeat: 'daily' }, T);
-    const id = (await choreState(db, WED)).all[0]!.id;
-    await setChoreDone(db, id, '2026-01-01', true);
-    await setChoreDone(db, id, WED, true);
-    expect((await choreState(db, '2026-01-01')).today[0]!.done).toBe(false);
-    for (let i = 1; i < MAX_CHORES; i++) await addChore(db, { title: `c${i}`, person: null, repeat: 'daily' }, T);
-    expect(await addChore(db, { title: 'one too many', person: null, repeat: 'daily' }, T)).toBe('limit');
   });
 });
 

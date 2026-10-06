@@ -125,32 +125,41 @@ export const demoAudit = [
 
 // --- Chores and lists -------------------------------------------------------
 
-/** [person id or null, title, repeat, weekday (0 = Sunday) or date offset, ticked off already] */
-const CHORES: [string | null, string, 'daily' | 'weekly' | 'once', number, boolean][] = [
-  ['agnes', 'Make your bed', 'daily', 0, true],
-  ['agnes', 'Feed Fluffy', 'daily', 0, false],
-  ['agnes', 'Ballet bag by the door', 'weekly', -1, false],
-  ['margo', 'Walk the dog', 'daily', 0, true],
-  ['margo', 'Homework', 'daily', 0, false],
-  ['margo', 'Empty the dishwasher', 'daily', 0, false],
-  ['edith', 'Tidy the lab bench', 'daily', 0, false],
-  ['edith', 'Practice swimming', 'once', 0, false],
-  ['gru', 'Take out the trash', 'weekly', -1, false],
-  ['gru', 'Rocket repairs', 'once', 0, false],
-  ['minions', 'Peel the bananas', 'daily', 0, true],
-  ['minions', 'Sweep the lair', 'daily', 0, false],
-  [null, 'Water the plants', 'daily', 0, false],
+/** [list name, person id or null, period, weekday mask, bonus, [chore, points, ticked already][]] */
+const ROUTINES: [string, string | null, 'morning' | 'afternoon' | 'evening' | 'any', number, number, [string, number, boolean][]][] = [
+  ['Morning routine', 'agnes', 'morning', 127, 3, [['Make your bed', 1, true], ['Brush teeth', 1, true], ['Feed Fluffy', 2, false], ['Pack your school bag', 1, false]]],
+  ['Ballet day', 'agnes', 'afternoon', 0b0100000, 2, [['Ballet bag by the door', 2, false]]],
+  ['After school', 'margo', 'afternoon', 0b0111110, 5, [['Walk the dog', 2, true], ['Homework', 3, false], ['Empty the dishwasher', 2, false]]],
+  ['Morning routine', 'edith', 'morning', 127, 3, [['Tidy the lab bench', 2, false], ['Feed the goldfish', 1, false]]],
+  ['Evening jobs', 'gru', 'evening', 0b0001000, 0, [['Take out the trash', 1, false], ['Rocket repairs', 1, false]]],
+  ['Minion duties', 'minions', 'any', 127, 4, [['Peel the bananas', 1, true], ['Sweep the lair', 1, false]]],
+  ['House', null, 'any', 127, 0, [['Water the plants', 0, false]]],
 ];
 
-export function demoChores(now = Date.now()): import('../lib/chores').ChoreState {
+export function demoChores(now = Date.now()): import('../lib/choreTypes').ChoreState {
   const day = dayKey(now, DEMO_TZ);
-  const all = CHORES.map(([person, title, repeat, n], i) => ({
-    id: `c${i}`, title, person, repeat,
-    weekday: repeat === 'weekly' ? weekdayOf(day) : null,
-    dueDate: repeat === 'once' ? addDays(day, n) : null,
-  }));
-  const today = all.map((c, i) => ({ ...c, done: CHORES[i]![4] }));
-  return { day, all, today };
+  const lists = ROUTINES.map(([name, person, period, mask, bonus, chores], li) => {
+    const days = mask === 0b0100000 || mask === 0b0001000 ? 1 << weekdayOf(day) : mask; // the one-day lists are always due in the demo
+    const items = chores.map(([title, points, done], i) => ({ id: `c${li}-${i}`, title, points, done }));
+    return { id: `l${li}`, name, person, period, days, onceDate: null, bonus, due: true, bonusEarned: items.every((i) => i.done), items };
+  });
+  const balances: Record<string, number> = { agnes: 14, margo: 31, edith: 8, gru: 3, minions: 22 };
+  for (const l of lists) if (l.person) for (const i of l.items) if (i.done) balances[l.person] = (balances[l.person] ?? 0) + i.points;
+  return {
+    day, manager: true, lists, balances,
+    rewards: [
+      { id: 'r1', name: 'Pick the movie', cost: 10, listIds: null },
+      { id: 'r2', name: 'Extra screen time', cost: 20, listIds: null },
+      { id: 'r4', name: 'New ballet shoes', cost: 30, listIds: ['l0', 'l1'] }, // only Agnes's lists, so only Agnes sees it
+      { id: 'r3', name: 'Ice cream trip', cost: 40, listIds: null },
+    ],
+    pending: [{ id: 'req1', person: 'margo', rewardName: 'Extra screen time', cost: 20, requestedAt: now - 20 * 60_000 }],
+    recent: [
+      { id: 'e1', person: 'margo', delta: 2, kind: 'chore', note: 'Walk the dog', at: now - 60 * 60_000 },
+      { id: 'e2', person: 'minions', delta: 1, kind: 'chore', note: 'Peel the bananas', at: now - 2 * 60 * 60_000 },
+      { id: 'e3', person: 'agnes', delta: 5, kind: 'adjust', note: 'Helped with the groceries', at: now - 26 * 60 * 60_000 },
+    ],
+  };
 }
 
 export function demoLists(): import('../lib/lists').HList[] {
