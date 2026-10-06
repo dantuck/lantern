@@ -12,7 +12,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  applyDashboardValues, applyWranglerValues, checkAccountId, checkEmail, defaultSender, checkHostname, checkTimeZone, defaultTimeZone,
+  applyDashboardValues, applyWranglerValues, checkAccountId, checkEmail, defaultSender, checkHostname, checkTimeZone, cleanPath, defaultTimeZone,
   MIN_NODE, nodeVersionOk, normalizeHostname, parseDatabaseId, readWranglerValues,
 } from './lib/setup-config.mjs';
 import { createPrompter } from './lib/prompt.mjs';
@@ -94,16 +94,41 @@ const useCalendar = await yesNo('Show a Google Calendar widget?');
 let calendarJson;
 let calendarId;
 if (useCalendar) {
-  const file = await ask('  Path to your Google service-account JSON key file', {
+  console.log(`
+  The calendar widget reads ONE calendar through a "service account": a robot Google account that can see only
+  what you share with it. To make one (about 5 minutes):
+    1. Go to https://console.cloud.google.com and create or pick a project (any name).
+    2. APIs & Services > Library > search "Google Calendar API" > Enable.
+    3. IAM & Admin > Service Accounts > Create service account. Name it e.g. family-dashboard; skip the optional
+       role and access steps.
+    4. Open the new service account > Keys > Add key > Create new key > JSON. A .json file downloads.
+    5. Keep that file private: it works like a password. Setup sends it to Cloudflare and keeps no copy; you can
+       delete the download afterwards and make a new key later if you ever need one.
+  If "Create new key" is greyed out, your Google organisation blocks service-account keys: ask its admin to allow
+  it, or create the project under a personal Google account instead.
+  Full walkthrough: docs/setup-guide.md, "Optional: Google Calendar widget".
+  Not ready? Answer n at the previous question; re-run \`npm run setup\` later and answer y.
+`);
+  const readKey = (p) => JSON.parse(readFileSync(resolve(cleanPath(p, process.env.HOME)), 'utf8'));
+  const file = await ask('  Path to the downloaded JSON key file (you can drag the file into this window)', {
     check: (p) => {
       try {
-        const j = JSON.parse(readFileSync(resolve(p.replace(/^~/, process.env.HOME ?? '~')), 'utf8'));
-        return j.client_email && j.private_key ? null : 'not a service-account key (needs client_email and private_key)';
-      } catch { return 'could not read that file as JSON'; }
+        const j = readKey(p);
+        return j.client_email && j.private_key ? null : 'that file is not a service-account key (it needs client_email and private_key)';
+      } catch { return 'could not read that file as JSON; check the path'; }
     },
   });
-  calendarJson = JSON.stringify(JSON.parse(readFileSync(resolve(file.replace(/^~/, process.env.HOME ?? '~')), 'utf8')));
-  calendarId = await ask('  Google Calendar ID (shared with the service account)', { check: (v) => (v ? null : 'required') });
+  const key = readKey(file);
+  calendarJson = JSON.stringify(key);
+  console.log(`
+  Next, share your calendar with this service account (this address is not secret):
+      ${key.client_email}
+  In Google Calendar: hover the calendar > ... > Settings and sharing > Share with specific people or groups >
+  Add people > paste the address above > permission "See all event details" > Send.
+  The same settings page has a section "Integrate calendar" with the Calendar ID (for a shared family calendar
+  it looks like abc123@group.calendar.google.com; for your own main calendar it is your Gmail address).
+`);
+  calendarId = await ask('  Google Calendar ID', { check: (v) => (v ? null : 'required') });
 }
 const useMealq = await yesNo('Show the MealQ meal plan widget?');
 let mealqHost;
@@ -132,7 +157,7 @@ if (DRY) {
   dry('update wrangler.jsonc (hostname, origin, sender, account) and dashboard.config.ts (time zone, widgets)');
 } else {
   writeFileSync(WRANGLER, applyWranglerValues(readFileSync(WRANGLER, 'utf8'), { hostname, mailFrom, accountId: account.id }));
-  writeFileSync(DASHBOARD, applyDashboardValues(readFileSync(DASHBOARD, 'utf8'), { timeZone, useCalendar, useMealq, mealqHost }));
+  writeFileSync(DASHBOARD, applyDashboardValues(readFileSync(DASHBOARD, 'utf8'), { timeZone, useCalendar, useMealq, mealqHost }, readFileSync(join(ROOT, 'dashboard.config.example.ts'), 'utf8')));
   console.log('  wrangler.jsonc and dashboard.config.ts updated (both are untracked).');
 }
 

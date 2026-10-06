@@ -48,6 +48,15 @@ export function nodeVersionOk(version, min = MIN_NODE) {
   return a !== x ? a > x : b !== y ? b > y : c >= z;
 }
 
+/** Cleans a path as typed or dragged into a terminal: surrounding quotes, backslash-escaped characters, and a leading ~. */
+export function cleanPath(raw, home = '') {
+  let p = String(raw).trim();
+  if (/^(['"]).*\1$/.test(p)) p = p.slice(1, -1);
+  p = p.replace(/\\(.)/g, '$1');
+  if (home && (p === '~' || p.startsWith('~/'))) p = home + p.slice(1);
+  return p;
+}
+
 export const FALLBACK_TIME_ZONE = 'America/New_York';
 
 /**
@@ -106,9 +115,31 @@ export function readWranglerValues(text) {
   };
 }
 
-/** Edits dashboard.config.ts: time zone everywhere, MealQ host, and drops widgets the household does not use. */
-export function applyDashboardValues(text, v) {
-  let out = text.replace(/timeZone:\s*'[^']*'/g, () => `timeZone: '${v.timeZone}'`);
+/** Adds a widget's line (with its comment) from the template if an earlier run removed it, so re-running setup can bring it back. */
+function ensureWidget(text, id, template) {
+  const has = (l) => new RegExp(`\\bid:\\s*'${id}'`).test(l);
+  if (!template || text.split('\n').some(has)) return text;
+  const tl = template.split('\n');
+  const i = tl.findIndex(has);
+  if (i < 0) return text;
+  let start = i;
+  while (start > 0 && /^\s*\/\//.test(tl[start - 1])) start--;
+  const lines = text.split('\n');
+  const at = lines.findIndex((l) => l.includes('...(showExample'));
+  if (at < 0) throw new Error('could not find where to add the widget in dashboard.config.ts; edit it by hand or restore it from dashboard.config.example.ts');
+  lines.splice(at, 0, ...tl.slice(start, i + 1));
+  return lines.join('\n');
+}
+
+/**
+ * Edits dashboard.config.ts: time zone everywhere, MealQ host, drops widgets the household does not use, and (given the
+ * template) restores wanted widgets that an earlier run dropped.
+ */
+export function applyDashboardValues(text, v, template) {
+  let out = text;
+  if (v.useCalendar) out = ensureWidget(out, 'calendar', template);
+  if (v.useMealq) out = ensureWidget(out, 'mealq', template);
+  out = out.replace(/timeZone:\s*'[^']*'/g, () => `timeZone: '${v.timeZone}'`);
   const dropLine = (id) => {
     out = out.split('\n').filter((l) => !new RegExp(`\\bid:\\s*'${id}'`).test(l)).join('\n');
   };

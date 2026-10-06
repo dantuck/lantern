@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  applyDashboardValues, applyWranglerValues, checkAccountId, defaultSender, defaultTimeZone, checkEmail, checkHostname, checkTimeZone,
+  applyDashboardValues, applyWranglerValues, checkAccountId, cleanPath, defaultSender, defaultTimeZone, checkEmail, checkHostname, checkTimeZone,
   nodeVersionOk, parseDatabaseId, readWranglerValues,
 } from '../scripts/lib/setup-config.mjs';
 
@@ -50,6 +50,14 @@ describe('setup input checks', () => {
       expect(defaultTimeZone(useless), String(useless)).toBe('America/New_York');
     }
   });
+  it('cleans pasted and dragged paths', () => {
+    expect(cleanPath('  /Users/me/key.json  ')).toBe('/Users/me/key.json');
+    expect(cleanPath('"/Users/me/My Files/key.json"')).toBe('/Users/me/My Files/key.json');
+    expect(cleanPath("'/Users/me/key.json'")).toBe('/Users/me/key.json');
+    expect(cleanPath('/Users/me/My\\ Files/key\\ (1).json')).toBe('/Users/me/My Files/key (1).json');
+    expect(cleanPath('~/Downloads/key.json', '/Users/me')).toBe('/Users/me/Downloads/key.json');
+    expect(cleanPath('~other/key.json', '/Users/me')).toBe('~other/key.json');
+  });
   it('parses the database id from wrangler output', () => {
     expect(parseDatabaseId(`{\n "binding": "DB",\n "database_name": "family-dashboard",\n "database_id": "${DB}"\n}`)).toBe(DB);
     expect(parseDatabaseId('error')).toBeNull();
@@ -87,6 +95,24 @@ describe('dashboard.config.ts edits', () => {
     const out = applyDashboardValues(dashboard, { timeZone: 'America/Chicago', useCalendar: true, useMealq: true, mealqHost: 'api.mealq.app' });
     expect(out).not.toContain('America/New_York');
     expect(out).toContain("apiHost: 'api.mealq.app'");
+  });
+  it('brings back a widget an earlier run dropped, so re-running setup can add it later', () => {
+    const dropped = applyDashboardValues(dashboard, { timeZone: 'America/Denver', useCalendar: false, useMealq: true, mealqHost: 'api.mealq.app' }, dashboard);
+    expect(dropped).not.toContain("id: 'calendar'");
+    const back = applyDashboardValues(dropped, { timeZone: 'America/Denver', useCalendar: true, useMealq: true, mealqHost: 'api.mealq.app' }, dashboard);
+    expect(back).toContain("id: 'calendar'");
+    expect(back).toContain("// Set timeZone to your household's IANA zone"); // its comment comes back too
+    expect(back.indexOf("id: 'calendar'")).toBeLessThan(back.indexOf('...(showExample'));
+    expect(back).toContain("timeZone: 'America/Denver'");
+    expect(back.match(/id: 'calendar'/g)).toHaveLength(1);
+    // nothing is added twice when the widget is already there
+    expect(applyDashboardValues(back, { timeZone: 'America/Denver', useCalendar: true, useMealq: true, mealqHost: 'api.mealq.app' }, dashboard)).toBe(back);
+  });
+  it('restores MealQ with the chosen host', () => {
+    const noMealq = applyDashboardValues(dashboard, { timeZone: 'America/Chicago', useCalendar: true, useMealq: false }, dashboard);
+    const again = applyDashboardValues(noMealq, { timeZone: 'America/Chicago', useCalendar: true, useMealq: true, mealqHost: 'api.mealq.app' }, dashboard);
+    expect(again).toContain("apiHost: 'api.mealq.app'");
+    expect(again).not.toContain('api.mealq.example');
   });
   it('drops widgets the household does not use', () => {
     const out = applyDashboardValues(dashboard, { timeZone: 'America/Chicago', useCalendar: false, useMealq: false });

@@ -107,17 +107,41 @@ anyone can get in.
 
 ## 4. Optional: Google Calendar widget
 
-The dashboard shows one shared calendar, read-only, using a **service account** (a robot Google account you
-create and give access to that calendar).
+The dashboard shows one shared calendar, read-only, through a **service account**: a robot Google account that can
+see only what you share with it. `npm run setup` prints these same steps at the right moment; you can also do them
+now. Menu names change over time, so look for the item with the same name.
 
-1. In the Google Cloud console, create a project, enable the **Google Calendar API** for it, and create a
-   **service account**. Create a **JSON key** for it and download the file. Keep it private: it is a credential.
-2. Open Google Calendar, share the calendar with the service account's email address (it looks like
-   `name@project.iam.gserviceaccount.com`) with permission **See all event details**.
-3. In that calendar's settings, find the **Calendar ID** (for a shared family calendar it usually looks like
-   `abc123@group.calendar.google.com`). You will need it in step 6.
+**Create the service account and its key** (about 5 minutes)
 
-Skip this step if you do not want a calendar; setup lets you leave the widget out.
+1. Go to the [Google Cloud console](https://console.cloud.google.com) and create a project, or pick an existing one.
+   The name does not matter.
+2. **APIs & Services, Library**: search for **Google Calendar API** and click **Enable**. Without this step,
+   requests are refused.
+3. **IAM & Admin, Service Accounts, Create service account**. Name it something like `family-dashboard`. Skip the
+   optional steps about roles and access; it needs none.
+4. Open the new service account, go to **Keys, Add key, Create new key**, choose **JSON**, and create it. A `.json`
+   file downloads.
+
+   That file is a credential: treat it like a password and do not email it or put it in a repository. Setup sends
+   it to Cloudflare and keeps no copy, so you can delete the download afterwards and create a new key whenever you
+   need one.
+
+   If **Create new key** is unavailable, your Google organisation blocks service-account keys by policy. Ask its
+   administrator to allow it, or create the project under a personal Google account instead.
+
+**Share your calendar with it**
+
+5. Open the downloaded file in a text editor and find `client_email`; it looks like
+   `family-dashboard@your-project.iam.gserviceaccount.com`. Setup also prints this address for you once it has read
+   the file. It is not secret.
+6. In Google Calendar, open the settings of the calendar you want to show ("Settings and sharing"), then **Share
+   with specific people or groups**, add that address, and give it the permission **See all event details**.
+7. On the same settings page, in the **Integrate calendar** section, find the **Calendar ID**. For a shared family
+   calendar it usually looks like `abc123@group.calendar.google.com`; for your own main calendar it is your Gmail
+   address. Setup asks for it.
+
+At the setup prompt, give the path to the downloaded file (you can drag the file into the terminal window). If you
+are not ready, answer **n** to the calendar question; you can run `npm run setup` again later and answer **y**.
 
 ## 5. Optional: MealQ widget
 
