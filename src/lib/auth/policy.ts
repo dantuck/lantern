@@ -2,6 +2,8 @@ export const MINUTE = 60_000;
 export const DAY = 24 * 60 * MINUTE;
 
 export const LOGIN_TOKEN_TTL = 10 * MINUTE;
+/** Wrong guesses allowed against one emailed code before it is burned. */
+export const LOGIN_CODE_MAX_ATTEMPTS = 5;
 export const INVITE_TTL = 7 * DAY;
 export const SESSION_IDLE_TTL = 30 * DAY; // sliding
 export const SESSION_ABSOLUTE_TTL = 90 * DAY; // hard cap

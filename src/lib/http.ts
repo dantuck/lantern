@@ -1,5 +1,5 @@
 const PUBLIC_EXACT = new Set([
-  '/welcome', '/demo', '/theme-init.js', '/login', '/auth/request', '/auth/verify', '/auth/confirm',
+  '/welcome', '/demo', '/theme-init.js', '/login', '/auth/request', '/auth/verify', '/auth/confirm', '/auth/code',
   '/manifest.webmanifest', '/sw.js', '/offline.html', '/offline.css', '/favicon.svg', '/apple-touch-icon.png', '/robots.txt',
 ]);
 const PUBLIC_PREFIX = ['/demo/', '/icons/', '/_astro/'];

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createTestDb } from './d1shim';
 import { createInvite, resolveLoginUser, updateUser, listUsers, revokeInvite, listPendingInvites } from '../src/lib/auth/users';
-import { consumeLoginToken, issueLoginToken } from '../src/lib/auth/loginTokens';
+import { consumeLoginCode, consumeLoginToken, issueLoginToken } from '../src/lib/auth/loginTokens';
 import { createSession, validateSession, revokeSession, revokeAllForUser, listSessions } from '../src/lib/auth/sessions';
 import { DAY, INVITE_TTL, LOGIN_TOKEN_TTL, SESSION_ABSOLUTE_TTL, SESSION_IDLE_TTL } from '../src/lib/auth/policy';
 
@@ -86,6 +86,39 @@ describe('login tokens', () => {
     await updateUser(db, m, kid.id, { disabled: true }, T0 + 1);
     expect(await consumeLoginToken(db, token, nonce, T0 + 2)).toBeNull();
     expect(await consumeLoginToken(db, 'nope', nonce, T0)).toBeNull();
+  });
+});
+
+describe('login codes', () => {
+  it('signs in once, tolerating spaces, and burns the link token too', async () => {
+    const m = await manager();
+    const { token, nonce, code } = await issueLoginToken(db, m.id, T0);
+    expect(code).toMatch(/^\d{8}$/);
+    expect(await consumeLoginCode(db, `${code.slice(0, 4)} ${code.slice(4)}`, nonce, T0 + 1000)).toBe(m.id);
+    expect(await consumeLoginCode(db, code, nonce, T0 + 2000)).toBeNull();
+    expect(await consumeLoginToken(db, token, nonce, T0 + 3000)).toBeNull();
+  });
+  it('fails from another browser and after expiry', async () => {
+    const m = await manager();
+    const { nonce, code } = await issueLoginToken(db, m.id, T0);
+    expect(await consumeLoginCode(db, code, 'f'.repeat(64), T0 + 1000)).toBeNull();
+    expect(await consumeLoginCode(db, code, nonce, T0 + LOGIN_TOKEN_TTL)).toBeNull();
+  });
+  it('burns the code after 5 wrong guesses, even if the next one is right', async () => {
+    const m = await manager();
+    const { nonce, code } = await issueLoginToken(db, m.id, T0);
+    const wrong = code === '00000000' ? '11111111' : '00000000';
+    for (let i = 0; i < 5; i++) expect(await consumeLoginCode(db, wrong, nonce, T0 + i)).toBeNull();
+    expect(await consumeLoginCode(db, code, nonce, T0 + 10)).toBeNull();
+  });
+  it('rejects malformed input without spending an attempt, and disabled users', async () => {
+    const m = await manager();
+    await createInvite(db, m, 'kid@example.com', 'member', T0);
+    const kid = (await resolveLoginUser(db, 'kid@example.com', { now: T0 }))!;
+    const { nonce, code } = await issueLoginToken(db, kid.id, T0);
+    for (const bad of ['', 'abcdefgh', '123', '123456789']) expect(await consumeLoginCode(db, bad, nonce, T0 + 1)).toBeNull();
+    await updateUser(db, m, kid.id, { disabled: true }, T0 + 2);
+    expect(await consumeLoginCode(db, code, nonce, T0 + 3)).toBeNull();
   });
 });
 

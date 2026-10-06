@@ -42,7 +42,7 @@ export const POST: APIRoute = async ({ request, cookies, locals, redirect }) => 
     // Origin comes from config, never from the Host header (prevents poisoned links), and is validated.
     const origin = safeAppOrigin(env.APP_ORIGIN, import.meta.env.DEV);
     const send = mailer && origin
-      ? mailer.send({ to: user.email, ...loginEmail(`${origin}/auth/verify#token=${issued.token}`) }).catch((e) => console.error('mail failed', String(e)))
+      ? mailer.send({ to: user.email, ...loginEmail(`${origin}/auth/verify#token=${issued.token}`, issued.code) }).catch((e) => console.error('mail failed', String(e)))
       : Promise.resolve(console.error('refusing to send: no mailer configured or APP_ORIGIN is invalid'));
     locals.cfContext.waitUntil(send);
   }

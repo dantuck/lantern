@@ -10,6 +10,7 @@ export const LIMITS = {
   // Backstop against email-bombing an address from many IPs.
   loginEmailTotal: { max: 30, windowMs: 60 * MINUTE },
   invite: { max: 20, windowMs: DAY },
+  codeIp: { max: 20, windowMs: 15 * MINUTE },
   confirmIp: { max: 20, windowMs: 15 * MINUTE },
 } satisfies Record<string, Limit>;
 

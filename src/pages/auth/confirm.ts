@@ -1,10 +1,8 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { consumeLoginToken } from '../../lib/auth/loginTokens';
-import { createSession, deviceLabel } from '../../lib/auth/sessions';
-import { clearCookie, cookieOptions } from '../../lib/auth/cookies';
-import { NONCE_COOKIE, SESSION_COOKIE } from '../../lib/auth/policy';
-import { audit } from '../../lib/auth/users';
+import { NONCE_COOKIE } from '../../lib/auth/policy';
+import { startSession } from '../../lib/auth/signIn';
 import { LIMITS, hit } from '../../lib/rateLimit';
 import { clientIp, json, readJson } from '../../lib/http';
 
@@ -24,10 +22,6 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return json({ ok: false, error: 'invalid_or_expired' }, 400);
   }
 
-  const device = deviceLabel(request.headers.get('user-agent'));
-  const { id, maxAgeSeconds } = await createSession(db, userId, device);
-  clearCookie(cookies, NONCE_COOKIE);
-  cookies.set(SESSION_COOKIE, id, cookieOptions(maxAgeSeconds));
-  await audit(db, userId, 'login', { device });
+  await startSession(db, cookies, request, userId, 'link');
   return json({ ok: true });
 };

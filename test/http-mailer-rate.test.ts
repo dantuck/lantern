@@ -42,15 +42,17 @@ describe('mailer', () => {
     expect(selectMailer({ MAIL_FROM: 'f', RESEND_API_KEY: 'k' }, false)).toBeInstanceOf(ResendMailer);
   });
   it('puts the link in both bodies', () => {
-    const m = loginEmail('https://x.dev/auth/verify#token=abc');
+    const m = loginEmail('https://x.dev/auth/verify#token=abc', '12345678');
     expect(m.text).toContain('#token=abc');
     expect(m.html).toContain('#token=abc');
+    expect(m.text).toContain('1234 5678');
+    expect(m.html).toContain('1234 5678');
   });
 });
 
 describe('http policy', () => {
   it('is default-deny with a small public allowlist', () => {
-    for (const p of ['/login', '/auth/verify', '/auth/confirm', '/auth/request', '/sw.js', '/manifest.webmanifest', '/icons/a.png', '/_astro/x.js'])
+    for (const p of ['/login', '/auth/verify', '/auth/confirm', '/auth/code', '/auth/request', '/sw.js', '/manifest.webmanifest', '/icons/a.png', '/_astro/x.js'])
       expect(isPublicPath(p), p).toBe(true);
     for (const p of ['/', '/admin', '/api/plugins/calendar/data', '/auth/logout', '/p/calendar', '/login/..', '/loginx'])
       expect(isPublicPath(p), p).toBe(false);

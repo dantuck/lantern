@@ -12,6 +12,7 @@ just before the new code is deployed). A release that needs manual action says s
 - Optional: add `people` (and `weather` for the calendar) to your `dashboard.config.ts`; see the README. Without `people` the calendar looks as before, in one colour.
 
 ### Added
+- **Sign in with a code from another device.** The sign-in email now also contains an 8-digit code. Read the email on your phone, then type the code into the sign-in page in the browser where you asked for it (the link only works in that same browser). The code expires in 10 minutes, works once, and is burned after 5 wrong guesses. It needs the new `0009_login_code.sql` migration: run `npm run update`.
 - **Turn widgets and features on or off.** Managers get a *Widgets and features* section in Admin to hide any widget from `dashboard.config.ts`, or the built-in Chores and Lists, for everyone. Hidden things disappear from the dashboard, the side bar and their pages and APIs; their data is kept. Each change is recorded in the activity log. Everything starts on. The demo's admin page has the same switches (remembered in the visitor's browser only), so the effect can be tried without signing in.
 - **People and colours.** List your household under `people` in `dashboard.config.ts`. Calendar events take the colour of whoever their title names, with filter chips to show one person's day, and the dashboard widget tints events the same way.
 - A **Day view** next to Day/Week/Month/Agenda, with one column per person, and a larger, rounder, touch-friendly calendar (the week view now opens by default).
