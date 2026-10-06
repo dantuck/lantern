@@ -152,8 +152,15 @@ if (!resendKey.startsWith('re_')) console.log('  note: Resend keys normally star
 
 console.log(`\nBefore going on, in Resend: the domain of ${sender} must be verified (SPF + DKIM), a DMARC record added,`);
 console.log('and link/open tracking left OFF (it rewrites the sign-in link and breaks it).');
-console.log('A separate mail subdomain (e.g. mail.yourdomain) keeps these records apart from your main domain; one _dmarc');
-console.log('record on the main domain covers its subdomains. See docs/setup-guide.md, "Using a subdomain".');
+const senderDomain = sender.split('@')[1]?.toLowerCase();
+if (senderDomain === hostname) {
+  console.log(`Good: ${hostname} is both the dashboard and the sending domain, so Resend's records and the sending`);
+  console.log('reputation stay scoped to this dashboard. Add that exact name as the domain in Resend.');
+} else {
+  console.log(`You are sending from ${senderDomain}, not the dashboard's own ${hostname}: fine, but add ${senderDomain}`);
+  console.log('as the domain in Resend. (Using the dashboard hostname keeps everything scoped to this dashboard.)');
+}
+console.log('A DMARC record on your main domain also covers its subdomains. See docs/setup-guide.md, "Using a subdomain".');
 if (!(await yesNo('Is that done?', false))) die('finish the Resend setup, then re-run `npm run setup` (your answers will be offered as defaults).');
 
 console.log(`\nSummary\n  account   ${account.name}\n  site      https://${hostname}\n  sender    ${mailFrom}\n  time zone ${timeZone}\n  manager   ${bootstrap}`);

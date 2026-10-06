@@ -10,7 +10,7 @@ just before the new code is deployed). A release that needs manual action says s
 ### Added
 - Setup explains what the MealQ widget needs (public hostname, read-only token) and defaults the hostname to MealQ's public API, `api-mealq.plantolive.app`; the example config uses it too.
 - Setup now walks through creating the Google service account and key at the calendar prompt, shows the service-account email to share the calendar with, and says where to find the Calendar ID. The setup guide has the same steps.
-- Setup guide section on using a subdomain: which names to pick, what DNS Cloudflare creates for you, and which email records (SPF, DKIM, DMARC) you add yourself.
+- Setup guide section on using a subdomain: which names to pick, what DNS Cloudflare creates for you, and which email records (SPF, DKIM, DMARC) you add yourself. It recommends the dashboard's own hostname as the Resend sending domain, which scopes the mail records and sending reputation to the dashboard.
 - `npm run doctor`: a read-only health check of settings, Cloudflare login, secrets (names only), database, members, backups and releases, with a fix for each problem (`--offline` skips Cloudflare).
 - A step-by-step setup guide (`docs/setup-guide.md`), a "You are the host" page covering the operator's jobs and a full teardown, and a threat model. Tests keep their links, `npm run` commands and wrangler commands accurate.
 - `SECURITY.md`: exactly what the Worker talks to, what is stored, what telemetry exists (none), and the supply-chain stance.

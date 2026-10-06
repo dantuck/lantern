@@ -25,14 +25,18 @@ any of them.
 
 ## Using a subdomain (recommended)
 
-Put the dashboard on a subdomain of a domain you already own rather than on the bare domain, and send its email from
-a second subdomain. Using `yourfamily.org` as the example:
+Put the dashboard on a subdomain of a domain you already own rather than on the bare domain, and use that **same
+hostname** as the sending domain in Resend. Using `yourfamily.org` as the example:
 
 | What | Example | Why |
 |---|---|---|
 | Dashboard address | `family.yourfamily.org` | Short and easy to type on a phone; becomes the home-screen icon's address |
-| Email sending domain (verified in Resend) | `mail.yourfamily.org` | Keeps its SPF and DKIM records apart from anything the main domain already uses |
-| Sender address | `login@mail.yourfamily.org` | Must be on the domain you verified in Resend |
+| Email sending domain (verified in Resend) | `family.yourfamily.org` (the same name) | Scopes everything to this dashboard: Resend's records live under that name, so nothing else on `yourfamily.org` shares its mail records or its sending reputation |
+| Sender address | `login@family.yourfamily.org` | Must be on the domain you verified in Resend. Setup suggests exactly this, so you can press Enter |
+
+If you would rather have one shared sending domain for several sites, use a subdomain such as `mail.yourfamily.org`
+instead and type `login@mail.yourfamily.org` at setup's sender prompt. The catch is that every site sending from it
+shares one reputation. For a single dashboard, the dashboard's own hostname is simpler and better contained.
 
 **Choosing the name.** Pick for readability, not secrecy: the address shows up in public certificate logs anyway,
 and the sign-in requirement is what protects the site. Avoid `admin`, `login`, `mail`, `www` and `api` for the
@@ -46,17 +50,21 @@ dashboard itself, since those are common attack targets or confusing for family 
 - **Before you start, look at the domain's existing DNS records** in Cloudflare. If a record already exists for the
   name you chose (an old CNAME or A record, say), delete it first or the deploy will likely complain. Check too that
   nothing else you run, such as another app or service, already uses that name.
-- **The email domain: you add the records yourself.** In step 3, add the subdomain (`mail.yourfamily.org`) to
-  Resend. Resend then shows the exact SPF and DKIM records to create; copy them into Cloudflare's DNS page for your
-  domain (or use Resend's Cloudflare connection if it offers one). Wait for Resend to show the domain as verified.
-- **DMARC: one record, on the main domain.** A single `_dmarc` TXT record on `yourfamily.org` also covers its
-  subdomains, so you do not need one per subdomain. If your domain already has a DMARC record, keep it.
-- **Do not add a second SPF record to the same name.** A name may have only one; two break each other. Using a
-  separate `mail.` subdomain avoids this if the main domain already has one.
+- **The email domain: you add the records yourself.** In step 3, add the same hostname to Resend. Resend then shows
+  the exact SPF and DKIM records to create; copy them into Cloudflare's DNS page for your domain (or use Resend's
+  Cloudflare connection if it offers one). Wait for Resend to show the domain as verified. Those records go on names
+  *under* the hostname (Resend's DKIM and return-path records, for example), not on the hostname itself, so they do not
+  clash with the dashboard's own record. If Resend ever asks for a record on exactly the dashboard's name, stop and
+  work out why before you delete anything.
+- **DMARC: one record is enough.** A `_dmarc` TXT record on `yourfamily.org` also covers its subdomains. If your
+  domain already has one, keep it. To give this dashboard a policy of its own, you can add a separate `_dmarc` record
+  on the hostname (`_dmarc.family.yourfamily.org`), which takes precedence for that name.
+- **SPF: one record per name.** A name may have only one SPF record; two break each other. Resend places its own on a
+  separate name under your sending domain, so this rarely matters, but if you ever add SPF by hand, keep one per name.
 
 When setup asks for the hostname, type the dashboard address (`family.yourfamily.org`). When it asks for the sender
-address it suggests `login@` plus that hostname; type `login@mail.yourfamily.org` instead, since that is the domain
-you verified.
+address, press Enter to accept `login@family.yourfamily.org`. Nobody can reply to that address, because the subdomain
+receives no mail; that is fine for a system sender.
 
 ## 1. Get the code
 
@@ -94,7 +102,8 @@ Read [`CHANGELOG.md`](../CHANGELOG.md) for the release you picked. If you are co
 The dashboard has no passwords. People sign in with a one-time link sent by email, so email must work before
 anyone can get in.
 
-1. In Resend, **add your sending domain**, ideally a subdomain such as `mail.yourfamily.org`, and add the DNS records Resend
+1. In Resend, **add your sending domain**: the dashboard's own hostname, such as `family.yourfamily.org` (see *Using a
+   subdomain* above), and add the DNS records Resend
    shows you (SPF and DKIM) in Cloudflare's DNS page. If Resend offers to configure Cloudflare for you, that is
    fine. Wait until Resend shows the domain as **verified**.
 2. Add a **DMARC** record in Cloudflare DNS: a `TXT` record named `_dmarc` with the value
@@ -103,7 +112,9 @@ anyone can get in.
 3. In Resend's domain settings, make sure **click tracking and open tracking are off**. Tracking rewrites the
    links in the email and breaks the sign-in link.
 4. Create an **API key** with **sending access** only (not full access) and keep it somewhere safe for step 6.
-5. Decide the sender address, for example `login@mail.yourfamily.org`. It must be on the domain you verified in step 1. Setup suggests `login@` plus your dashboard hostname; if you verified a different domain, type that address instead.
+5. Decide the sender address, for example `login@family.yourfamily.org`. It must be on the domain you verified in
+   step 1. Setup suggests `login@` plus your dashboard hostname, so if you followed step 1, press Enter; if you
+   verified a different domain, type an address on that domain instead.
 
 ## 4. Optional: Google Calendar widget
 
