@@ -4,8 +4,8 @@ import { groupByDay } from './agenda';
 import type { CalendarConfig } from './plugin';
 import type { CalendarData } from './types';
 
-interface Props { data: CalendarData; config: CalendarConfig }
-const { data, config } = Astro.props;
+interface Props { data: CalendarData; config: CalendarConfig; moreHref?: string }
+const { data, config, moreHref = '/p/calendar' } = Astro.props;
 const { timeZone, locale } = config;
 
 const today = dayKey(Date.now(), timeZone);
@@ -35,6 +35,6 @@ const total = days.reduce((n, d) => n + d.events.length, 0);
         </section>
       );
     })}
-    {total > LIMIT && <p class="muted"><a href="/p/calendar">+{total - LIMIT} more</a></p>}
+    {total > LIMIT && <p class="muted"><a href={moreHref}>+{total - LIMIT} more</a></p>}
   </div>
 )}
