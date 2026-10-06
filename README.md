@@ -91,7 +91,7 @@ npm ci
 npm run update                              # add -- --dry-run to preview
 ```
 
-`npm run update` runs `verify`, takes a database backup (`backups/`, mode 600, git-ignored), applies any new migrations, then deploys, and records what it deployed in `.deployed.json`. It shows the changelog entries since your last deploy and stops on anything marked **Action required** until you confirm. It warns if the checkout is not a release tag with a verifiable signature, has local changes, or is older than what you last deployed. Migrations only go forward and each release is compatible with the one before it, so `npx wrangler rollback` is a safe way to undo a bad deploy. Nothing contacts anyone but your own Cloudflare account.
+`npm run update` first confirms Wrangler is logged in to the account in `wrangler.jsonc` and can reach the database (stopping with the fix, before anything is changed, if not), then runs `verify`, takes a database backup (`backups/`, mode 600, git-ignored), applies any new migrations, then deploys, and records what it deployed in `.deployed.json`. It shows the changelog entries since your last deploy and stops on anything marked **Action required** until you confirm. It warns if the checkout is not a release tag with a verifiable signature, has local changes, or is older than what you last deployed. Migrations only go forward and each release is compatible with the one before it, so `npx wrangler rollback` is a safe way to undo a bad deploy. Nothing contacts anyone but your own Cloudflare account.
 
 ## How access works
 

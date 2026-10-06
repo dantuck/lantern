@@ -5,7 +5,7 @@
 //   npm run update                  do it for real
 //   npm run update -- --dry-run     show what would happen; changes nothing (read-only queries still run)
 //
-// Order matters: checks first (nothing touched if they fail), then a database backup, then migrations,
+// Order matters: Cloudflare login and checks first (nothing touched if they fail), then a database backup, then migrations,
 // then the new code. Migrations are forward-only and are compatible with the previous release.
 import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -15,7 +15,7 @@ import { createPrompter } from './lib/prompt.mjs';
 import { PRIVACY_ENV } from './lib/privacy-env.mjs';
 import { checkAccountId, checkDatabaseId, readWranglerValues } from './lib/setup-config.mjs';
 import {
-  backupFileName, compareVersions, diffMigrations, entriesBetween, isVersion, parseAppliedMigrations, parseChangelog,
+  assessLogin, authHint, backupFileName, compareVersions, diffMigrations, entriesBetween, isVersion, parseAppliedMigrations, parseChangelog,
 } from './lib/update-helpers.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -93,28 +93,55 @@ if (!git(['rev-parse', 'HEAD']).ok) {
 }
 if (problems.length && !(await yesNo(`Deploy anyway (${problems.join(', ')})?`, false))) die('stopped; nothing was changed.');
 
-// ---------- 3. checks ----------
-step(3, 'Checks');
-if (DRY) dry('run `npm run verify` (tests, types, build, client-bundle secret scan, dependency audit)');
-else if (spawnSync('npm', ['run', 'verify'], { cwd: ROOT, stdio: 'inherit' }).status !== 0) die('verify failed; nothing was changed. Fix the failure (or pick a different release) and re-run.');
-
-// ---------- 4. migrations ----------
-step(4, 'Database migrations');
+// ---------- 3. cloudflare login ----------
+// Checked before the slow checks and before anything is touched, so a missing or wrong login stops the update right away.
+step(3, 'Cloudflare login');
 const wr = (args, opts = {}) => spawnSync('npx', ['wrangler', ...args], {
   cwd: ROOT, encoding: 'utf8', env: { ...process.env, ...PRIVACY_ENV, CLOUDFLARE_ACCOUNT_ID: account },
   stdio: opts.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
 });
+const login = assessLogin(wr(['whoami', '--json'], { capture: true }).stdout, account);
+if (login.state !== 'ok') {
+  const why = {
+    logged_out: 'you are not logged in to Cloudflare',
+    wrong_account: `you are logged in to ${login.names?.map((n) => `"${n}"`).join(', ') || 'other accounts'}, not the account in wrangler.jsonc (${account})`,
+    unreadable: 'Wrangler could not report your Cloudflare login',
+  }[login.state];
+  const fix = process.env.CLOUDFLARE_API_TOKEN
+    ? 'CLOUDFLARE_API_TOKEN is set and is used instead of `npx wrangler login`. Unset it, or replace it with a valid token for this account, then re-run `npm run update`'
+    : 'Run `npx wrangler login` (choose the right account), then re-run `npm run update`';
+  die(`${why}. ${fix}. Nothing was changed.`);
+}
+console.log(`  Logged in; account "${login.accountName}".`);
+// A login can still lack access to the database (for example an API token without D1 permission), which is better found now than after the checks.
+const probe = wr(['d1', 'execute', dbName, '--remote', '--json', '--command', 'SELECT 1'], { capture: true });
+if (probe.status !== 0) {
+  const out = `${probe.stderr}${probe.stdout}`;
+  die(`cannot reach the database "${dbName}" with this login:\n${out.trim()}${authHint(out) ? `\n\n${authHint(out)}` : ''}\nNothing was changed.`);
+}
+console.log(`  Can reach the database "${dbName}".`);
+
+// ---------- 4. checks ----------
+step(4, 'Checks');
+if (DRY) dry('run `npm run verify` (tests, types, build, client-bundle secret scan, dependency audit)');
+else if (spawnSync('npm', ['run', 'verify'], { cwd: ROOT, stdio: 'inherit' }).status !== 0) die('verify failed; nothing was changed. Fix the failure (or pick a different release) and re-run.');
+
+// ---------- 5. migrations ----------
+step(5, 'Database migrations');
 const q = wr(['d1', 'execute', dbName, '--remote', '--json', '--command', 'SELECT name FROM d1_migrations ORDER BY id'], { capture: true });
 let applied;
 if (q.status === 0) applied = parseAppliedMigrations(q.stdout);
 else if (/no such table/i.test(`${q.stdout}${q.stderr}`)) applied = [];
-else die(`could not read the migration state of "${dbName}":\n${q.stderr || q.stdout}`);
+else {
+  const out = q.stderr || q.stdout;
+  die(`could not read the migration state of "${dbName}":\n${out}${authHint(out) ? `\n\n${authHint(out)}` : ''}`);
+}
 const { pending, unknown } = diffMigrations(readdirSync(join(ROOT, 'migrations')).filter((f) => f.endsWith('.sql')), applied);
 if (unknown.length) die(`the live database has migrations this checkout does not know (${unknown.join(', ')}). You are behind: pull the latest release first.`);
 console.log(pending.length ? `  Pending: ${pending.join(', ')}` : '  Up to date; nothing to migrate.');
 
-// ---------- 5. backup ----------
-step(5, 'Backup');
+// ---------- 6. backup ----------
+step(6, 'Backup');
 const backupPath = join(BACKUPS, backupFileName(dbName));
 if (DRY) {
   dry(`export "${dbName}" to ${backupPath}`);
@@ -130,8 +157,8 @@ if (!(await yesNo(`Apply${pending.length ? ` ${pending.length} migration(s) and`
   die('stopped; the database was backed up but nothing else was changed.');
 }
 
-// ---------- 6. migrate + deploy ----------
-step(6, 'Apply and deploy');
+// ---------- 7. migrate + deploy ----------
+step(7, 'Apply and deploy');
 if (DRY) {
   if (pending.length) dry('apply migrations');
   dry('wrangler deploy, then record the version in .deployed.json');

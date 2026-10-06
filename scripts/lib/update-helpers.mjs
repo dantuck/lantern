@@ -75,3 +75,24 @@ export function checkMigrationSeal(files, contents, manifest) {
   for (const f of Object.keys(manifest)) if (!names.includes(f)) problems.push(`${f}: sealed but the file is missing`);
   return problems;
 }
+
+/**
+ * Reads `wrangler whoami --json` output and says whether it can act on `accountId`:
+ * ok, logged_out, wrong_account (logged in, but not to that account) or unreadable.
+ */
+export function assessLogin(stdout, accountId) {
+  let info;
+  try { info = JSON.parse(stdout); } catch { return { state: 'unreadable' }; }
+  if (!info?.loggedIn) return { state: 'logged_out' };
+  const accounts = info.accounts ?? [];
+  const account = accounts.find((a) => a.id === accountId);
+  return account ? { state: 'ok', accountName: account.name } : { state: 'wrong_account', names: accounts.map((a) => a.name) };
+}
+
+/** A plain-language fix when Wrangler's error text is about credentials rather than the database, or null. */
+export function authHint(text) {
+  if (!/\b7403\b|\b10000\b|not authorized|authentication error|not logged in|invalid (api )?token|unauthori[sz]ed/i.test(String(text))) return null;
+  return 'Cloudflare refused these credentials. Run `npx wrangler whoami` to see which account and permissions Wrangler is using. '
+    + 'If CLOUDFLARE_API_TOKEN is set it overrides `npx wrangler login`: unset it, or use a token for this account with D1 Edit and Workers Scripts Edit. '
+    + 'Otherwise run `npx wrangler login` and choose the account in wrangler.jsonc.';
+}

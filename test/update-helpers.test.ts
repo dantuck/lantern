@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import {
-  backupFileName, checkMigrationSeal, compareVersions, diffMigrations, entriesBetween, parseAppliedMigrations,
+  assessLogin, authHint, backupFileName, checkMigrationSeal, compareVersions, diffMigrations, entriesBetween, parseAppliedMigrations,
   parseChangelog, sha256,
 } from '../scripts/lib/update-helpers.mjs';
 
@@ -81,5 +81,22 @@ describe('the real repository', () => {
     const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
     const entries = parseChangelog(readFileSync('CHANGELOG.md', 'utf8'));
     expect(entries.map((e) => e.version)).toContain(version);
+  });
+});
+
+describe('Cloudflare login check', () => {
+  const who = (o: unknown) => JSON.stringify(o);
+  it('accepts a login that includes the pinned account', () => {
+    expect(assessLogin(who({ loggedIn: true, accounts: [{ id: 'a1', name: 'Home' }, { id: 'a2', name: 'Work' }] }), 'a2')).toEqual({ state: 'ok', accountName: 'Work' });
+  });
+  it('tells logged out, wrong account and unreadable output apart', () => {
+    expect(assessLogin(who({ loggedIn: false }), 'a1')).toEqual({ state: 'logged_out' });
+    expect(assessLogin(who({ loggedIn: true, accounts: [{ id: 'a9', name: 'Other' }] }), 'a1')).toEqual({ state: 'wrong_account', names: ['Other'] });
+    expect(assessLogin('not json', 'a1')).toEqual({ state: 'unreadable' });
+  });
+  it('recognises credential errors from Wrangler, and only those', () => {
+    expect(authHint('The given account is not valid or is not authorized to access this service [code: 7403]')).toContain('wrangler whoami');
+    expect(authHint('Authentication error [code: 10000]')).toContain('CLOUDFLARE_API_TOKEN');
+    expect(authHint('no such table: d1_migrations')).toBeNull();
   });
 });
