@@ -3,19 +3,18 @@ import Base from '../layouts/Base.astro';
 const sent = Astro.url.searchParams.get('sent') === '1';
 ---
 <Base title="Sign in">
-  <main>
-    <div class="card">
-      <h1>Family Dashboard</h1>
-      {sent ? (
-        <div class="notice">
-          If that address is invited, a sign-in link is on its way. Open the <strong>newest</strong> link in <strong>this same browser</strong>. It expires in 10 minutes.
-        </div>
-      ) : <p>Enter your email and we'll send you a sign-in link.</p>}
-      <form method="post" action="/auth/request">
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" autocomplete="email" required maxlength="254" />
-        <button type="submit">{sent ? 'Send another link' : 'Email me a link'}</button>
-      </form>
-    </div>
-  </main>
+  <div class="card">
+    <h1>Family Dashboard</h1>
+    {sent ? (
+      <div class="notice">
+        If that address is invited, a sign-in link is on its way. Open the <strong>newest</strong> link in <strong>this same browser</strong>. It expires in 10 minutes.
+      </div>
+    ) : <p>Enter your email and we'll send you a sign-in link.</p>}
+    <form method="post" action="/auth/request">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="email" required maxlength="254" />
+      <button type="submit">{sent ? 'Send another link' : 'Email me a link'}</button>
+    </form>
+  </div>
+  <p class="hint center">Just looking? <a href="/demo">Explore the demo</a>.</p>
 </Base>

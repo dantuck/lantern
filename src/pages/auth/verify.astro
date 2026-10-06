@@ -2,13 +2,11 @@
 import Base from '../../layouts/Base.astro';
 ---
 <Base title="Signing in">
-  <main>
-    <div class="card">
-      <h1>Signing you in…</h1>
-      <p id="status">One moment.</p>
-      <noscript><p>JavaScript is required to complete sign-in.</p></noscript>
-    </div>
-  </main>
+  <div class="card">
+    <h1>Signing you in…</h1>
+    <p id="status">One moment.</p>
+    <noscript><p>JavaScript is required to complete sign-in.</p></noscript>
+  </div>
   <script>
     // The token lives in the URL fragment so it never reaches servers, logs or Referer headers.
     const token = new URLSearchParams(location.hash.slice(1)).get('token');

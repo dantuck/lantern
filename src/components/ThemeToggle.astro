@@ -1,0 +1,9 @@
+---
+import Icon from './Icon.astro';
+// One-button theme switch (system -> light -> dark). Behaviour lives in src/scripts/theme.ts.
+---
+<button type="button" class="theme" data-theme-cycle data-state="system" aria-label="Theme: match system. Click to change." title="Theme">
+  <Icon name="monitor" class="i-system" />
+  <Icon name="sun" class="i-light" />
+  <Icon name="moon" class="i-dark" />
+</button>

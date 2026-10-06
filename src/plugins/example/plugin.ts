@@ -5,7 +5,7 @@ import { definePlugin } from '../types';
 export default definePlugin({
   id: 'example',
   name: 'Example',
-  icon: '👋',
+  icon: 'smile',
   configSchema: z.object({ greeting: z.string().min(1).max(80).default('Hello') }),
   secrets: [],
   fetchPolicy: { hosts: [] },

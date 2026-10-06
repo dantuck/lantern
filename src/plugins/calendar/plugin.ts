@@ -20,7 +20,7 @@ export type CalendarConfig = z.infer<typeof configSchema>;
 export default definePlugin({
   id: 'calendar',
   name: 'Calendar',
-  icon: '📅',
+  icon: 'calendar',
   configSchema,
   secrets: ['GOOGLE_SERVICE_ACCOUNT_JSON', 'GOOGLE_CALENDAR_ID'],
   // POST is only for the OAuth token exchange; everything else is GET.

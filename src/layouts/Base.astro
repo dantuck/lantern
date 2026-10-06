@@ -1,9 +1,18 @@
 ---
 import '../styles/global.css';
-interface Props { title?: string; wide?: boolean }
-const { title = 'Family Dashboard', wide = false } = Astro.props;
+import ThemeToggle from '../components/ThemeToggle.astro';
+interface Props { title?: string; wide?: boolean; bare?: boolean; description?: string; demo?: boolean }
+const { title = 'Family Dashboard', wide = false, bare = false, description, demo = false } = Astro.props;
 const user = Astro.locals.user;
 const path = Astro.url.pathname;
+const current = (href: string) => (path === href ? 'page' : undefined);
+const demoLinks = [
+  { href: '/demo', label: 'Dashboard' },
+  { href: '/demo/calendar', label: 'Calendar' },
+  { href: '/demo/meals', label: 'Meals' },
+  { href: '/demo/devices', label: 'Devices' },
+  { href: '/demo/admin', label: 'Admin' },
+];
 ---
 <!doctype html>
 <html lang="en">
@@ -11,29 +20,49 @@ const path = Astro.url.pathname;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="robots" content="noindex,nofollow" />
-    <meta name="theme-color" content="#2f6f5e" />
+    <meta name="theme-color" content="#c2570a" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Family" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    {description && <meta name="description" content={description} />}
+    <script is:inline src="/theme-init.js"></script>
     <title>{title}</title>
   </head>
   <body>
-    {user && (
+    {demo && (
+      <div class="demo-banner" role="note">
+        <span>Demo with sample data. Nothing here is real.</span>
+        <a href="/welcome#setup">Get your own</a>
+      </div>
+    )}
+    {demo ? (
+      <nav class="nav" aria-label="Demo">
+        <a class="brand" href="/demo" aria-label="Demo home"><img src="/favicon.svg" alt="" width="28" height="28" /></a>
+        {demoLinks.map((l) => <a href={l.href} aria-current={current(l.href)}>{l.label}</a>)}
+        <span class="spacer"></span>
+        <ThemeToggle />
+        <a href={user ? '/' : '/welcome'}>{user ? 'Exit demo' : 'Back to site'}</a>
+      </nav>
+    ) : user ? (
       <nav class="nav">
-        <a href="/" aria-current={path === '/' ? 'page' : undefined}>Dashboard</a>
-        <a href="/devices" aria-current={path === '/devices' ? 'page' : undefined}>Devices</a>
-        {user.role === 'manager' && <a href="/admin" aria-current={path === '/admin' ? 'page' : undefined}>Admin</a>}
+        <a class="brand" href="/" aria-label="Family Dashboard home"><img src="/favicon.svg" alt="" width="28" height="28" /></a>
+        <a href="/" aria-current={current('/')}>Dashboard</a>
+        <a href="/devices" aria-current={current('/devices')}>Devices</a>
+        {user.role === 'manager' && <a href="/admin" aria-current={current('/admin')}>Admin</a>}
         <span class="spacer"></span>
         <button id="install-app" class="link" type="button" hidden>Install app</button>
-        <span class="who">{user.email}</span>
+        <ThemeToggle />
         <form method="post" action="/auth/logout"><button class="link" type="submit">Sign out</button></form>
       </nav>
+    ) : !bare && (
+      <div class="theme-float"><ThemeToggle /></div>
     )}
-    <main class={wide ? 'wide' : undefined}><slot /></main>
+    {bare ? <slot /> : <main class={wide ? 'wide' : 'narrow-center'}><slot /></main>}
     <script>
+      import '../scripts/theme';
       import '../scripts/localtime';
       import '../scripts/pwa';
     </script>

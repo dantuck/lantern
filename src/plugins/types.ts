@@ -23,7 +23,7 @@ export interface PluginDefinition<C = unknown, D = unknown> {
   /** Lowercase slug; must equal the plugin's folder name. */
   id: string;
   name: string;
-  /** A single emoji shown in the card header. */
+  /** Shown in the card header: a Feather icon name (see src/lib/icons.ts), or an image under public/icons/ such as "/icons/logo.png" (other paths fall back to a neutral icon). */
   icon: string;
   configSchema: z.ZodType<C>;
   /** Names of Worker secrets this plugin needs. All are required for the plugin to run. */

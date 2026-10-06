@@ -22,11 +22,11 @@ const currentHash = Astro.locals.session!.idHash;
     <form method="post" action="/admin/action" class="row">
       <input type="hidden" name="action" value="invite" />
       <div><label for="inv-email">Email</label><input id="inv-email" name="email" type="email" required maxlength="254" autocomplete="off" /></div>
-      <div style="flex:0 1 10rem"><label for="inv-role">Role</label>
+      <div class="role"><label for="inv-role">Role</label>
         <select id="inv-role" name="role"><option value="member">Member (view only)</option><option value="manager">Manager (can invite)</option></select></div>
       <button type="submit">Send invite</button>
     </form>
-    <p class="muted" style="margin-top:.75rem">Invitations expire after 7 days. The person signs in with a one-time link sent to that address.</p>
+    <p class="muted hint">Invitations expire after 7 days. The person signs in with a one-time link sent to that address.</p>
   </section>
 
   {invites.length > 0 && (
@@ -57,7 +57,7 @@ const currentHash = Astro.locals.session!.idHash;
             <td><span class={`badge ${u.role}`}>{u.role}</span></td>
             <td>{u.disabledAt ? <span class="muted">disabled</span> : 'active'}</td>
             <td><Time ms={u.createdAt} /></td>
-            <td>
+            <td><div class="actions">
               {!u.disabledAt && (
                 <form method="post" action="/admin/action">
                   <input type="hidden" name="action" value="set_role" /><input type="hidden" name="id" value={u.id} />
@@ -70,7 +70,7 @@ const currentHash = Astro.locals.session!.idHash;
                 <input type="hidden" name="disabled" value={u.disabledAt ? '0' : '1'} />
                 <button class={u.disabledAt ? 'ghost' : 'danger'} type="submit">{u.disabledAt ? 'Re-enable' : 'Disable'}</button>
               </form>
-            </td>
+            </div></td>
           </tr>
         ))}
       </tbody>

@@ -3,6 +3,7 @@ import { env } from 'cloudflare:workers';
 import { loadPluginData } from '../plugins/host';
 import type { EnabledPlugin } from '../plugins/registry';
 import Time from './Time.astro';
+import PluginCard from './PluginCard.astro';
 
 // Convention: src/plugins/<id>/Widget.astro (required) and Page.astro (optional full-page view).
 const widgets = import.meta.glob<{ default: any }>('../plugins/*/Widget.astro', { eager: true });
@@ -16,11 +17,7 @@ const result = await loadPluginData(plugin, { env: env as unknown as Record<stri
 const id = plugin.def.id;
 const View = (view === 'page' ? pages[`../plugins/${id}/Page.astro`] : undefined)?.default ?? widgets[`../plugins/${id}/Widget.astro`]?.default;
 ---
-<section class={`card plugin ${plugin.span === 2 ? 'span-2' : ''}`} data-plugin={id}>
-  <header class="plugin-head">
-    <h2><span aria-hidden="true">{plugin.def.icon}</span> {plugin.def.name}</h2>
-    {view === 'card' && <a href={`/p/${id}`} class="muted">Open</a>}
-  </header>
+<PluginCard id={id} name={plugin.def.name} icon={plugin.def.icon} span={plugin.span} href={view === 'card' ? `/p/${id}` : undefined}>
   {(result.status === 'ok' || result.status === 'stale') && View ? (
     <>
       {result.status === 'stale' && (
@@ -33,4 +30,4 @@ const View = (view === 'page' ? pages[`../plugins/${id}/Page.astro`] : undefined
   ) : (
     <p class="muted">This widget couldn't load. It will retry automatically.</p>
   )}
-</section>
+</PluginCard>

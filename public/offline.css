@@ -1,8 +1,10 @@
-:root { color-scheme: light dark; --bg:#f6f5f2; --fg:#1d1d1b; --muted:#6b6a66; --card:#fff; --accent:#2f6f5e; --border:#dedbd3; }
-@media (prefers-color-scheme: dark) { :root { --bg:#151514; --fg:#ecebe6; --muted:#9b9a94; --card:#1f1f1d; --accent:#6fc2a9; --border:#33322e; } }
-body { margin:0; font:16px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); min-height:100dvh; }
+/* Mirrors the tokens in src/styles/global.css; the offline page is static and cannot import it. */
+:root { color-scheme: light dark; --bg:#faf7f3; --fg:#1d1813; --muted:#6e655a; --card:#fff; --accent:#c2570a; --accent-fg:#fff; --border:#ece5db; --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+@media (prefers-color-scheme: dark) { :root { --bg:#12100d; --fg:#f2ede6; --muted:#9d9488; --card:#1b1814; --accent:#ff9a3c; --accent-fg:#2a1500; --border:#2d2822; } }
+body { margin:0; font:16px/1.5 var(--font); letter-spacing:-.005em; background:var(--bg); color:var(--fg); min-height:100dvh; -webkit-font-smoothing:antialiased; }
 main { max-width:28rem; margin:0 auto; padding:4rem 1rem; }
-.card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1.5rem; }
-h1 { font-size:1.4rem; margin:0 0 .5rem; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:2rem; box-shadow:0 1px 2px rgb(29 24 19/.04),0 8px 24px -8px rgb(29 24 19/.12); }
+h1 { font-size:1.75rem; line-height:1.2; font-weight:700; letter-spacing:-.03em; margin:0 0 .5rem; }
 p { color:var(--muted); margin:.25rem 0 1rem; }
-.btn { display:inline-block; padding:.6rem 1rem; border-radius:8px; background:var(--accent); color:#fff; text-decoration:none; font-weight:600; }
+.btn { display:inline-block; padding:.7rem 1.25rem; border-radius:10px; background:var(--accent); color:var(--accent-fg); text-decoration:none; font-weight:600; }
+.btn:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }

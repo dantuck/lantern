@@ -21,7 +21,7 @@ export type MealQConfig = z.infer<typeof configSchema>;
 export default definePlugin({
   id: 'mealq',
   name: 'Meal plan',
-  icon: '🍽️',
+  icon: '/icons/mealq.png',
   configSchema,
   secrets: ['MEALQ_API_TOKEN'],
   // Derived from validated config, then checked again by the registry: one exact host, GET only.

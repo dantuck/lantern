@@ -12,6 +12,7 @@ const flash = flashFor(Astro.url.searchParams.get('msg'));
 ---
 <Base title="Devices" wide>
   <h1>Your devices</h1>
+  <p>Signed in as <strong>{user.email}</strong>.</p>
   {flash && <div class={`notice ${flash.ok ? '' : 'error'}`} role="status">{flash.text}</div>}
   <section class="card">
     <table>
@@ -28,9 +29,9 @@ const flash = flashFor(Astro.url.searchParams.get('msg'));
       </tbody>
     </table>
     {sessions.length > 1 && (
-      <form method="post" action="/devices/action" style="margin-top:1rem">
+      <form method="post" action="/devices/action" class="stack-top">
         <input type="hidden" name="action" value="revoke_others" />
-        <button class="danger" type="submit" style="width:auto">Sign out all other devices</button>
+        <button class="danger" type="submit">Sign out all other devices</button>
       </form>
     )}
   </section>

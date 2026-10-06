@@ -1,0 +1,12 @@
+---
+import { iconMarkup } from '../lib/icons';
+interface Props { name: string; class?: string }
+const { name, class: cls = '' } = Astro.props;
+// A name under "/icons/" is an image from public/ (for example a product's own logo); anything else is a Feather icon.
+// The strict prefix and character set rule out protocol-relative ("//host") and traversal ("..") paths.
+const isImage = /^\/icons\/[\w-]+(\.[\w-]+)*$/.test(name);
+const klass = `icon ${cls}`.trim();
+---
+{isImage
+  ? <img class={`${klass} icon-img`} src={name} alt="" width="24" height="24" decoding="async" />
+  : <svg class={klass} viewBox="0 0 24 24" aria-hidden="true" focusable="false" set:html={iconMarkup(name)} />}
