@@ -25,7 +25,10 @@ export async function choreState(db: D1Database, day: string, manager: boolean):
   const done = new Set(checkRows.results.map((r) => r.item_id));
   const bonusPaid = new Set(bonusRows.results.map((r) => r.ref));
   const itemsByList = new Map<string, ItemRow[]>();
-  for (const i of itemRows.results) itemsByList.set(i.list_id, [...(itemsByList.get(i.list_id) ?? []), i]);
+  for (const i of itemRows.results) {
+    const group = itemsByList.get(i.list_id);
+    if (group) group.push(i); else itemsByList.set(i.list_id, [i]);
+  }
   const view: ChoreList[] = lists
     .map((l) => ({
       id: l.id, name: l.name, person: l.person, period: l.period, days: l.days, onceDate: l.once_date, bonus: l.bonus,
