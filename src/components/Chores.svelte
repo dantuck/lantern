@@ -197,7 +197,7 @@
 </div>
 
 {#if state.lists.length === 0}
-  <p class="muted">No chore lists yet.{#if state.manager} <a href={manageHref}>Create the first one</a>.{:else} Ask a manager to set some up.{/if}</p>
+  <p class="muted">No chore lists yet. {#if state.manager}<a href={manageHref}>Create the first one</a>.{:else}Ask a manager to set some up.{/if}</p>
 {/if}
 
 
