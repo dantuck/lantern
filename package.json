@@ -37,7 +37,10 @@
     "@astrojs/check": "^0.9.10",
     "@cloudflare/workers-types": "^5.20261003.1",
     "@types/node": "^26.6.4",
+    "@unocss/astro": "^66.10.5",
+    "@unocss/extractor-svelte": "^66.10.5",
     "typescript": "^6.0.3",
+    "unocss": "^66.10.5",
     "vitest": "^5.0.3",
     "wrangler": "^4.147.0"
   },

@@ -1,13 +1,14 @@
 import { defineConfig } from 'astro/config';
 import cloudflare from '@astrojs/cloudflare';
 import svelte from '@astrojs/svelte';
+import UnoCSS from 'unocss/astro';
 
 export default defineConfig({
   output: 'server',
   // No Cloudflare Images binding, and none of Astro's own sessions (we have our own auth): fewer bindings, less surface.
   adapter: cloudflare({ imageService: 'passthrough' }),
   session: false,
-  integrations: [svelte()],
+  integrations: [UnoCSS(), svelte()],
   // Rejects cross-origin form submissions (CSRF); middleware also checks Origin on every unsafe method.
   security: {
     checkOrigin: true,
