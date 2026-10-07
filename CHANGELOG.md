@@ -7,6 +7,28 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.4.1](https://github.com/dantuck/lantern/compare/v0.4.0...v0.4.1) (2026-10-07)
+
+
+### Fixed
+
+* **chores:** space and centre the rewards badge ([6321bc5](https://github.com/dantuck/lantern/commit/6321bc56ed93cfe0ba09495618e1bae798d56868))
+* **css:** restore feature-off banner and Lists tick styles ([ef0676c](https://github.com/dantuck/lantern/commit/ef0676c4a5e2be9aa74e5204ed1fd080f080d8d8))
+* **nav:** start side rail below the status bar safe area ([e61c0bd](https://github.com/dantuck/lantern/commit/e61c0bd481730877c6f6198336f243dbef77c4bc))
+
+
+### Changed
+
+* **css:** convert button variants to UnoCSS shortcuts ([3a2d98d](https://github.com/dantuck/lantern/commit/3a2d98d84642da4ac62934467c9b8df7f23e48a4))
+* **css:** convert calendar view to UnoCSS ([131825c](https://github.com/dantuck/lantern/commit/131825c30e76f891eb92f4e2963c70fab584fd69))
+* **css:** convert chore components to UnoCSS ([ada375b](https://github.com/dantuck/lantern/commit/ada375b03ba502218fdd3bd003367216f23969ad))
+* **css:** convert landing page to UnoCSS ([e4eb06c](https://github.com/dantuck/lantern/commit/e4eb06c361f8c751aa05cce1472f3baa520ae1d9))
+* **css:** convert Lists and chore editor to UnoCSS ([78a2ece](https://github.com/dantuck/lantern/commit/78a2ecef6383066cda11789de79803aedaef5732))
+* **css:** convert main, card, notice and row to UnoCSS ([d57459a](https://github.com/dantuck/lantern/commit/d57459ae82fe3e761fc7a0e711ae7cf1b1da90ef))
+* **css:** convert nav rail, tabbar and sheet to UnoCSS ([38ca7fd](https://github.com/dantuck/lantern/commit/38ca7fd3cf4799ebd7a6fe40633beaa12d5691f5))
+* **css:** convert widgets and admin pages to UnoCSS ([4d95bf9](https://github.com/dantuck/lantern/commit/4d95bf9fb400b15841be786a39152748d2f6ad25))
+* **css:** rename dashboard grid class to dash-grid ([d6efa7f](https://github.com/dantuck/lantern/commit/d6efa7fda5f6545c73312470d9036561b3942f5f))
+
 ## [0.4.0](https://github.com/dantuck/lantern/compare/v0.3.0...v0.4.0) (2026-10-07)
 
 
