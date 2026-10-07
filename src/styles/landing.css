@@ -1,7 +1,7 @@
 /* Public product page (/welcome). Uses the tokens from global.css. */
 .lp { max-width: 70rem; margin: 0 auto; padding: 0 1.25rem; }
 .lp a { text-underline-offset: 3px; }
-.lp-nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 0; padding-top: max(1rem, env(safe-area-inset-top)); }
+.lp-nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 0; }
 .lp-brand { display: flex; align-items: center; gap: .6rem; font-weight: 700; letter-spacing: -.02em; color: var(--fg); text-decoration: none; }
 .lp-nav nav { display: flex; align-items: center; gap: .25rem; }
 .lp-nav nav a:not(.lp-btn) { color: var(--muted); text-decoration: none; font-weight: 500; font-size: .95rem; padding: .4rem .75rem; border-radius: 999px; }

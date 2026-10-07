@@ -231,6 +231,7 @@
   .rows .grow { flex: 1 1 12rem; }
   .rows .pts { flex: 0 0 5.5rem; width: 5.5rem; }
   .small { width: auto; margin: 0; padding: .3rem .8rem; font-size: .85rem; }
+  @media (pointer: coarse) { .small, .itemdays .chip { min-height: 2.75rem; } .list summary, .scope summary { min-height: 2.75rem; } .scope .check { min-height: 2.75rem; } .scope input[type="radio"], .scope input[type="checkbox"] { width: 1.25rem; height: 1.25rem; } }
   .danger { color: var(--danger, #c92a2a); }
   .balances { list-style: none; display: flex; flex-wrap: wrap; gap: .6rem; margin: 0 0 1rem; padding: 0; }
   .balances li { display: flex; gap: .6rem; align-items: baseline; padding: .35rem .8rem; border-radius: 999px; border: 1.5px solid var(--c); }

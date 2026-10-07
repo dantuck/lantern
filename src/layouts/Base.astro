@@ -23,15 +23,40 @@ const demoLinks = [
   { href: '/demo/devices', label: 'Devices', icon: 'smartphone' },
   { href: '/demo/admin', label: 'Admin', icon: 'shield' },
 ];
+// Every destination, in order. The rail (tablet and up) shows them all; the phone's bottom bar shows the first few and puts the rest, plus the utilities, in a "More" sheet.
+const items: { href: string; label: string; icon: string; feature?: string }[] = demo
+  ? demoLinks
+  : user
+    ? [
+        { href: '/', label: 'Dashboard', icon: 'home' },
+        ...pluginLinks,
+        ...(isOn(off, 'chores') ? [{ href: '/chores', label: 'Chores', icon: 'check-circle' }] : []),
+        ...(isOn(off, 'lists') ? [{ href: '/lists', label: 'Lists', icon: 'list' }] : []),
+        { href: '/devices', label: 'Devices', icon: 'smartphone' },
+        ...(user.role === 'manager' ? [{ href: '/admin', label: 'Admin', icon: 'shield' }] : []),
+      ]
+    : [];
+// The phone's bottom bar always leads with the daily-use destinations, in a fixed order, so it does not shuffle as widgets are switched on or off.
+// If one of them is off, the next widget fills its place. Devices and Admin always live under More.
+const TABS = 4;
+const PRIMARY = demo ? ['/demo', '/demo/calendar', '/demo/chores', '/demo/lists'] : ['/', '/p/calendar', '/chores', '/lists'];
+const ALWAYS_MORE = demo ? ['/demo/devices', '/demo/admin'] : ['/devices', '/admin'];
+const picked = PRIMARY.map((h) => items.find((l) => l.href === h)).filter((l): l is (typeof items)[number] => !!l);
+const fill = items.filter((l) => !picked.includes(l) && !ALWAYS_MORE.includes(l.href));
+const tabs = [...picked, ...fill].slice(0, TABS);
+const more = items.filter((l) => !tabs.includes(l));
+const moreCurrent = more.some((l) => path === l.href);
 const hasRail = demo || !!user;
 ---
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <meta name="robots" content="noindex,nofollow" />
-    <meta name="theme-color" content="#c2570a" />
+    <meta name="theme-color" content="#faf7f3" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#12100d" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Lantern" />
@@ -43,42 +68,67 @@ const hasRail = demo || !!user;
     <title>{title}</title>
   </head>
   <body class={hasRail ? 'has-rail' : undefined}>
+    <a class="skip" href="#main">Skip to content</a>
     {demo && (
       <div class="demo-banner" role="note">
         <span>Demo with sample data. Nothing here is real.</span>
         <a href="/welcome#setup">Get your own</a>
       </div>
     )}
-    {demo ? (
-      <nav class="nav" aria-label="Demo">
-        <a class="brand" href="/demo" aria-label="Demo home"><img src="/favicon.svg" alt="" width="28" height="28" /></a>
-        {demoLinks.map((l) => <a href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}
-        <span class="spacer"></span>
-        <WallToggle />
-        <ThemeToggle />
-        <a class="plain-link" href={user ? '/' : '/welcome'}>{user ? 'Exit demo' : 'Back to site'}</a>
-      </nav>
-    ) : user ? (
-      <nav class="nav">
-        <a class="brand" href="/" aria-label="Lantern home"><img src="/favicon.svg" alt="" width="28" height="28" /></a>
-        <a href="/" aria-current={current('/')}><Icon name="home" /><span>Dashboard</span></a>
-        {pluginLinks.map((l) => <a href={l.href} aria-current={current(l.href)}><Icon name={l.icon} /><span>{l.label}</span></a>)}
-        {isOn(off, 'chores') && <a href="/chores" aria-current={current('/chores')}><Icon name="check-circle" /><span>Chores</span></a>}
-        {isOn(off, 'lists') && <a href="/lists" aria-current={current('/lists')}><Icon name="list" /><span>Lists</span></a>}
-        <a href="/devices" aria-current={current('/devices')}><Icon name="smartphone" /><span>Devices</span></a>
-        {user.role === 'manager' && <a href="/admin" aria-current={current('/admin')}><Icon name="shield" /><span>Admin</span></a>}
-        <span class="spacer"></span>
-        <button id="install-app" class="link" type="button" hidden>Install app</button>
-        <WallToggle />
-        <ThemeToggle />
-        <form method="post" action="/auth/logout"><button class="link" type="submit">Sign out</button></form>
-      </nav>
+    {hasRail ? (
+      <>
+        <nav class="nav" aria-label={demo ? 'Demo' : 'Main'}>
+          <a class="brand" href={demo ? '/demo' : '/'} aria-label={demo ? 'Demo home' : 'Lantern home'}><img src="/favicon.svg" alt="" width="28" height="28" /></a>
+          {items.map((l) => <a href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}
+          <span class="spacer"></span>
+          {!demo && <button class="link" data-install-app type="button" hidden>Install app</button>}
+          <button class="link" type="button" popovertarget="display-menu" aria-label="Display options"><Icon name="sliders" /><span>Display</span></button>
+          {demo
+            ? <a class="plain-link" href={user ? '/' : '/welcome'}>{user ? 'Exit demo' : 'Back to site'}</a>
+            : <form method="post" action="/auth/logout"><button class="link" type="submit">Sign out</button></form>}
+        </nav>
+
+        <div id="display-menu" class="display-menu" popover>
+          <p class="dm-label" id="dm-theme">Theme</p>
+          <div class="seg" role="group" aria-labelledby="dm-theme">
+            <button type="button" data-theme-set="system" aria-pressed="false"><Icon name="monitor" /><span>Auto</span></button>
+            <button type="button" data-theme-set="light" aria-pressed="false"><Icon name="sun" /><span>Light</span></button>
+            <button type="button" data-theme-set="dark" aria-pressed="false"><Icon name="moon" /><span>Dark</span></button>
+          </div>
+          <button type="button" class="dm-row" data-wall-toggle aria-pressed="false" popovertarget="display-menu" popovertargetaction="hide"><Icon name="maximize" /><span>Full screen</span></button>
+        </div>
+
+        <nav class="tabbar" aria-label={demo ? 'Demo' : 'Main'}>
+          {tabs.map((l) => <a href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}
+          <button class="tab" type="button" popovertarget="more" aria-label="More options" aria-current={moreCurrent ? 'page' : undefined}><Icon name="more" /><span>More</span></button>
+        </nav>
+        <div id="more" class="sheet" popover>
+          {more.length > 0 && <div class="sheet-links">{more.map((l) => <a href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}</div>}
+          <div class="sheet-utils">
+            <div class="util"><ThemeToggle /><span>Theme</span></div>
+            <div class="util"><WallToggle /><span>Full screen</span></div>
+            {!demo && <button class="link" data-install-app type="button" hidden>Install app</button>}
+            {demo
+              ? <a class="plain-link" href={user ? '/' : '/welcome'}>{user ? 'Exit demo' : 'Back to site'}</a>
+              : <form method="post" action="/auth/logout"><button class="link" type="submit">Sign out</button></form>}
+          </div>
+        </div>
+      </>
     ) : !bare && (
       <div class="theme-float"><ThemeToggle /></div>
     )}
+    {user && !demo && (
+      <aside id="install-banner" class="install" aria-label="Install Lantern" hidden>
+        <img src="/icons/icon-192.png" alt="" width="40" height="40" />
+        <p><strong>Install Lantern</strong><span data-install-copy>Add it to your home screen for quick, full-screen access.</span></p>
+        <button class="install-go" type="button" data-install-app hidden>Install</button>
+        <span data-install-ios hidden><Icon name="share" /></span>
+        <button class="install-x" type="button" data-install-dismiss aria-label="Not now">&times;</button>
+      </aside>
+    )}
     {hasRail && <WallToggle exit />}
     {bare ? <slot /> : (
-      <main class={full ? 'wide full' : wide ? 'wide' : 'narrow-center'} data-feature={feature}>
+      <main id="main" tabindex="-1" class={full ? 'wide full' : wide ? 'wide' : 'narrow-center'} data-feature={feature}>
         {demo && feature && <p class="feature-off notice" data-feature-off={feature}><span>This is switched off in the demo's admin page. <a href="/demo/admin">Turn it back on</a>.</span></p>}
         <slot />
       </main>
@@ -88,6 +138,7 @@ const hasRail = demo || !!user;
       import '../scripts/wall';
       import '../scripts/localtime';
       import '../scripts/pwa';
+      import '../scripts/confirm';
     </script>
   </body>
 </html>

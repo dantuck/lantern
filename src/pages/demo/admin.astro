@@ -24,16 +24,16 @@ import { demoAudit, demoUsers } from '../../demo/data';
 
   <section class="card">
     <h2>Members</h2>
-    <table>
+    <table class="stack">
       <thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Since</th><th></th></tr></thead>
       <tbody>
         {demoUsers.map((u) => (
           <tr>
-            <td>{u.email}</td>
-            <td><span class={`badge ${u.role}`}>{u.role}</span></td>
-            <td>{u.status === 'disabled' ? <span class="muted">disabled</span> : 'active'}</td>
-            <td>{u.since}</td>
-            <td><div class="actions">
+            <td class="primary">{u.email}</td>
+            <td data-label="Role"><span class={`badge ${u.role}`}>{u.role}</span></td>
+            <td data-label="Status">{u.status === 'disabled' ? <span class="muted">disabled</span> : 'active'}</td>
+            <td data-label="Since">{u.since}</td>
+            <td class="act"><div class="actions">
               <button class="ghost demo-off" type="button" disabled title="Not available in the demo">{u.role === 'manager' ? 'Make member' : 'Make manager'}</button>
               <button class={u.status === 'disabled' ? 'ghost demo-off' : 'danger demo-off'} type="button" disabled title="Not available in the demo">{u.status === 'disabled' ? 'Re-enable' : 'Disable'}</button>
             </div></td>
@@ -45,11 +45,11 @@ import { demoAudit, demoUsers } from '../../demo/data';
 
   <section class="card">
     <h2>Recent activity</h2>
-    <table>
+    <table class="stack">
       <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Detail</th></tr></thead>
       <tbody>
         {demoAudit.map((a) => (
-          <tr><td>{a.when}</td><td>{a.who === 'system' ? <span class="muted">system</span> : a.who}</td><td>{a.event}</td><td class="mono">{a.detail}</td></tr>
+          <tr><td class="primary">{a.when}</td><td data-label="Who">{a.who === 'system' ? <span class="muted">system</span> : a.who}</td><td data-label="Event">{a.event}</td><td data-label="Detail" class="mono">{a.detail}</td></tr>
         ))}
       </tbody>
     </table>

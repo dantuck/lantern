@@ -16,10 +16,10 @@ const lists = isOn(disabled, 'lists');
 <Base title={dashboard.title} wide>
   <h1>{dashboard.title}</h1>
   {plugins.length === 0 && !chores && !lists && <p class="muted">Nothing is switched on yet. A manager can turn widgets on in Admin.</p>}
-  <div class="grid">
+  <div class="dash"><div class="grid">
     {/* Each slot is an async component, so Astro streams fast widgets before slow ones finish. */}
     {plugins.map((plugin) => <PluginSlot plugin={plugin} />)}
     {chores && <ChoresCard />}
     {lists && <ListsCard />}
-  </div>
+  </div></div>
 </Base>

@@ -126,11 +126,11 @@
   li + li { border-top: 1px solid var(--border); }
   .label { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 1.05rem; font-weight: 500; }
   .done .label { color: var(--muted); text-decoration: line-through; }
-  .tick { display: grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; margin: 0; padding: 0; border-radius: 50%; background: transparent; border: 2.5px solid var(--accent); box-shadow: none; color: transparent; }
+  .tick { display: grid; place-items: center; flex: none; width: 2.75rem; height: 2.75rem; margin: 0; padding: 0; border-radius: 50%; background: transparent; border: 2.5px solid var(--accent); box-shadow: none; color: transparent; }
   .tick:hover:not(:disabled) { background: var(--accent-soft); filter: none; }
   .tick[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
   .tick svg { width: 1.3rem; height: 1.3rem; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-  .x { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; margin: 0; padding: 0; border-radius: 50%; background: transparent; color: var(--muted); border: 0; box-shadow: none; }
+  .x { display: grid; place-items: center; flex: none; width: 2.75rem; height: 2.75rem; margin: 0; padding: 0; border-radius: 50%; background: transparent; color: var(--muted); border: 0; box-shadow: none; }
   .x:hover:not(:disabled) { background: var(--card-2); color: var(--fg); filter: none; }
   .x svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
   .adder { display: flex; gap: .5rem; margin-top: .75rem; }
@@ -138,6 +138,7 @@
   .adder button { width: auto; margin: 0; padding: .7rem 1.1rem; }
   footer { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; margin-top: .85rem; }
   .small { width: auto; margin: 0; padding: .35rem .85rem; font-size: .85rem; }
+  @media (pointer: coarse) { .small { min-height: 2.75rem; padding-inline: 1rem; } }
   .danger-text { color: var(--danger); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .new h3 { margin-bottom: .75rem; }

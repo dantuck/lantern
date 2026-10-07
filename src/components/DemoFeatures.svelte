@@ -10,16 +10,16 @@
   }
 </script>
 
-<table>
+<table class="stack">
   <thead><tr><th>Name</th><th>Type</th><th>Status</th><th></th></tr></thead>
   <tbody>
     {#each DEMO_FEATURES as f (f.id)}
       {@const isOff = off.includes(f.id)}
       <tr>
-        <td>{f.name}</td>
-        <td><span class="badge">{f.kind}</span></td>
-        <td>{#if isOff}<span class="muted">off</span>{:else}on{/if}</td>
-        <td><div class="actions">
+        <td class="primary">{f.name}</td>
+        <td data-label="Type"><span class="badge">{f.kind}</span></td>
+        <td data-label="Status">{#if isOff}<span class="muted">off</span>{:else}on{/if}</td>
+        <td class="act"><div class="actions">
           <button type="button" class={isOff ? 'ghost' : 'danger'} onclick={() => toggle(f.id)} aria-label={`${isOff ? 'Turn on' : 'Turn off'} ${f.name}`}>{isOff ? 'Turn on' : 'Turn off'}</button>
         </div></td>
       </tr>

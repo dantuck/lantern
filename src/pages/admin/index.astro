@@ -23,119 +23,70 @@ const features = [
 ];
 ---
 <Base title="Admin" wide>
+  <div data-keep-scroll>
   <h1>Household admin</h1>
-  {flash && <div class={`notice ${flash.ok ? '' : 'error'}`} role="status">{flash.text}</div>}
+  {flash && <div class={`notice toast ${flash.ok ? '' : 'error'}`} role="status">{flash.text}</div>}
 
-  <section class="card">
-    <h2>Widgets and features</h2>
-    <table>
-      <thead><tr><th>Name</th><th>Type</th><th>Status</th><th></th></tr></thead>
-      <tbody>
-        {features.map((f) => (
-          <tr>
-            <td>{f.name}</td>
-            <td><span class="badge">{f.kind}</span></td>
-            <td>{off.has(f.id) ? <span class="muted">off</span> : 'on'}</td>
-            <td><div class="actions"><form method="post" action="/admin/action">
-              <input type="hidden" name="action" value="set_feature" /><input type="hidden" name="id" value={f.id} />
-              <input type="hidden" name="enabled" value={off.has(f.id) ? '1' : '0'} />
-              <button class={off.has(f.id) ? 'ghost' : 'danger'} type="submit" aria-label={`${off.has(f.id) ? 'Turn on' : 'Turn off'} ${f.name}`}>{off.has(f.id) ? 'Turn on' : 'Turn off'}</button>
-            </form></div></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-    <p class="muted hint">Turning something off hides it from everyone; its data is kept. Which widgets exist at all is set in <code>dashboard.config.ts</code>.</p>
-  </section>
+  <nav class="jump" aria-label="Admin sections">
+    <a href="#invite">Invite{invites.length > 0 && <span class="count" title="Pending invitations">{invites.length}</span>}</a>
+    <a href="#members">Members<span class="count">{users.length}</span></a>
+    <a href="#people">People<span class="count">{household.length}</span></a>
+    <a href="#features">Features</a>
+    <a href="#devices">Devices<span class="count">{devices.length}</span></a>
+    <a href="#activity">Activity</a>
+  </nav>
 
-  <section class="card">
-    <h2>People</h2>
-    <p class="muted hint">The kids and adults who get a colour on the calendar and a column on the Chores page. A person is just a name; they do not need a login. Chore lists are assigned to them under Chores &rarr; Manage.</p>
-    {household.length > 0 && (
-      <table>
-        <thead><tr><th>Name</th><th>Colour</th><th>Calendar words</th><th></th></tr></thead>
-        <tbody>
-          {household.map((p) => (
-            <tr>
-              <td colspan="4">
-                <form method="post" action="/admin/action" class="row">
-                  <input type="hidden" name="action" value="person_save" /><input type="hidden" name="id" value={p.id} />
-                  <div><label for={`pn-${p.id}`}>Name</label><input id={`pn-${p.id}`} name="name" value={p.name} required maxlength="30" /></div>
-                  <div><label for={`pc-${p.id}`}>Colour</label><input id={`pc-${p.id}`} name="color" type="color" value={p.color} /></div>
-                  <div><label for={`pm-${p.id}`}>Calendar words</label><input id={`pm-${p.id}`} name="match" value={p.match.join(', ')} maxlength="200" /></div>
-                  <button class="ghost" type="submit">Save</button>
-                  <button class="danger" type="submit" name="action" value="person_remove" formnovalidate aria-label={`Remove ${p.name}`}>Remove</button>
-                </form>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    )}
-    {household.length < MAX_PEOPLE && (
-      <form method="post" action="/admin/action" class="row">
-        <input type="hidden" name="action" value="person_save" />
-        <div><label for="pn-new">Name</label><input id="pn-new" name="name" required maxlength="30" autocomplete="off" /></div>
-        <div><label for="pc-new">Colour</label><input id="pc-new" name="color" type="color" value="#1c7ed6" /></div>
-        <div><label for="pm-new">Calendar words</label><input id="pm-new" name="match" maxlength="200" placeholder="optional, comma separated" /></div>
-        <button type="submit">Add person</button>
-      </form>
-    )}
-    <p class="muted hint">Calendar words put an event on someone's calendar when they appear in its title, such as a nickname. The name itself always counts. Removing someone keeps their chore lists, which then show under Anyone.</p>
-  </section>
-
-  <section class="card">
+  <section class="card" id="invite">
     <h2>Invite someone</h2>
     <form method="post" action="/admin/action" class="row">
       <input type="hidden" name="action" value="invite" />
-      <div><label for="inv-email">Email</label><input id="inv-email" name="email" type="email" required maxlength="254" autocomplete="off" /></div>
+      <div><label for="inv-email">Email</label><input id="inv-email" name="email" type="email" inputmode="email" required maxlength="254" autocomplete="off" autocapitalize="off" /></div>
       <div class="role"><label for="inv-role">Role</label>
         <select id="inv-role" name="role"><option value="member">Member (view only)</option><option value="manager">Manager (can invite)</option></select></div>
       <button type="submit">Send invite</button>
     </form>
     <p class="muted hint">Invitations expire after 7 days. The person signs in with a one-time link sent to that address.</p>
+    {invites.length > 0 && (
+      <>
+        <h2 class="stack-top">Pending invitations</h2>
+        <table class="stack">
+          <thead><tr><th>Email</th><th>Role</th><th>Expires</th><th></th></tr></thead>
+          <tbody>
+            {invites.map((i) => (
+              <tr>
+                <td class="primary">{i.email}</td><td data-label="Role"><span class="badge">{i.role}</span></td><td data-label="Expires"><Time ms={i.expires_at} /></td>
+                <td class="act"><form method="post" action="/admin/action"><input type="hidden" name="action" value="revoke_invite" /><input type="hidden" name="id" value={i.id} /><button class="ghost" type="submit" aria-label={`Revoke invitation for ${i.email}`} data-confirm={`Revoke the invitation for ${i.email}? The link they were sent will stop working.`}>Revoke</button></form></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    )}
   </section>
 
-  {invites.length > 0 && (
-    <section class="card">
-      <h2>Pending invitations</h2>
-      <table>
-        <thead><tr><th>Email</th><th>Role</th><th>Expires</th><th></th></tr></thead>
-        <tbody>
-          {invites.map((i) => (
-            <tr>
-              <td>{i.email}</td><td><span class="badge">{i.role}</span></td><td><Time ms={i.expires_at} /></td>
-              <td><form method="post" action="/admin/action"><input type="hidden" name="action" value="revoke_invite" /><input type="hidden" name="id" value={i.id} /><button class="ghost" type="submit">Revoke</button></form></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
-  )}
-
-  <section class="card">
-    <h2>Members</h2>
-    <table>
+  <section class="card" id="members">
+    <div class="card-head"><h2>Members</h2><span class="muted">{users.length} {users.length === 1 ? 'person' : 'people'} with a login</span></div>
+    <table class="stack">
       <thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Since</th><th></th></tr></thead>
       <tbody>
         {users.map((u) => (
           <tr>
-            <td>{u.email}{u.id === me.id && <span class="muted"> (you)</span>}</td>
-            <td><span class={`badge ${u.role}`}>{u.role}</span></td>
-            <td>{u.disabledAt ? <span class="muted">disabled</span> : 'active'}</td>
-            <td><Time ms={u.createdAt} /></td>
-            <td><div class="actions">
+            <td class="primary">{u.email}{u.id === me.id && <span class="muted">&nbsp;(you)</span>}</td>
+            <td data-label="Role"><span class={`badge ${u.role}`}>{u.role}</span></td>
+            <td data-label="Status">{u.disabledAt ? <span class="status off">Disabled</span> : <span class="status">Active</span>}</td>
+            <td data-label="Since"><Time ms={u.createdAt} /></td>
+            <td class="act"><div class="actions">
               {!u.disabledAt && (
                 <form method="post" action="/admin/action">
                   <input type="hidden" name="action" value="set_role" /><input type="hidden" name="id" value={u.id} />
                   <input type="hidden" name="role" value={u.role === 'manager' ? 'member' : 'manager'} />
-                  <button class="ghost" type="submit">{u.role === 'manager' ? 'Make member' : 'Make manager'}</button>
+                  <button class="ghost" type="submit" data-confirm={u.role === 'manager' ? `Make ${u.email} a member? They will lose access to this page.` : undefined} aria-label={`${u.role === 'manager' ? 'Make member' : 'Make manager'}: ${u.email}`}>{u.role === 'manager' ? 'Make member' : 'Make manager'}</button>
                 </form>
               )}
               <form method="post" action="/admin/action">
                 <input type="hidden" name="action" value="set_disabled" /><input type="hidden" name="id" value={u.id} />
                 <input type="hidden" name="disabled" value={u.disabledAt ? '0' : '1'} />
-                <button class={u.disabledAt ? 'ghost' : 'danger'} type="submit">{u.disabledAt ? 'Re-enable' : 'Disable'}</button>
+                <button class={u.disabledAt ? 'ghost' : 'danger'} type="submit" aria-label={`${u.disabledAt ? 'Re-enable' : 'Disable'}: ${u.email}`} data-confirm={u.disabledAt ? undefined : `Disable ${u.email}? They are signed out everywhere and cannot sign in until re-enabled.`}>{u.disabledAt ? 'Re-enable' : 'Disable'}</button>
               </form>
             </div></td>
           </tr>
@@ -144,32 +95,88 @@ const features = [
     </table>
   </section>
 
-  <section class="card">
-    <h2>Signed-in devices</h2>
-    <table>
-      <thead><tr><th>Person</th><th>Device</th><th>Last active</th><th></th></tr></thead>
+  <section class="card" id="people">
+    <div class="card-head"><h2>People</h2><span class="muted">{household.length} of {MAX_PEOPLE}</span></div>
+    <p class="muted hint lead-in">The kids and adults who get a colour on the calendar and a column on the Chores page. A person is just a name; they do not need a login. Chore lists are assigned to them under Chores &rarr; Manage.</p>
+    <div class="people">
+      {household.map((p) => (
+        <div class="person">
+          <form method="post" action="/admin/action" class="row">
+            <input type="hidden" name="action" value="person_save" /><input type="hidden" name="id" value={p.id} />
+            <div><label for={`pn-${p.id}`}>Name</label><input id={`pn-${p.id}`} name="name" value={p.name} required maxlength="30" /></div>
+            <div class="color"><label for={`pc-${p.id}`}>Colour</label><input id={`pc-${p.id}`} name="color" type="color" value={p.color} /></div>
+            <div><label for={`pm-${p.id}`}>Calendar words</label><input id={`pm-${p.id}`} name="match" value={p.match.join(', ')} maxlength="200" /></div>
+            <div class="btns">
+              <button class="ghost" type="submit">Save</button>
+              <button class="danger" type="submit" name="action" value="person_remove" formnovalidate aria-label={`Remove ${p.name}`} data-confirm={`Remove ${p.name}? Their chore lists are kept and move to Anyone.`}>Remove</button>
+            </div>
+          </form>
+        </div>
+      ))}
+      {household.length < MAX_PEOPLE && (
+        <div class="person new">
+          <form method="post" action="/admin/action" class="row">
+            <input type="hidden" name="action" value="person_save" />
+            <div><label for="pn-new">Add a person</label><input id="pn-new" name="name" required maxlength="30" autocomplete="off" placeholder="Name" /></div>
+            <div class="color"><label for="pc-new">Colour</label><input id="pc-new" name="color" type="color" value="#1c7ed6" /></div>
+            <div><label for="pm-new">Calendar words</label><input id="pm-new" name="match" maxlength="200" placeholder="optional, comma separated" /></div>
+            <div class="btns"><button type="submit">Add person</button></div>
+          </form>
+        </div>
+      )}
+    </div>
+    <p class="muted hint">Calendar words put an event on someone's calendar when they appear in its title, such as a nickname. The name itself always counts. Removing someone keeps their chore lists, which then show under Anyone.</p>
+  </section>
+
+  <section class="card" id="features">
+    <h2>Widgets and features</h2>
+    <table class="stack">
+      <thead><tr><th>Name</th><th>Type</th><th>Status</th><th></th></tr></thead>
       <tbody>
-        {devices.map((d) => (
+        {features.map((f) => (
           <tr>
-            <td>{d.email}</td>
-            <td>{d.deviceLabel}{d.idHash === currentHash && <span class="muted"> (this device)</span>}</td>
-            <td><Time ms={d.lastSeen} /></td>
-            <td><form method="post" action="/admin/action"><input type="hidden" name="action" value="revoke_session" /><input type="hidden" name="id" value={d.idHash} /><button class="ghost" type="submit">Sign out</button></form></td>
+            <td class="primary">{f.name}</td>
+            <td data-label="Type"><span class="badge">{f.kind}</span></td>
+            <td data-label="Status">{off.has(f.id) ? <span class="status off">Off</span> : <span class="status">On</span>}</td>
+            <td class="act"><div class="actions"><form method="post" action="/admin/action">
+              <input type="hidden" name="action" value="set_feature" /><input type="hidden" name="id" value={f.id} />
+              <input type="hidden" name="enabled" value={off.has(f.id) ? '1' : '0'} />
+              <button class={off.has(f.id) ? 'ghost' : 'danger'} type="submit" aria-label={`${off.has(f.id) ? 'Turn on' : 'Turn off'} ${f.name}`} data-confirm={off.has(f.id) ? undefined : `Turn off ${f.name}? It is hidden from everyone; its data is kept.`}>{off.has(f.id) ? 'Turn on' : 'Turn off'}</button>
+            </form></div></td>
           </tr>
         ))}
       </tbody>
     </table>
+    <p class="muted hint">Turning something off hides it from everyone; its data is kept. Which widgets exist at all is set in <code>dashboard.config.ts</code>.</p>
   </section>
 
-  <section class="card">
-    <h2>Recent activity</h2>
-    <table>
-      <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Detail</th></tr></thead>
+  <details class="card" id="devices">
+    <summary><h2>Signed-in devices</h2><span class="muted">{devices.length}</span></summary>
+    <table class="stack">
+      <thead><tr><th>Person</th><th>Device</th><th>Last active</th><th></th></tr></thead>
       <tbody>
-        {audit.map((a) => (
-          <tr><td><Time ms={a.at} /></td><td>{a.actorEmail ?? <span class="muted">system</span>}</td><td>{a.event}</td><td class="mono">{a.detail}</td></tr>
+        {devices.map((d) => (
+          <tr>
+            <td class="primary">{d.email}</td>
+            <td data-label="Device">{d.deviceLabel}{d.idHash === currentHash && <span class="muted">&nbsp;(this device)</span>}</td>
+            <td data-label="Last active"><Time ms={d.lastSeen} /></td>
+            <td class="act"><form method="post" action="/admin/action"><input type="hidden" name="action" value="revoke_session" /><input type="hidden" name="id" value={d.idHash} /><button class="ghost" type="submit" aria-label={`Sign out ${d.deviceLabel} (${d.email})`} data-confirm={`Sign out ${d.deviceLabel} (${d.email})? It needs a fresh email link to get back in.`}>Sign out</button></form></td>
+          </tr>
         ))}
       </tbody>
     </table>
-  </section>
+  </details>
+
+  <details class="card" id="activity">
+    <summary><h2>Recent activity</h2><span class="muted">last {audit.length}</span></summary>
+    <table class="stack">
+      <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Detail</th></tr></thead>
+      <tbody>
+        {audit.map((a) => (
+          <tr><td class="primary"><Time ms={a.at} /></td><td data-label="Who">{a.actorEmail ?? <span class="muted">system</span>}</td><td data-label="Event">{a.event}</td><td data-label="Detail" class="mono">{a.detail}</td></tr>
+        ))}
+      </tbody>
+    </table>
+  </details>
+  </div>
 </Base>

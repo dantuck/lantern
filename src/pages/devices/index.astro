@@ -15,15 +15,15 @@ const flash = flashFor(Astro.url.searchParams.get('msg'));
   <p>Signed in as <strong>{user.email}</strong>.</p>
   {flash && <div class={`notice ${flash.ok ? '' : 'error'}`} role="status">{flash.text}</div>}
   <section class="card">
-    <table>
+    <table class="stack">
       <thead><tr><th>Device</th><th>Signed in</th><th>Last active</th><th></th></tr></thead>
       <tbody>
         {sessions.map((s) => (
           <tr>
-            <td>{s.device_label}{s.id_hash === current && <span class="muted"> (this device)</span>}</td>
-            <td><Time ms={s.created_at} /></td>
-            <td><Time ms={s.last_seen} /></td>
-            <td><form method="post" action="/devices/action"><input type="hidden" name="action" value="revoke" /><input type="hidden" name="id" value={s.id_hash} /><button class="ghost" type="submit">Sign out</button></form></td>
+            <td class="primary">{s.device_label}{s.id_hash === current && <span class="muted"> (this device)</span>}</td>
+            <td data-label="Signed in"><Time ms={s.created_at} /></td>
+            <td data-label="Last active"><Time ms={s.last_seen} /></td>
+            <td class="act"><form method="post" action="/devices/action"><input type="hidden" name="action" value="revoke" /><input type="hidden" name="id" value={s.id_hash} /><button class="ghost" type="submit" data-confirm="Sign this device out? It needs a fresh email link to get back in.">Sign out</button></form></td>
           </tr>
         ))}
       </tbody>
@@ -31,7 +31,7 @@ const flash = flashFor(Astro.url.searchParams.get('msg'));
     {sessions.length > 1 && (
       <form method="post" action="/devices/action" class="stack-top">
         <input type="hidden" name="action" value="revoke_others" />
-        <button class="danger" type="submit">Sign out all other devices</button>
+        <button class="danger" type="submit" data-confirm="Sign out every other device? Each needs a fresh email link to get back in.">Sign out all other devices</button>
       </form>
     )}
   </section>

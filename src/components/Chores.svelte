@@ -234,6 +234,7 @@
   .badge { display: inline-block; min-width: 1.3rem; padding: 0 .4rem; border-radius: 999px; background: var(--c); color: #fff; font-size: .8rem; text-align: center; }
   .ask { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; padding: .5rem 0; }
   .small { width: auto; margin: 0; padding: .3rem .8rem; font-size: .85rem; }
+  @media (pointer: coarse) { .small, .pick { min-height: 2.75rem; } .shop summary { display: flex; align-items: center; min-height: 2.75rem; } }
   .muted { font-size: .88rem; font-weight: 400; }
   .manage-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin-bottom: 1.1rem; }
   .manage-btn { display: inline-flex; align-items: center; gap: .55rem; padding: .65rem 1.2rem; border-radius: 999px; background: var(--accent); color: var(--accent-fg, #fff); font-weight: 650; text-decoration: none; box-shadow: var(--shadow-sm); }

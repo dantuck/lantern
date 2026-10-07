@@ -11,7 +11,7 @@ const now = Date.now();
 ---
 <Base title="Demo · Lantern" wide demo>
   <h1>The Gru household</h1>
-  <div class="grid">
+  <div class="dash"><div class="grid">
     <PluginCard id="calendar" name="Calendar" icon="calendar" span={2} href="/demo/calendar">
       <CalendarWidget data={demoCalendar(now)} config={demoCalendarConfig} moreHref="/demo/calendar" people={demoPeople} />
     </PluginCard>
@@ -20,5 +20,5 @@ const now = Date.now();
     </PluginCard>
     <ChoresCard state={demoChores(now)} people={demoPeople} href="/demo/chores" />
     <ListsCard lists={demoLists()} href="/demo/lists" />
-  </div>
+  </div></div>
 </Base>
