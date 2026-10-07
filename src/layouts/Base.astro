@@ -7,6 +7,9 @@ import { registry } from '../plugins/registry';
 import { isOn } from '../lib/features';
 // `full` lets a page (the calendar) use the whole width of a wall display instead of the usual reading width.
 interface Props { title?: string; wide?: boolean; full?: boolean; bare?: boolean; description?: string; demo?: boolean; feature?: string }
+// `wide` / `narrow-center` stay as marker classes: wall mode and the large-screen width in global.css select on them.
+const WIDE = 'max-w-[68rem] mx-auto pt-5 pb-12 px-4 sm:pt-8 sm:pb-16 sm:px-6 [&>h1]:mb-4';
+const NARROW = 'narrow-center max-w-md mx-auto py-10 px-4 sm:py-16 min-h-[calc(100dvh-8rem)] grid content-center [&>.card]:shadow-[var(--shadow-md)] [&>.card]:p-6 sm:[&>.card]:p-8';
 const { title = 'Lantern', wide = false, full = false, bare = false, description, demo = false, feature } = Astro.props;
 const user = Astro.locals.user;
 const path = Astro.url.pathname;
@@ -128,7 +131,7 @@ const hasRail = demo || !!user;
     )}
     {hasRail && <WallToggle exit />}
     {bare ? <slot /> : (
-      <main id="main" tabindex="-1" class={full ? 'wide full' : wide ? 'wide' : 'narrow-center'} data-feature={feature}>
+      <main id="main" tabindex="-1" class={full ? `wide full ${WIDE} max-w-none` : wide ? `wide ${WIDE}` : NARROW} data-feature={feature}>
         {demo && feature && <p class="feature-off notice" data-feature-off={feature}><span>This is switched off in the demo's admin page. <a href="/demo/admin">Turn it back on</a>.</span></p>}
         <slot />
       </main>
