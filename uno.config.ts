@@ -37,10 +37,11 @@ export default defineConfig({
     // Round check button. Colour comes from --c (a person's colour) and falls back to the accent; size is set where it is used.
     tick: 'grid place-items-center flex-none m-0 p-0 rounded-full bg-transparent border-[2.5px] border-solid border-[var(--c,var(--accent))] shadow-none text-transparent [&:hover:not(:disabled)]:bg-[color-mix(in_srgb,var(--c,var(--accent))_14%,transparent)] [&:hover:not(:disabled)]:filter-none [&[aria-pressed=true]]:bg-[var(--c,var(--accent))] [&[aria-pressed=true]]:text-[color:var(--tick-fg,#fff)] [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:3] [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]',
     'icon-btn': 'grid place-items-center flex-none size-11 m-0 p-0 rounded-full bg-transparent text-muted border-0 shadow-none [&:hover:not(:disabled)]:bg-card2 [&:hover:not(:disabled)]:text-fg [&:hover:not(:disabled)]:filter-none [&_svg]:size-[1.1rem] [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:2] [&_svg]:[stroke-linecap:round]',
-    // Inputs inside a flex list row: one that grows, one fixed-width number.
-    'fill-in': 'm-0 flex-[1_1_12rem]',
-    'num-in': 'm-0 flex-[0_0_5.5rem] w-[5.5rem]',
+    // Row of controls inside a list (scope picker); and the manage forms: a card per item, a small caption over a field.
     'row-item': 'flex flex-wrap items-center gap-2 mb-2',
+    'edit-card': 'grid gap-2 p-3 mb-2 rounded-[var(--radius-sm)] bg-card2 border border-solid border-line',
+    cap: 'text-[.75rem] font-semibold text-muted',
+    'cap-field': 'grid gap-1 m-0 [&>:first-child]:text-[.75rem] [&>:first-child]:font-semibold [&>:first-child]:text-muted',
     // Secondary text under a heading or beside a control.
     note: 'text-muted text-[.9rem] font-normal',
     'ledger-row': 'flex flex-wrap gap-x-[.6rem] gap-y-[.1rem] py-[.3rem] [border-top:1px_solid_var(--border)]',

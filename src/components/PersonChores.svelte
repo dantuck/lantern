@@ -1,15 +1,18 @@
 <script lang="ts">
   import RoutineEditor from './RoutineEditor.svelte';
+  import Stepper from './Stepper.svelte';
   import { allowanceLeft, canAsk, formatWhen, LEDGER_LABEL, PERIOD_LABEL, periodRecord, sections, timeAvailable, type ChoreState } from '../lib/choreTypes';
-  import { runChores } from '../lib/choreClient';
+  import { chorePipe } from '../lib/chorePipe.svelte';
   import type { Person } from '../lib/people';
 
   let { initial, people, who, base = '/chores', demo = false }: { initial: ChoreState; people: Person[]; who: string; base?: string; demo?: boolean } = $props();
 
   // svelte-ignore state_referenced_locally
   let choreState = $state<ChoreState>(initial);
-  let error = $state('');
-  let busy = $state(false);
+  // svelte-ignore state_referenced_locally
+  const pipe = chorePipe(() => choreState, (s) => (choreState = s), demo);
+  const busy = $derived(pipe.busy);
+  const error = $derived(pipe.error);
 
   const me = $derived(people.find((p) => p.id === who)!);
   const routine = $derived(choreState.routines.find((r) => r.person === who));
@@ -27,25 +30,17 @@
   const done = $derived(chores.filter((i) => i.done).length);
   const total = $derived(chores.length);
 
-  async function send(payload: Record<string, unknown>): Promise<boolean> {
-    if (busy) return false;
-    error = '';
-    busy = true;
-    const r = await runChores(choreState, payload, demo);
-    busy = false;
-    if (r.ok) { choreState = r.state; return true; }
-    error = r.error;
-    return false;
-  }
+  const send = pipe.send;
 
   // --- Manager tools for this person ---
   let editing = $state(false);
   let allowDaily = $state(0);
-  let allowWeekend = $state<number | null>(null);
-  $effect(() => { allowDaily = allowance?.weekday ?? 0; allowWeekend = allowance?.weekend ?? null; }); // follows what was saved
+  let allowWeekend = $state(0);
+  let splitWeekend = $state(false); // weekends get their own allowance
+  $effect(() => { allowDaily = allowance?.weekday ?? 0; splitWeekend = allowance?.weekend != null; allowWeekend = allowance?.weekend ?? allowance?.weekday ?? 0; }); // follows what was saved
   async function saveAllowance(e: SubmitEvent) {
     e.preventDefault();
-    await send({ action: 'allowance_set', person: who, weekday: Number(allowDaily) || 0, weekend: allowWeekend === null ? null : Number(allowWeekend) || 0 });
+    await send({ action: 'allowance_set', person: who, weekday: Number(allowDaily) || 0, weekend: splitWeekend ? Number(allowWeekend) || 0 : null });
   }
   let pointsDelta = $state(5);
   let timeDelta = $state(15);
@@ -75,7 +70,7 @@
   {#if choreState.manager}<button type="button" class="w-auto [margin:0_0_0_auto] py-[.45rem] px-4 rounded-full text-[.9rem] [&[aria-pressed=true]]:bg-card [&[aria-pressed=true]]:text-accent [&[aria-pressed=true]]:border-[1.5px] [&[aria-pressed=true]]:border-accent" aria-pressed={editing} onclick={() => (editing = !editing)}>{editing ? 'Done managing' : 'Manage'}</button>{/if}
   </div>
 
-  {#if error}<p class="notice error" role="alert">{error}</p>{/if}
+  {#if error}<p class="notice error sticky top-2 z-30" role="alert">{error}</p>{/if}
 
   <header class="flex flex-wrap items-center gap-x-5 gap-y-3 mb-5 py-[1.1rem] px-5 border border-solid border-[color-mix(in_srgb,var(--c)_35%,var(--border))] rounded-[var(--radius)] shadow-[var(--shadow-sm)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--c)_24%,var(--card)),color-mix(in_srgb,var(--c)_7%,var(--card)))]">
     <span class="avatar size-16 text-[1.7rem] shadow-[0_0_0_4px_color-mix(in_srgb,var(--c)_30%,var(--card))]" aria-hidden="true">{initialOf(me)}</span>
@@ -137,28 +132,28 @@
           <p class="note">A base allowance that comes back every day. It is not saved up: whatever is left at midnight is gone. Time they earn from rewards is kept in the bank and used after the allowance.</p>
           <form class="flex flex-wrap items-end gap-x-[.9rem] gap-y-[.6rem] mt-[.6rem]" onsubmit={saveAllowance}>
             <div class="grid gap-1">
-              <label class="text-[.85rem] font-semibold text-muted" for="allow-daily">{allowWeekend === null ? 'Minutes a day' : 'Weekdays'}</label>
-              <input class="w-[6.5rem] m-0 py-[.45rem] px-[.65rem]" id="allow-daily" type="number" min="0" max="1440" bind:value={allowDaily} />
+              <span class="text-[.85rem] font-semibold text-muted">{splitWeekend ? 'Weekdays' : 'Minutes a day'}</span>
+              <Stepper class="w-[9.75rem]" bind:value={allowDaily} min={0} max={1440} step={5} label={splitWeekend ? 'Weekday minutes' : 'Minutes a day'} />
             </div>
-            {#if allowWeekend !== null}
+            {#if splitWeekend}
               <div class="grid gap-1">
-                <label class="text-[.85rem] font-semibold text-muted" for="allow-weekend">Weekends</label>
-                <input class="w-[6.5rem] m-0 py-[.45rem] px-[.65rem]" id="allow-weekend" type="number" min="0" max="1440" bind:value={allowWeekend} />
+                <span class="text-[.85rem] font-semibold text-muted">Weekends</span>
+                <Stepper class="w-[9.75rem]" bind:value={allowWeekend} min={0} max={1440} step={5} label="Weekend minutes" />
               </div>
             {/if}
             <button type="submit" class="small [&&&]:mb-[.1rem]" disabled={busy}>Save</button>
-            <label class="flex-[1_1_100%] flex items-center gap-2 text-[.9rem] font-medium text-fg"><input class="w-auto m-0" type="checkbox" checked={allowWeekend !== null} onchange={(e) => (allowWeekend = e.currentTarget.checked ? allowDaily : null)} /> Different on weekends</label>
+            <label class="flex-[1_1_100%] flex items-center gap-2 text-[.9rem] font-medium text-fg"><input class="w-auto m-0" type="checkbox" bind:checked={splitWeekend} onchange={() => { if (splitWeekend) allowWeekend = allowDaily; }} /> Different on weekends</label>
           </form>
 
           <h3 class="mt-6 mb-1 mx-0 text-[1rem]">Points and screen time</h3>
           <p class="note">Add or take away by hand, for a bonus or a correction.</p>
           <form class="flex flex-wrap items-center gap-2 mt-2" onsubmit={adjust}>
-            <input class="num-in" type="number" min="-1000" max="1000" bind:value={pointsDelta} aria-label="Points to add (negative to take away)" />
+            <Stepper class="w-[9.75rem]" bind:value={pointsDelta} min={-1000} max={1000} label="Points to add (negative to take away)" />
             <input class="m-0 flex-[1_1_10rem]" bind:value={note} maxlength="60" placeholder="Why (optional)" aria-label="Reason" autocomplete="off" />
             <button type="submit" class="small" disabled={busy || !pointsDelta}>Add points</button>
           </form>
           <form class="flex flex-wrap items-center gap-2 mt-2" onsubmit={adjustTime}>
-            <input class="num-in" type="number" min="-1440" max="1440" bind:value={timeDelta} aria-label="Minutes to add (negative to take away)" />
+            <Stepper class="w-[9.75rem]" bind:value={timeDelta} min={-1440} max={1440} step={5} label="Minutes to add (negative to take away)" />
             <span class="note flex-[1_1_10rem]">minutes of screen time</span>
             <button type="submit" class="small" disabled={busy || !timeDelta}>Add minutes</button>
           </form>

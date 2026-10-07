@@ -1,7 +1,9 @@
 <script lang="ts">
   import AddChore from './AddChore.svelte';
   import { describeSchedule, EVERY_DAY, hasDay, normalizeDays, PERIODS, PERIOD_LABEL, sections, toggleDay, WEEKDAY_SHORT, type ChoreItem, type Period } from '../lib/choreTypes';
-  import { num, text } from '../lib/choreClient';
+  import ConfirmButton from './ConfirmButton.svelte';
+  import Stepper from './Stepper.svelte';
+  import { keep, text } from '../lib/choreClient';
 
   /** Everything a manager changes about one person's routine: the bonuses, each chore, and a form to add more. */
   let { person, name, items, bonuses, day, busy, send }: {
@@ -16,10 +18,10 @@
 </script>
 
 {#if person !== null}
-  <div class="flex flex-wrap items-center gap-x-[.9rem] gap-y-[.4rem] mt-[.8rem] text-[.9rem]" role="group" aria-label={`All-done bonus for ${name}`}>
-    <span class="when">All-done bonus:</span>
+  <div class="grid grid-cols-2 gap-x-3 gap-y-2 mt-[.8rem] text-[.9rem] min-[40rem]:flex min-[40rem]:flex-wrap min-[40rem]:items-center" role="group" aria-label={`All-done bonus for ${name}`}>
+    <span class="when col-span-2 font-semibold">All-done bonus</span>
     {#each PERIODS as p (p)}
-      <label class="inline-flex items-center gap-[.35rem] font-medium">{PERIOD_LABEL[p]} <input class="flex-none w-[4.5rem] m-0" type="number" min="0" max="1000" value={bonuses[p]} onchange={(e) => send({ action: 'bonus_set', person, period: p, bonus: num(e) })} /></label>
+      <div class="flex items-center justify-between gap-3 m-0 font-medium col-span-2 min-[40rem]:col-span-1"><span>{PERIOD_LABEL[p]}</span><Stepper class="w-40" value={bonuses[p]} min={0} max={1000} label={`${PERIOD_LABEL[p]} all-done bonus for ${name}`} onchange={(n) => send({ action: 'bonus_set', person, period: p, bonus: n })} /></div>
     {/each}
   </div>
 {/if}
@@ -28,26 +30,36 @@
   <h4 class="mt-[1.1rem] mb-[.4rem] mx-0 text-[.95rem]">{PERIOD_LABEL[sec.period]}</h4>
   <ul class="list-none m-0 p-0">
     {#each sec.items as c (c.id)}
-      <li class="row-item">
-        <input class="fill-in" value={c.title} maxlength="80" aria-label="Chore" onchange={(e) => text(e) && send({ action: 'item_update', id: c.id, title: text(e) })} />
-        <input class="num-in" type="number" min="0" max="100" value={c.points} aria-label={`Points for ${c.title}`} onchange={(e) => send({ action: 'item_update', id: c.id, points: num(e) })} />
-        <select class="field" value={c.period} aria-label={`Time of day for ${c.title}`} onchange={(e) => send({ action: 'item_update', id: c.id, period: e.currentTarget.value })}>
-          {#each PERIODS as p (p)}<option value={p}>{PERIOD_LABEL[p]}</option>{/each}
-        </select>
-        <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'item_remove', id: c.id })} aria-label={`Remove ${c.title}`}>Remove</button>
-        <div class="flex-[1_1_100%] flex flex-wrap items-center gap-[.35rem] -mt-[.1rem] mb-[.6rem] text-[.85rem]" role="group" aria-label={`Days for ${c.title}`}>
+      <li class="edit-card">
+        <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <input class="m-0" value={c.title} data-v={c.title} maxlength="80" aria-label="Chore" onchange={(e) => keep(e, !!text(e) && send({ action: 'item_update', id: c.id, title: text(e) }))} />
+          <ConfirmButton ariaLabel={`Remove ${c.title}`} disabled={busy} onconfirm={() => send({ action: 'item_remove', id: c.id })} />
+        </div>
+        <div class="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-2">
+          <Stepper caption="Points" class="w-[9.75rem]" value={c.points} min={0} max={100} label={`Points for ${c.title}`} onchange={(n) => send({ action: 'item_update', id: c.id, points: n })} />
+          <label class="cap-field">Time of day
+            <select class="m-0" value={c.period} data-v={c.period} aria-label={`Time of day for ${c.title}`} onchange={(e) => keep(e, send({ action: 'item_update', id: c.id, period: e.currentTarget.value }))}>
+              {#each PERIODS as p (p)}<option value={p}>{PERIOD_LABEL[p]}</option>{/each}
+            </select></label>
+        </div>
+        <div class="grid gap-2 text-[.85rem]" role="group" aria-label={`Days for ${c.title}`}>
           {#if c.onceDate !== null}
-            <span class="font-semibold mr-[.15rem]">Once on</span>
-            <input class="field" type="date" value={c.onceDate} aria-label={`Date for ${c.title}`} onchange={(e) => e.currentTarget.value && send({ action: 'item_update', id: c.id, onceDate: e.currentTarget.value })} />
-            <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'item_update', id: c.id, onceDate: null, days: null })}>Repeat instead</button>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-semibold">Once on</span>
+              <input class="field flex-[1_1_9rem]" type="date" value={c.onceDate} data-v={c.onceDate} aria-label={`Date for ${c.title}`} onchange={(e) => keep(e, !!e.currentTarget.value && send({ action: 'item_update', id: c.id, onceDate: e.currentTarget.value }))} />
+              <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'item_update', id: c.id, onceDate: null, days: null })}>Repeat instead</button>
+            </div>
           {:else}
-            <span class="font-semibold mr-[.15rem]">Days:</span>
-            {#each WEEKDAY_SHORT as d, i (i)}
-              {@const on = hasDay(c.days ?? EVERY_DAY, i)}
-              <button type="button" class="day-chip" aria-pressed={on} disabled={busy || (on && (c.days ?? EVERY_DAY) === 1 << i)} onclick={() => flipDay(c, i)}>{d}</button>
-            {/each}
-            <span class="muted text-[.9rem] font-normal">{describeSchedule(c)}</span>
-            <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'item_update', id: c.id, onceDate: day })}>Just once</button>
+            <div class="grid grid-cols-7 gap-1">
+              {#each WEEKDAY_SHORT as d, i (i)}
+                {@const on = hasDay(c.days ?? EVERY_DAY, i)}
+                <button type="button" class="day-chip [&&&]:w-full [&&&]:px-0" aria-pressed={on} disabled={busy || (on && (c.days ?? EVERY_DAY) === 1 << i)} onclick={() => flipDay(c, i)}>{d}</button>
+              {/each}
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="muted">{describeSchedule(c)}</span>
+              <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'item_update', id: c.id, onceDate: day })}>Just once</button>
+            </div>
           {/if}
         </div>
       </li>

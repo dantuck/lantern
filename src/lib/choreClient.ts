@@ -16,7 +16,7 @@ export type Sent = { ok: true; state: ChoreState } | { ok: false; error: string 
 /** Sends one action and returns the fresh state, or a message fit to show the person. */
 export async function postChores(payload: Record<string, unknown>): Promise<Sent> {
   try {
-    const res = await fetch('/api/chores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const res = await fetch('/api/chores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true });
     if (res.ok) return { ok: true, state: (await res.json()) as ChoreState };
     const code = ((await res.json().catch(() => ({}))) as { error?: string }).error ?? '';
     return { ok: false, error: MESSAGES[code] ?? 'That did not save. Try again.' };
@@ -30,6 +30,11 @@ export async function runChores(state: ChoreState, payload: Record<string, unkno
   return demo ? { ok: true, state: applyDemo(state, payload) } : postChores(payload);
 }
 
-/** What an input's `change` event holds: its number (0 when empty or not a number), or its trimmed text. */
-export const num = (e: Event): number => Number((e.currentTarget as HTMLInputElement).value) || 0;
+/** What an input's `change` event holds: its trimmed text. */
 export const text = (e: Event): string => (e.currentTarget as HTMLInputElement).value.trim();
+
+/** Puts an input back to the value last saved (its `data-v`) when the save failed, so the box never shows something the server refused. */
+export function keep(e: Event, saved: Promise<boolean> | false): void {
+  const el = e.currentTarget as HTMLInputElement | HTMLSelectElement;
+  void Promise.resolve(saved).then((ok) => { if (!ok && el.dataset.v !== undefined) el.value = el.dataset.v; });
+}

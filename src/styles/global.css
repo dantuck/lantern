@@ -105,6 +105,11 @@ button:hover { filter: brightness(1.08); }
 button:active { transform: translateY(1px); }
 button:disabled { opacity: .45; cursor: default; filter: none; transform: none; }
 input[type="color"] { padding: .25rem; cursor: pointer; }
+/* Stepper (components/Stepper.svelte): big − / + buttons around the value, so the native arrows are not needed. */
+.stepper-in { margin: 0; padding-inline: .25rem; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; -moz-appearance: textfield; appearance: textfield; }
+.stepper-in::-webkit-inner-spin-button, .stepper-in::-webkit-outer-spin-button { -webkit-appearance: none; appearance: none; margin: 0; width: 0; }
+button.stepper-btn { width: auto; min-height: 2.75rem; margin: 0; padding: 0; font-size: 1.25rem; line-height: 1; box-shadow: none; background: var(--card-2); border-color: var(--border); color: var(--fg); }
+button.stepper-btn:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); filter: none; }
 
 /* Navigation: the side rail, tab bar and More sheet are UnoCSS shortcuts (uno.config.ts), used in layouts/Base.astro. */
 .wall-exit { display: none; }
