@@ -280,7 +280,8 @@ html[data-demo-off~="chores"] main[data-feature="chores"] > :not(.feature-off, [
 html[data-demo-off~="lists"] [data-plugin="lists"],
 html[data-demo-off~="lists"] a[data-feature="lists"],
 html[data-demo-off~="lists"] main[data-feature="lists"] > :not(.feature-off, [data-demo-back]) { display: none !important; }
-.feature-off { display: none; }
+/* Child of main, so it outranks the notice shortcut's display:flex; the rules below (html[data-demo-off]) outrank this one. */
+main > .feature-off { display: none; }
 html[data-demo-off~="calendar"] main[data-feature="calendar"] > .feature-off,
 html[data-demo-off~="mealq"] main[data-feature="mealq"] > .feature-off,
 html[data-demo-off~="chores"] main[data-feature="chores"] > .feature-off,
