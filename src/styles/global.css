@@ -206,8 +206,8 @@ body.has-rail { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
   body.has-rail { padding-left: 6rem; padding-bottom: 0; }
   .tabbar, .sheet { display: none !important; }
   body.has-rail .nav {
-    display: flex; position: fixed; inset: 0 auto 0 0; width: 6rem; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: .35rem;
-    padding: 1rem .5rem; padding-top: max(1rem, env(safe-area-inset-top)); padding-left: max(.5rem, env(safe-area-inset-left));
+    display: flex; position: fixed; inset: env(safe-area-inset-top) auto 0 0; width: 6rem; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: .35rem;
+    padding: 1rem .5rem; padding-left: max(.5rem, env(safe-area-inset-left));
     overflow-x: hidden; overflow-y: auto; border-bottom: 0; background: var(--card); box-shadow: inset -1px 0 var(--border);
     -webkit-backdrop-filter: none; backdrop-filter: none;
   }
