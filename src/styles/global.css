@@ -104,11 +104,6 @@ button, a, select, summary { touch-action: manipulation; }
 button:hover { filter: brightness(1.08); }
 button:active { transform: translateY(1px); }
 button:disabled { opacity: .45; cursor: default; filter: none; transform: none; }
-button.link { background: none; color: var(--muted); width: auto; padding: 0; border: 0; box-shadow: none; font-weight: 500; margin: 0; text-decoration: none; }
-button.link:hover { color: var(--fg); filter: none; }
-button.danger { background: var(--danger); color: #fff; }
-button.ghost { background: transparent; color: var(--fg); border-color: var(--border); box-shadow: none; }
-button.ghost:hover:not(:disabled) { background: var(--card-2); filter: none; }
 input[type="color"] { padding: .25rem; cursor: pointer; }
 
 /* Navigation, mobile first. Phones get a bottom tab bar plus a "More" sheet (see .tabbar and .sheet below), so every option is reachable.
