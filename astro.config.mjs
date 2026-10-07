@@ -29,6 +29,8 @@ export default defineConfig({
       ],
     },
   },
+  // No Markdown or <Code> anywhere, so Shiki (inline styles, CSP-incompatible) has nothing to do.
+  markdown: { syntaxHighlight: false },
   build: { inlineStylesheets: 'never' },
   vite: { build: { assetsInlineLimit: 0 } },
 });
