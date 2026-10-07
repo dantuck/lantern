@@ -71,8 +71,8 @@ receives no mail; that is fine for a system sender.
 ```bash
 git clone <the repository address> lantern
 cd lantern
-git tag --list              # pick the newest release tag, for example v0.1.1
-git checkout v0.1.1         # deploy a tagged release, not the latest unreleased work
+git tag --list              # pick the newest release tag, for example v1.2.3
+git checkout v1.2.3         # deploy a tagged release, not the latest unreleased work
 npm ci                      # installs exactly the locked dependencies
 ```
 

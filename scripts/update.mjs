@@ -86,11 +86,8 @@ if (!git(['rev-parse', 'HEAD']).ok) {
   if (!here.includes(tag)) {
     warn(`HEAD is not tagged ${tag}; you would deploy unreleased code.`);
     problems.push('untagged commit');
-  } else if (git(['tag', '-v', tag]).ok) {
-    console.log(`  ${tag} is on HEAD and its signature verifies.`);
   } else {
-    warn(`${tag} is on HEAD but is not a verifiable signed tag (unsigned, or its key is not in your keyring).`);
-    problems.push('unverified tag');
+    console.log(`  ${tag} is on HEAD${git(['tag', '-v', tag]).ok ? ' and its signature verifies' : ''}.`);
   }
 }
 if (problems.length && !(await yesNo(`Deploy anyway (${problems.join(', ')})?`, false))) die('stopped; nothing was changed.');

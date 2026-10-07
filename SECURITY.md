@@ -50,8 +50,8 @@ dependencies, so:
   the list, so adding one is a visible decision.
 - **Locked and audited.** `npm ci` installs exactly `package-lock.json`. `npm run verify` fails on any high or
   critical advisory unless it is accepted in `scripts/audit.mjs` with a written reason.
-- **Signed releases.** Releases are git tags signed by the maintainer (`docs/releasing.md`). `npm run update`
-  warns if you are about to deploy something that is untagged or whose signature does not verify.
+- **Tagged releases.** Releases are git tags created by the release workflow (`docs/releasing.md`). `npm run update`
+  warns if you are about to deploy something that is untagged.
 - **You choose when to update.** Nothing updates itself. Before deploying a new release, read `CHANGELOG.md` and
   look at the change: `git diff v0.1.0 v0.2.0 -- . ':!package-lock.json'`, plus the lockfile if dependencies moved.
   Pin to a tag rather than following `main`.

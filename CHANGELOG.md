@@ -4,17 +4,8 @@ All notable changes. `npm run update` shows the entries between the version you 
 so write them for the person running the dashboard: what changed for them, and anything they must do.
 
 Migrations are forward-only and must stay compatible with the previous release (the database is migrated
-just before the new code is deployed). A release that needs manual action says so under **Action required**.
-
-## [Unreleased]
-
-### Changed
-- Mobile-first layout. Phones get a bottom tab bar with a More sheet (every page, theme, wall display, install and sign out are reachable); tablets (portrait and landscape) get the side rail, and the active tab now joins the page like a folder tab.
-- The Admin page is easier to use on a phone or tablet: section shortcuts, Invite and Members first, tables that stack into cards on small screens, and Devices and Activity folded away until opened.
-- Disabling, removing, revoking, signing out and turning features off now ask first. The Admin page keeps your scroll position after an action.
-- Page changes cross-fade, there is a skip-to-content link, light and dark browser-bar colours, safe-area support on notched devices, a print stylesheet, and Chores and Lists shortcuts on the installed app's icon.
-- A dismissible install banner on phones and tablets (from the second visit; iPhone and iPad get Add to Home Screen steps). Install options no longer show once the app is installed.
-- Larger tap targets on touch screens in Chores, Lists and Admin.
+just before the new code is deployed). A release that needs manual action says so under **Action required**
+(entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
 ## [0.1.1] - 2026-10-07
 This is the first release to publish. `v0.1.0` was tagged but its release checks never finished, so use `v0.1.1`.
