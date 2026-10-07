@@ -40,6 +40,14 @@ export type TimedEvent = Extract<CalEvent, { allDay: false }>;
 /** A timed event placed on one day's time grid. `top`/`height` are minutes from midnight; `col` of `cols` side-by-side lanes. */
 export interface Placed { ev: TimedEvent; top: number; height: number; col: number; cols: number }
 
+/** A timed event this long that crosses midnight is "long" (a trip, a conference): shown as a banner, not a block in every day. */
+const LONG_MS = 18 * 60 * 60_000;
+export const isLongEvent = (ev: CalEvent, tz: string): boolean =>
+  !ev.allDay && ev.end - ev.start >= LONG_MS && dayKey(ev.start, tz) !== dayKey(ev.end - 1, tz);
+
+/** Events shown as a banner over the days they cover: long timed events and all-day events that run past one day. */
+export const isBannerEvent = (ev: CalEvent, tz: string): boolean => (ev.allDay ? ev.startDate !== ev.endDate : isLongEvent(ev, tz));
+
 const DAY_MINUTES = 1440;
 /** Even a zero-length event gets a visible, clickable block. */
 const MIN_MINUTES = 20;
@@ -73,4 +81,37 @@ export function layoutDay(events: CalEvent[], dayStart: number, dayEnd: number):
   }
   close();
   return items;
+}
+
+/** A banner laid over the columns of a time grid. `from`/`to` are inclusive column indexes; `opensHere`/`closesHere` say whether the event starts/ends inside the visible columns. */
+export interface Span { ev: CalEvent; from: number; to: number; lane: number; opensHere: boolean; closesHere: boolean }
+
+/**
+ * Lays banner events over a row of columns (`colDays`: the day each column shows), stacked into lanes so none overlap.
+ * `fullWidth` stretches every banner across all columns, for the day view where the columns are people on a single day.
+ * `keysOf` gives an event's first and last day.
+ */
+export function bannerSpans(events: CalEvent[], colDays: string[], keysOf: (ev: CalEvent) => [string, string], fullWidth = false): { spans: Span[]; lanes: number } {
+  const first = colDays[0]!, last = colDays[colDays.length - 1]!;
+  const items = [...new Map(events.map((ev) => [ev.id, ev])).values()]
+    .map((ev) => ({ ev, keys: keysOf(ev) }))
+    .sort((x, y) => x.keys[0].localeCompare(y.keys[0]) || x.ev.title.localeCompare(y.ev.title));
+  const laneEnds: number[] = [];
+  const spans = items.map(({ ev, keys: [a, b] }): Span => {
+    const from = fullWidth ? 0 : Math.max(0, colDays.findIndex((d) => d >= a));
+    const to = fullWidth ? colDays.length - 1 : colDays.findLastIndex((d) => d <= b);
+    let lane = laneEnds.findIndex((end) => end < from);
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = to;
+    return { ev, from, to, lane, opensHere: a >= first, closesHere: b <= last };
+  });
+  return { spans, lanes: laneEnds.length };
+}
+
+/** The hour rows a time grid shows: 7 AM–9 PM, stretched only as far as a placed event needs. */
+export function hourSpan(placed: Placed[], from = 7, to = 21): { first: number; count: number } {
+  let lo = from * 60, hi = to * 60;
+  for (const p of placed) { lo = Math.min(lo, p.top); hi = Math.max(hi, p.top + p.height); }
+  const first = Math.floor(lo / 60);
+  return { first, count: Math.min(24, Math.ceil(hi / 60)) - first };
 }
