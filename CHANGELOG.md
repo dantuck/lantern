@@ -7,6 +7,22 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.4.0](https://github.com/dantuck/lantern/compare/v0.3.0...v0.4.0) (2026-10-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **chores:** migration 0012 drops reward_lists and merges each person's chore lists, so the previous release can no longer read the database; do not roll back the code after migrating
+
+### Added
+
+* **chores:** add household goals, screen time and one routine per person ([97b5949](https://github.com/dantuck/lantern/commit/97b594956923e90e2ad4a227f04481d379ebf73c))
+
+
+### Changed
+
+* **chores:** rename state to choreState to fix type errors ([af93f2f](https://github.com/dantuck/lantern/commit/af93f2f30fa863f205c769c28a492a0ebab3f0fb))
+
 ## [0.3.0](https://github.com/dantuck/lantern/compare/v0.2.0...v0.3.0) (2026-10-07)
 
 
