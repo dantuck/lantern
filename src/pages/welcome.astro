@@ -11,8 +11,8 @@ const features = [
 ];
 
 const steps = [
-  { title: 'Get the code', body: 'You need git, Node 22.12+, a domain, and free Cloudflare and Resend accounts.', code: 'git clone <repository address> lantern\ncd lantern\nnpm ci' },
-  { title: 'Run the guided setup', body: 'It creates your database, deploys, and stores your secrets safely. Rehearse first with a dry run.', code: 'npm run setup -- --dry-run\nnpm run setup' },
+  { title: 'Get the code', body: 'You need git, Node 22.12+, a domain, and free Cloudflare and Resend accounts. Check out a tagged release (the newest tag from git tag --list) rather than the latest work.', code: 'git clone https://github.com/dantuck/lantern.git\ncd lantern\ngit tag --list\ngit checkout v0.1.0\nnpm ci' },
+  { title: 'Run the guided setup', body: 'It creates your database, deploys, and stores your secrets safely. Rehearse first with a dry run. Later, update with git fetch --tags, checking out the new tag and npm run update.', code: 'npm run setup -- --dry-run\nnpm run setup' },
   { title: 'Sign in and invite your household', body: 'Open your address, use the emailed link, then invite everyone from Admin.' },
 ];
 ---
@@ -94,7 +94,7 @@ const steps = [
           </li>
         ))}
       </ol>
-      <p class="more-docs">Full walkthrough: <code>docs/setup-guide.md</code> in the repository.</p>
+      <p class="more-docs">Full walkthrough: <a href="https://github.com/dantuck/lantern/blob/main/docs/setup-guide.md"><code>docs/setup-guide.md</code></a> in the repository.</p>
     </section>
 
     <footer class="lp-foot">

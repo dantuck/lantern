@@ -10,8 +10,8 @@ import { join } from 'node:path';
 
 /** Hosts the deployed Worker may contact. MealQ's host is configured by the household and is checked by fetchPolicy. */
 const RUNTIME_HOSTS = ['api.resend.com', 'oauth2.googleapis.com', 'www.googleapis.com', 'api.open-meteo.com'];
-/** Appear in files but are never contacted: XML namespaces and documentation placeholders. */
-const NOT_CONTACTED = (h: string) => h === 'www.w3.org' || h === 'localhost' || h === 'example.com' || h.endsWith('.example.com') || h.endsWith('.example');
+/** Appear in files but are never contacted: XML namespaces, documentation placeholders, and the repository link shown on the welcome page. */
+const NOT_CONTACTED = (h: string) => h === 'www.w3.org' || h === 'github.com' || h === 'localhost' || h === 'example.com' || h.endsWith('.example.com') || h.endsWith('.example');
 
 function walk(dir: string, exts: string[], out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
