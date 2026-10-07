@@ -7,6 +7,20 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.2.0](https://github.com/dantuck/lantern/compare/v0.1.1...v0.2.0) (2026-10-07)
+
+
+### Added
+
+* **calendar:** show multi-day events as banners and tighten the grid ([1be29b7](https://github.com/dantuck/lantern/commit/1be29b745924e1034daa712016d744d059ecda7c))
+* **pwa:** add install banner and app shortcuts ([2dfbae3](https://github.com/dantuck/lantern/commit/2dfbae38c035bcabce5fbe8df6b823ff57b7f5ce))
+* **ui:** add mobile-first layout and confirm dialogs ([41cfe2d](https://github.com/dantuck/lantern/commit/41cfe2d9ae56bb866477b86bc19aaff951e60909))
+
+
+### Changed
+
+* **plugins:** drop the card heading and back link on page views ([ef6a9cd](https://github.com/dantuck/lantern/commit/ef6a9cdd70a0236d2789590e939afd35f323be37))
+
 ## [0.1.1] - 2026-10-07
 This is the first release to publish. `v0.1.0` was tagged but its release checks never finished, so use `v0.1.1`.
 
