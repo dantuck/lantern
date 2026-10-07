@@ -15,4 +15,7 @@ For whoever publishes new versions of the dashboard. Households deploy from sour
 5. **Tag, signed.** `git tag -s vx.y.z -m "vx.y.z"` then `git push --tags`. `npm run update` verifies the
    signature when the tag is on HEAD, so publish your signing key (for SSH signing, an `allowed_signers` file) where
    users can find it, such as the repository README or your site, and say which fingerprint to expect.
-6. **Never rewrite a published tag.** If a release is bad, ship a new patch release.
+6. **Release notes.** Pushing the tag runs `.github/workflows/release.yml`: it checks the tag matches `package.json` and
+   the changelog, reruns the checks, and publishes a GitHub release with that changelog entry. Households then
+   `git fetch --tags`, check out the tag and run `npm run update`.
+7. **Never rewrite a published tag.** If a release is bad, ship a new patch release.

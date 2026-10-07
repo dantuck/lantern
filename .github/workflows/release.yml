@@ -1,0 +1,31 @@
+name: Release
+# Runs when a version tag is pushed (`git tag -s vX.Y.Z && git push --tags`, see docs/releasing.md).
+# The tag itself is signed on the maintainer's machine; this workflow only checks it and publishes the notes.
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - name: Tag matches package.json, and the changelog has notes for it
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$v" != "$pkg" ]; then echo "::error::tag $GITHUB_REF_NAME does not match package.json version $pkg"; exit 1; fi
+          awk -v v="$v" '/^## \[/ { p = index($0, "[" v "]") > 0; next } p' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then echo "::error::CHANGELOG.md has no entry for $v"; exit 1; fi
+      - run: npm ci
+      - name: Local dev secrets (the e2e scripts sign in as this address)
+        run: echo "BOOTSTRAP_MANAGER_EMAIL=mom@example.com" > .dev.vars
+      - run: npm run verify
+      - run: npm run verify:e2e
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
