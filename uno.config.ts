@@ -11,6 +11,10 @@ export default defineConfig({
     // Surfaces. Contextual overrides (.grid > .card, print, wall mode) stay in global.css and key off these class names.
     card: 'bg-card border border-solid border-line rounded-[var(--radius)] p-[1.1rem] shadow-[var(--shadow-sm)] sm:p-6 [section&]:mb-5 [section&]:overflow-x-auto [details&]:mb-5 [details&]:overflow-x-auto',
     notice: 'flex gap-[.6rem] py-3 px-4 mb-5 text-fg bg-accent-soft border border-solid border-[color-mix(in_srgb,var(--accent)_30%,transparent)] rounded-[var(--radius-sm)] text-[.95rem]',
+    // Button variants. The bare `button` defaults (filled accent) stay in global.css; these override them.
+    link: 'bg-transparent text-muted w-auto p-0 m-0 border-0 shadow-none font-medium no-underline hover:text-fg hover:filter-none',
+    danger: 'bg-danger text-white',
+    ghost: 'bg-transparent text-fg border-line shadow-none [&:hover:not(:disabled)]:bg-card2 [&:hover:not(:disabled)]:filter-none',
     // Form row: fields grow from 12rem, buttons size to their label.
     row: 'flex flex-wrap gap-3 items-end [&>div]:flex-[1_1_12rem] [&>div]:min-w-0 [&>.role]:flex-[0_1_12rem] [&_button]:w-auto [&_button]:m-0 [&_button]:py-[.7rem] [&_button]:px-5',
   },
