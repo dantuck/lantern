@@ -5,9 +5,20 @@ import ThemeToggle from '../components/ThemeToggle.astro';
 import '../styles/landing.css';
 
 const features = [
-  { icon: 'calendar', title: 'Everything at a glance', text: 'Your Google Calendar and your MealQ meal plan on one clean screen, with month, week and agenda views.' },
+  { icon: 'calendar', title: 'Calendar and meals', text: 'Your Google Calendar and your MealQ meal plan on one clean screen, with month, week and agenda views, weather, and a colour for each person.' },
+  { icon: 'check-circle', title: 'Chores for everyone', text: 'One routine for each person, split into morning, afternoon, evening and any time. Chores repeat on the days you choose, or happen just once, and tick off fresh every day.' },
+  { icon: 'smile', title: 'Points and rewards', text: 'Chores earn points, with an all-done bonus for each time of day. Kids ask for rewards they can afford, and a manager approves or denies.' },
+  { icon: 'home', title: 'Household goals', text: 'A shared target the whole family works toward, like a movie night or pizza Friday. Every point anyone earns fills the bar.' },
+  { icon: 'monitor', title: 'Screen time', text: 'A daily allowance for each person, with different weekend minutes if you like, that never builds up. Minutes earned from rewards are kept in a bank and used after it.' },
+  { icon: 'sliders', title: 'A page for each person', text: 'Everyone gets their own page with their chores, points, rewards and screen time. Managers can change a person’s chores, bonuses and allowance right there.' },
+  { icon: 'list', title: 'Shared lists', text: 'Groceries, to-dos and wish lists that everyone can add to and tick off, from any device.' },
+  { icon: 'maximize', title: 'Wall display', text: 'One tap makes everything larger, hides the menu, goes fullscreen and keeps the screen awake for the kitchen tablet.' },
+];
+
+const principles = [
   { icon: 'lock', title: 'Private and password-free', text: 'Invite-only, signed in with a one-time emailed link. Lose a phone? Sign it out from anywhere.' },
-  { icon: 'server', title: 'Yours to run', text: 'Read-only, installable on any device, no tracking, and hosted on your own free Cloudflare account.' },
+  { icon: 'smartphone', title: 'Installable anywhere', text: 'Works on any phone, tablet or computer, installs like an app, and keeps working offline for a quick look.' },
+  { icon: 'server', title: 'Yours to run', text: 'No tracking, no ads, and hosted on your own free Cloudflare account. Managers choose which features are switched on.' },
 ];
 
 const steps = [
@@ -16,11 +27,12 @@ const steps = [
   { title: 'Sign in and invite your household', body: 'Open your address, use the emailed link, then invite everyone from Admin.' },
 ];
 ---
-<Base title="Lantern: a private home screen for your household" description="A private, read-only dashboard for one household. Calendar and meal plan on one screen, invite-only, no passwords. Run your own copy on Cloudflare’s free tier." bare>
+<Base title="Lantern: a private home screen for your household" description="A private dashboard for one household. Calendar, meal plan, chores, rewards, shared goals, screen time and lists on one screen, invite-only, no passwords. Run your own copy on Cloudflare’s free tier." bare>
   <div class="lp">
     <header class="lp-nav">
       <a class="lp-brand" href="/welcome"><img src="/favicon.svg" alt="" width="28" height="28" /> Lantern</a>
       <nav aria-label="Page sections">
+        <a href="#features">Features</a>
         <a href="#setup">Get your own</a>
         <a href="/demo">Demo</a>
         <ThemeToggle />
@@ -30,13 +42,13 @@ const steps = [
 
     <section class="lp-hero">
       <h1>A calm home screen for your household.</h1>
-      <p class="lead">Today’s events and this week’s dinners on one clean page. Private, free to run, and hosted on your own account.</p>
+      <p class="lead">Today’s events, this week’s dinners, chores, rewards and shared goals on one clean page. Private, free to run, and hosted on your own account.</p>
       <div class="cta">
         <a class="lp-btn" href="/demo">Try the live demo</a>
         <a class="lp-btn ghost" href="#setup">Set up your own</a>
       </div>
 
-      <div class="mock" role="img" aria-label="Preview of the dashboard showing a calendar agenda and a meal plan">
+      <div class="mock" role="img" aria-label="Preview of the dashboard showing a calendar agenda, a meal plan, chores and a household goal">
         <div class="mock-body">
           <div class="mock-card wide">
             <h2><Icon name="calendar" /> Calendar</h2>
@@ -64,14 +76,38 @@ const steps = [
               <li><b>Dinner</b> Taco night</li>
             </ul>
           </div>
+          <div class="mock-card full">
+            <h2><Icon name="check-circle" /> Chores today</h2>
+            <ul>
+              <li><b>Agnes</b> Morning routine · 3 of 4 done <span class="mock-bar"><span style="width:75%"></span></span></li>
+              <li><b>Margo</b> After school · 1 of 3 done <span class="mock-bar"><span style="width:33%"></span></span></li>
+            </ul>
+            <h3>Together</h3>
+            <ul>
+              <li><b>Movie night</b> 96 of 150 points <span class="mock-bar"><span style="width:64%"></span></span></li>
+            </ul>
+          </div>
         </div>
       </div>
     </section>
 
     <section id="features" class="lp-section">
-      <h2>Simple by design</h2>
+      <h2>Everything your household needs</h2>
       <div class="features">
         {features.map((f) => (
+          <article class="feature">
+            <span class="ico"><Icon name={f.icon} /></span>
+            <h3>{f.title}</h3>
+            <p>{f.text}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section class="lp-section">
+      <h2>Simple by design</h2>
+      <div class="features">
+        {principles.map((f) => (
           <article class="feature">
             <span class="ico"><Icon name={f.icon} /></span>
             <h3>{f.title}</h3>
