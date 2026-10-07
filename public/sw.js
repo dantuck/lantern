@@ -14,7 +14,7 @@
  *
  * Bump VERSION when changing the rules; old caches are deleted on activate.
  */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL = `shell-${VERSION}`;
 const ASSETS = `assets-${VERSION}`;
 const PAGES = `pages-${VERSION}`;

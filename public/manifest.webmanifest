@@ -6,7 +6,14 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f6f5f2",
+  "display_override": ["standalone"],
+  "orientation": "any",
+  "categories": ["lifestyle", "productivity"],
+  "shortcuts": [
+    { "name": "Chores", "url": "/chores", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Lists", "url": "/lists", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ],
+  "background_color": "#faf7f3",
   "theme_color": "#c2570a",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

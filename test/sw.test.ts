@@ -60,7 +60,7 @@ function boot() {
     handlers[type]!({ waitUntil: (p: Promise<unknown>) => waits.push(Promise.resolve(p)) });
     await Promise.all(waits);
   }
-  const pages = () => store.get('pages-v1');
+  const pages = () => store.get('pages-v2');
   const offline = () => { net.impl = () => { throw new TypeError('Failed to fetch'); }; };
   return { handlers, store, net, fetchEvent, lifecycle, pages, offline, cacheFor };
 }
@@ -75,14 +75,14 @@ describe('install / activate', () => {
   it('precaches the offline page and stylesheet', async () => {
     const sw = boot();
     await sw.lifecycle('install');
-    expect([...sw.store.get('shell-v1')!.keys()]).toEqual([`${ORIGIN}/offline.html`, `${ORIGIN}/offline.css`]);
+    expect([...sw.store.get('shell-v2')!.keys()]).toEqual([`${ORIGIN}/offline.html`, `${ORIGIN}/offline.css`]);
   });
   it('deletes caches from other versions on activate and keeps current ones', async () => {
     const sw = boot();
-    await sw.cacheFor('pages-v0').put('/', new Response('old'));
-    await sw.cacheFor('assets-v1').put('/_astro/a.js', new Response('a'));
+    await sw.cacheFor('pages-v1').put('/', new Response('old'));
+    await sw.cacheFor('assets-v2').put('/_astro/a.js', new Response('a'));
     await sw.lifecycle('activate');
-    expect([...sw.store.keys()]).toEqual(['assets-v1']);
+    expect([...sw.store.keys()]).toEqual(['assets-v2']);
   });
 });
 
@@ -139,7 +139,7 @@ describe('saving the dashboard for offline use', () => {
     expect(saved.headers.get('content-length')).toBeNull();
     expect(saved.headers.get('content-security-policy')).toBe("default-src 'none'");
     expect(saved.headers.get('x-sw-cached-at')).toBe(String(Date.now()));
-    expect([...sw.store.get('assets-v1')!.keys()].sort()).toEqual([`${ORIGIN}/_astro/Island.def.js`, `${ORIGIN}/_astro/app.abc.js`]);
+    expect([...sw.store.get('assets-v2')!.keys()].sort()).toEqual([`${ORIGIN}/_astro/Island.def.js`, `${ORIGIN}/_astro/app.abc.js`]);
   });
   it('does not save errors, redirects or non-HTML', async () => {
     const sw = boot();
@@ -246,13 +246,13 @@ describe('build assets', () => {
     const sw = boot();
     sw.net.impl = () => new Response('missing', { status: 404 });
     await sw.fetchEvent('/_astro/gone.js', { mode: 'no-cors' });
-    expect(sw.store.get('assets-v1')?.size ?? 0).toBe(0);
+    expect(sw.store.get('assets-v2')?.size ?? 0).toBe(0);
   });
   it('are capped at 120 entries, dropping the oldest', async () => {
     const sw = boot();
     sw.net.impl = () => new Response('js');
     for (let i = 0; i < 130; i++) await sw.fetchEvent(`/_astro/f${i}.js`, { mode: 'no-cors' });
-    const keys = [...sw.store.get('assets-v1')!.keys()];
+    const keys = [...sw.store.get('assets-v2')!.keys()];
     expect(keys).toHaveLength(120);
     expect(keys).not.toContain(`${ORIGIN}/_astro/f0.js`);
     expect(keys).toContain(`${ORIGIN}/_astro/f129.js`);
