@@ -4,6 +4,8 @@ import type { EnabledPlugin } from './registry';
 import type { PluginResult } from './types';
 
 const LOADER_TIMEOUT_MS = 8_000;
+/** Floor for forced refreshes so a reload loop can't hammer an upstream. */
+const MIN_REFETCH_MS = 5_000;
 /** How long a stale copy is kept so the dashboard still shows something when an upstream is down. */
 const STALE_KEEP_SECONDS = 24 * 60 * 60;
 
@@ -16,6 +18,8 @@ export interface HostDeps {
   now?: number;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
+  /** Skip a cached copy unless it is under MIN_REFETCH_MS old, e.g. when the viewer force-refreshes the page. */
+  forceRefresh?: boolean;
 }
 
 export async function loadPluginData(plugin: EnabledPlugin, deps: HostDeps): Promise<PluginResult> {
@@ -37,7 +41,8 @@ export async function loadPluginData(plugin: EnabledPlugin, deps: HostDeps): Pro
   // Config is part of the key so changing settings never serves another config's data.
   const key = `plugin:${def.id}:${(await sha256Hex(JSON.stringify(config))).slice(0, 16)}`;
   const cached = await deps.kv.get<Cached>(key, 'json').catch(() => null);
-  if (cached && now - cached.fetchedAt < def.cacheTtlSeconds * 1000) {
+  const maxAgeMs = deps.forceRefresh ? MIN_REFETCH_MS : def.cacheTtlSeconds * 1000;
+  if (cached && now - cached.fetchedAt < maxAgeMs) {
     return { status: 'ok', data: cached.data, fetchedAt: cached.fetchedAt };
   }
 

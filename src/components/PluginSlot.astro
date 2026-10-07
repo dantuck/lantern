@@ -13,7 +13,9 @@ interface Props { plugin: EnabledPlugin; view?: 'card' | 'page' }
 const { plugin, view = 'card' } = Astro.props;
 const manager = Astro.locals.user?.role === 'manager';
 
-const result = await loadPluginData(plugin, { env: env as unknown as Record<string, unknown>, kv: env.CACHE });
+// A normal browser reload sends `Cache-Control: max-age=0` and a hard reload sends `no-cache`; either means "show me fresh data".
+const forceRefresh = /\b(no-cache|max-age=0)\b/.test(Astro.request.headers.get('cache-control') ?? '');
+const result = await loadPluginData(plugin, { env: env as unknown as Record<string, unknown>, kv: env.CACHE, forceRefresh });
 const id = plugin.def.id;
 const View = (view === 'page' ? pages[`../plugins/${id}/Page.astro`] : undefined)?.default ?? widgets[`../plugins/${id}/Widget.astro`]?.default;
 ---

@@ -89,6 +89,17 @@ describe('guardedFetch', () => {
 const enabled = (def: ReturnType<typeof make>) => buildRegistry(mods(def), cfg(def.id)).enabled[0]!;
 
 describe('loadPluginData', () => {
+  it('forceRefresh bypasses a fresh cache but not one under the 5s floor', async () => {
+    const loader = vi.fn(async () => ({ v: Math.random() }));
+    const p = enabled(make({ loader } as never));
+    const kv = fakeKv();
+    await loadPluginData(p, { env: {}, kv, now: 1_000 });
+    await loadPluginData(p, { env: {}, kv, now: 3_000, forceRefresh: true });
+    expect(loader).toHaveBeenCalledTimes(1);
+    await loadPluginData(p, { env: {}, kv, now: 7_000, forceRefresh: true });
+    expect(loader).toHaveBeenCalledTimes(2);
+  });
+
   it('serves fresh cache without calling the loader, refetches after the ttl', async () => {
     const loader = vi.fn(async () => ({ v: Math.random() }));
     const p = enabled(make({ loader } as never));
