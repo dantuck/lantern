@@ -2,7 +2,6 @@
 import Base from '../layouts/Base.astro';
 import Icon from '../components/Icon.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
-import '../styles/landing.css';
 
 const features = [
   { icon: 'calendar', title: 'Calendar and meals', text: 'Your Google Calendar and your MealQ meal plan on one clean screen, with month, week and agenda views, weather, and a colour for each person.' },
@@ -29,111 +28,111 @@ const steps = [
 ---
 <Base title="Lantern: a private home screen for your household" description="A private dashboard for one household. Calendar, meal plan, chores, rewards, shared goals, screen time and lists on one screen, invite-only, no passwords. Run your own copy on Cloudflare’s free tier." bare>
   <div class="lp">
-    <header class="lp-nav">
-      <a class="lp-brand" href="/welcome"><img src="/favicon.svg" alt="" width="28" height="28" /> Lantern</a>
-      <nav aria-label="Page sections">
-        <a href="#features">Features</a>
-        <a href="#setup">Get your own</a>
-        <a href="/demo">Demo</a>
+    <header class="flex items-center justify-between gap-4 py-4">
+      <a class="flex items-center gap-[.6rem] font-bold tracking-[-.02em] text-fg no-underline" href="/welcome"><img src="/favicon.svg" alt="" width="28" height="28" /> Lantern</a>
+      <nav class="flex items-center gap-1" aria-label="Page sections">
+        <a class="lp-link" href="#features">Features</a>
+        <a class="lp-link" href="#setup">Get your own</a>
+        <a class="lp-link" href="/demo">Demo</a>
         <ThemeToggle />
-        <a class="lp-btn small" href="/login">Sign in</a>
+        <a class="lp-btn lp-btn-sm" href="/login">Sign in</a>
       </nav>
     </header>
 
-    <section class="lp-hero">
-      <h1>A calm home screen for your household.</h1>
-      <p class="lead">Today’s events, this week’s dinners, chores, rewards and shared goals on one clean page. Private, free to run, and hosted on your own account.</p>
-      <div class="cta">
+    <section class="text-center pt-14 pb-12">
+      <h1 class="[font-size:clamp(2.2rem,6vw,4rem)] leading-[1.05] tracking-[-.045em] mt-0 mx-auto mb-5 max-w-[18ch]">A calm home screen for your household.</h1>
+      <p class="[font-size:clamp(1.05rem,2vw,1.25rem)] max-w-[40rem] mt-0 mx-auto mb-8 leading-[1.55]">Today’s events, this week’s dinners, chores, rewards and shared goals on one clean page. Private, free to run, and hosted on your own account.</p>
+      <div class="flex gap-3 justify-center flex-wrap">
         <a class="lp-btn" href="/demo">Try the live demo</a>
-        <a class="lp-btn ghost" href="#setup">Set up your own</a>
+        <a class="lp-btn lp-btn-ghost" href="#setup">Set up your own</a>
       </div>
 
-      <div class="mock" role="img" aria-label="Preview of the dashboard showing a calendar agenda, a meal plan, chores and a household goal">
-        <div class="mock-body">
-          <div class="mock-card wide">
-            <h2><Icon name="calendar" /> Calendar</h2>
-            <h3>Today</h3>
-            <ul>
-              <li><b>8:30 AM</b> School drop-off</li>
-              <li><b>4:00 PM</b> Piano lesson · Maple St</li>
-              <li><b>7:00 PM</b> Book club</li>
+      <div class="mt-12 mx-auto mb-0 max-w-[54rem] text-left rounded-[20px] border border-solid border-line bg-card shadow-[var(--shadow-md)] overflow-hidden" role="img" aria-label="Preview of the dashboard showing a calendar agenda, a meal plan, chores and a household goal">
+        <div class="grid grid-cols-[3fr_2fr] max-[40rem]:grid-cols-1 gap-4 p-4 bg-bg">
+          <div class="bg-card border border-solid border-line rounded-[14px] p-[1.1rem]">
+            <h2 class="mock-h2"><Icon name="calendar" /> Calendar</h2>
+            <h3 class="mock-h3">Today</h3>
+            <ul class="list-none m-0 p-0">
+              <li class="mock-li"><b>8:30 AM</b> School drop-off</li>
+              <li class="mock-li"><b>4:00 PM</b> Piano lesson · Maple St</li>
+              <li class="mock-li"><b>7:00 PM</b> Book club</li>
             </ul>
-            <h3>Tomorrow</h3>
-            <ul>
-              <li><b>All day</b> Grandma visits</li>
-              <li><b>6:15 PM</b> Soccer practice</li>
-            </ul>
-          </div>
-          <div class="mock-card">
-            <h2><Icon name="/icons/mealq.png" /> Meals</h2>
-            <h3>Today</h3>
-            <ul>
-              <li><b>Dinner</b> Veggie stir-fry</li>
-            </ul>
-            <h3>Tomorrow</h3>
-            <ul>
-              <li><b>Lunch</b> Leftover stir-fry</li>
-              <li><b>Dinner</b> Taco night</li>
+            <h3 class="mock-h3">Tomorrow</h3>
+            <ul class="list-none m-0 p-0">
+              <li class="mock-li"><b>All day</b> Grandma visits</li>
+              <li class="mock-li"><b>6:15 PM</b> Soccer practice</li>
             </ul>
           </div>
-          <div class="mock-card full">
-            <h2><Icon name="check-circle" /> Chores today</h2>
-            <ul>
-              <li><b>Agnes</b> Morning routine · 3 of 4 done <span class="mock-bar"><span style="width:75%"></span></span></li>
-              <li><b>Margo</b> After school · 1 of 3 done <span class="mock-bar"><span style="width:33%"></span></span></li>
+          <div class="bg-card border border-solid border-line rounded-[14px] p-[1.1rem]">
+            <h2 class="mock-h2"><Icon name="/icons/mealq.png" /> Meals</h2>
+            <h3 class="mock-h3">Today</h3>
+            <ul class="list-none m-0 p-0">
+              <li class="mock-li"><b>Dinner</b> Veggie stir-fry</li>
             </ul>
-            <h3>Together</h3>
-            <ul>
-              <li><b>Movie night</b> 96 of 150 points <span class="mock-bar"><span style="width:64%"></span></span></li>
+            <h3 class="mock-h3">Tomorrow</h3>
+            <ul class="list-none m-0 p-0">
+              <li class="mock-li"><b>Lunch</b> Leftover stir-fry</li>
+              <li class="mock-li"><b>Dinner</b> Taco night</li>
+            </ul>
+          </div>
+          <div class="bg-card border border-solid border-line rounded-[14px] p-[1.1rem] col-span-full">
+            <h2 class="mock-h2"><Icon name="check-circle" /> Chores today</h2>
+            <ul class="list-none m-0 p-0">
+              <li class="mock-li"><b>Agnes</b> Morning routine · 3 of 4 done <span class="block h-[.4rem] mt-[.35rem] rounded-full bg-card2 overflow-hidden"><span class="block h-full rounded-[inherit] bg-accent" style="width:75%"></span></span></li>
+              <li class="mock-li"><b>Margo</b> After school · 1 of 3 done <span class="block h-[.4rem] mt-[.35rem] rounded-full bg-card2 overflow-hidden"><span class="block h-full rounded-[inherit] bg-accent" style="width:33%"></span></span></li>
+            </ul>
+            <h3 class="mock-h3">Together</h3>
+            <ul class="list-none m-0 p-0">
+              <li class="mock-li"><b>Movie night</b> 96 of 150 points <span class="block h-[.4rem] mt-[.35rem] rounded-full bg-card2 overflow-hidden"><span class="block h-full rounded-[inherit] bg-accent" style="width:64%"></span></span></li>
             </ul>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="features" class="lp-section">
-      <h2>Everything your household needs</h2>
-      <div class="features">
+    <section id="features" class="py-14">
+      <h2 class="[font-size:clamp(1.5rem,3vw,2rem)] tracking-[-.035em] text-center mt-0 mx-0 mb-8">Everything your household needs</h2>
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-5">
         {features.map((f) => (
-          <article class="feature">
-            <span class="ico"><Icon name={f.icon} /></span>
-            <h3>{f.title}</h3>
-            <p>{f.text}</p>
+          <article class="px-2">
+            <span class="lp-ico"><Icon name={f.icon} /></span>
+            <h3 class="text-[1.05rem] tracking-[-.015em] mt-0 mx-0 mb-[.4rem]">{f.title}</h3>
+            <p class="m-0 text-[.95rem]">{f.text}</p>
           </article>
         ))}
       </div>
     </section>
 
-    <section class="lp-section">
-      <h2>Simple by design</h2>
-      <div class="features">
+    <section class="py-14">
+      <h2 class="[font-size:clamp(1.5rem,3vw,2rem)] tracking-[-.035em] text-center mt-0 mx-0 mb-8">Simple by design</h2>
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-5">
         {principles.map((f) => (
-          <article class="feature">
-            <span class="ico"><Icon name={f.icon} /></span>
-            <h3>{f.title}</h3>
-            <p>{f.text}</p>
+          <article class="px-2">
+            <span class="lp-ico"><Icon name={f.icon} /></span>
+            <h3 class="text-[1.05rem] tracking-[-.015em] mt-0 mx-0 mb-[.4rem]">{f.title}</h3>
+            <p class="m-0 text-[.95rem]">{f.text}</p>
           </article>
         ))}
       </div>
     </section>
 
-    <section id="setup" class="lp-section">
-      <h2>Get your own in three steps</h2>
-      <ol class="steps">
+    <section id="setup" class="py-14">
+      <h2 class="[font-size:clamp(1.5rem,3vw,2rem)] tracking-[-.035em] text-center mt-0 mx-0 mb-8">Get your own in three steps</h2>
+      <ol class="list-none [counter-reset:step] my-0 mx-auto p-0 max-w-[40rem] grid gap-6">
         {steps.map((s) => (
-          <li>
-            <div class="step-body">
-              <h3>{s.title}</h3>
-              <p>{s.body}</p>
-              {s.code && <pre><code>{s.code}</code></pre>}
+          <li class="[counter-increment:step] grid grid-cols-[2rem_1fr] gap-4 py-1 before:content-[counter(step)] before:grid before:place-items-center before:size-8 before:rounded-full before:bg-accent-soft before:text-accent before:font-bold">
+            <div class="min-w-0">
+              <h3 class="mt-[.35rem] mb-[.3rem] mx-0 text-[1.1rem] tracking-[-.02em]">{s.title}</h3>
+              <p class="mt-0 mx-0 mb-3 text-[.95rem] last:mb-0">{s.body}</p>
+              {s.code && <pre class="lp-pre"><code>{s.code}</code></pre>}
             </div>
           </li>
         ))}
       </ol>
-      <p class="more-docs">Full walkthrough: <a href="https://github.com/dantuck/lantern/blob/main/docs/setup-guide.md"><code>docs/setup-guide.md</code></a> in the repository.</p>
+      <p class="text-center mt-6 mx-0 mb-0 text-[.93rem]">Full walkthrough: <a href="https://github.com/dantuck/lantern/blob/main/docs/setup-guide.md"><code>docs/setup-guide.md</code></a> in the repository.</p>
     </section>
 
-    <footer class="lp-foot">
+    <footer class="flex justify-between flex-wrap gap-3 pt-8 pb-12 [border-top:1px_solid_var(--border)] text-muted text-[.9rem]">
       <span>Lantern · open source, self-hosted, no telemetry</span>
       <span><a href="/demo">Demo</a> · <a href="/login">Sign in</a></span>
     </footer>

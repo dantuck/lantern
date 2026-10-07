@@ -35,7 +35,7 @@ export default defineConfig({
     // Weekday toggle in the chore editor.
     'day-chip': '[&&]:w-auto [&&]:m-0 py-[.3rem] px-[.65rem] rounded-full bg-transparent text-inherit border-[1.5px] border-solid border-line shadow-none text-[.85rem] pointer-coarse:min-h-11 [&[aria-pressed=true]]:bg-accent [&[aria-pressed=true]]:border-accent [&[aria-pressed=true]]:text-white [&:disabled:not([aria-pressed=true])]:opacity-35 [&:disabled:not([aria-pressed=true])]:line-through',
     // Round check button. Colour comes from --c (a person's colour) and falls back to the accent; size is set where it is used.
-    tick: 'grid place-items-center flex-none m-0 p-0 rounded-full bg-transparent border-[2.5px] border-solid border-[var(--c,var(--accent))] shadow-none text-transparent [&:hover:not(:disabled)]:bg-[color-mix(in_srgb,var(--c,var(--accent))_14%,transparent)] [&:hover:not(:disabled)]:filter-none [&[aria-pressed=true]]:bg-[var(--c,var(--accent))] [&[aria-pressed=true]]:text-white [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:3] [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]',
+    tick: 'grid place-items-center flex-none m-0 p-0 rounded-full bg-transparent border-[2.5px] border-solid border-[var(--c,var(--accent))] shadow-none text-transparent [&:hover:not(:disabled)]:bg-[color-mix(in_srgb,var(--c,var(--accent))_14%,transparent)] [&:hover:not(:disabled)]:filter-none [&[aria-pressed=true]]:bg-[var(--c,var(--accent))] [&[aria-pressed=true]]:text-[color:var(--tick-fg,#fff)] [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:3] [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]',
     'icon-btn': 'grid place-items-center flex-none size-11 m-0 p-0 rounded-full bg-transparent text-muted border-0 shadow-none [&:hover:not(:disabled)]:bg-card2 [&:hover:not(:disabled)]:text-fg [&:hover:not(:disabled)]:filter-none [&_svg]:size-[1.1rem] [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:2] [&_svg]:[stroke-linecap:round]',
     // Inputs inside a flex list row: one that grows, one fixed-width number.
     'fill-in': 'm-0 flex-[1_1_12rem]',
@@ -73,6 +73,17 @@ export default defineConfig({
     'cal-block': 'absolute block box-border m-0 text-left font-normal cursor-pointer border-solid [border-width:0_0_0_4px] [border-color:var(--c)] shadow-none overflow-hidden py-[.2rem] px-2 rounded-[10px] text-[.8rem] leading-[1.25] bg-[color-mix(in_srgb,var(--c)_18%,var(--card))] text-fg min-h-[1.1rem] hover:bg-[color-mix(in_srgb,var(--c)_30%,var(--card))] hover:filter-none @max-[46rem]:py-[.15rem] @max-[46rem]:pr-[.3rem] @max-[46rem]:pl-[.4rem] @max-[46rem]:text-[.75rem] @max-[46rem]:[border-left-width:3px] @max-[46rem]:rounded-[8px]',
     'cal-pill': 'py-[.05rem] px-2 rounded-full bg-card2 text-[.75rem]',
     'cal-pill-who': 'py-[.05rem] px-2 rounded-full text-[.75rem] bg-[color-mix(in_srgb,var(--c)_18%,var(--card))] text-[color:color-mix(in_srgb,var(--c)_72%,var(--fg))] font-semibold',
+    // Landing page (/welcome).
+    'lp-btn': 'inline-flex items-center justify-center py-[.8rem] px-[1.4rem] rounded-full font-semibold no-underline bg-accent text-accent-fg border border-solid border-transparent shadow-[var(--shadow-sm)] transition-[filter,background-color,transform] duration-150 hover:brightness-[1.08] hover:no-underline active:translate-y-px',
+    lp: 'max-w-[70rem] mx-auto px-5 [&_a]:underline-offset-[3px]',
+    'mock-h2': 'flex items-center gap-[.55rem] text-[.95rem] mt-0 mx-0 mb-[.8rem] [&_.icon]:text-accent [&_.icon-img]:size-[1.8rem] [&_.icon-img]:-m-[.2rem]',
+    'lp-ico': 'block text-accent mb-[.6rem] [&_.icon]:size-[1.6rem]',
+    'lp-pre': 'm-0 py-[.9rem] px-4 bg-card2 border border-solid border-line rounded-[var(--radius-sm)] overflow-x-auto text-[.85rem] leading-[1.6] [&_code]:[background:none] [&_code]:p-0 [&_code]:[font-size:inherit]',
+    'lp-btn-sm': '[&&]:py-[.45rem] [&&]:px-4 [&&]:text-[.9rem] [&&]:ml-1',
+    'lp-btn-ghost': '[&&]:bg-transparent [&&]:text-fg [&&]:border-line [&&]:shadow-none hover:bg-card2 hover:filter-none',
+    'lp-link': 'text-muted no-underline font-medium text-[.95rem] py-[.4rem] px-3 rounded-full hover:text-fg hover:bg-card2 max-[36rem]:hidden',
+    'mock-li': 'py-[.45rem] [border-top:1px_solid_var(--border)] text-[.88rem] font-medium first:[border-top:0] [&_b]:inline-block [&_b]:min-w-[4.6rem] [&_b]:mr-[.4rem] [&_b]:text-muted [&_b]:[font-weight:450] [&_b]:tabular-nums',
+    'mock-h3': 'mt-[.8rem] mb-[.35rem] mx-0 text-[.68rem] [font-weight:650] uppercase tracking-[.07em] text-muted first-of-type:mt-0',
     // Form row: fields grow from 12rem, buttons size to their label.
     row: 'flex flex-wrap gap-3 items-end [&>div]:flex-[1_1_12rem] [&>div]:min-w-0 [&>.role]:flex-[0_1_12rem] [&_button]:w-auto [&_button]:m-0 [&_button]:py-[.7rem] [&_button]:px-5',
   },
