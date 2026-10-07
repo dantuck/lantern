@@ -37,6 +37,27 @@ export default defineConfig({
     // Round check button. Colour comes from --c (a person's colour) and falls back to the accent; size is set where it is used.
     tick: 'grid place-items-center flex-none m-0 p-0 rounded-full bg-transparent border-[2.5px] border-solid border-[var(--c,var(--accent))] shadow-none text-transparent [&:hover:not(:disabled)]:bg-[color-mix(in_srgb,var(--c,var(--accent))_14%,transparent)] [&:hover:not(:disabled)]:filter-none [&[aria-pressed=true]]:bg-[var(--c,var(--accent))] [&[aria-pressed=true]]:text-white [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:3] [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]',
     'icon-btn': 'grid place-items-center flex-none size-11 m-0 p-0 rounded-full bg-transparent text-muted border-0 shadow-none [&:hover:not(:disabled)]:bg-card2 [&:hover:not(:disabled)]:text-fg [&:hover:not(:disabled)]:filter-none [&_svg]:size-[1.1rem] [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:2] [&_svg]:[stroke-linecap:round]',
+    // Inputs inside a flex list row: one that grows, one fixed-width number.
+    'fill-in': 'm-0 flex-[1_1_12rem]',
+    'num-in': 'm-0 flex-[0_0_5.5rem] w-[5.5rem]',
+    'row-item': 'flex flex-wrap items-center gap-2 mb-2',
+    // Secondary text under a heading or beside a control.
+    note: 'text-muted text-[.9rem] font-normal',
+    'ledger-row': 'flex flex-wrap gap-x-[.6rem] gap-y-[.1rem] py-[.3rem] [border-top:1px_solid_var(--border)]',
+    // Person avatar disc (colour from --c, size set where used) and progress bars.
+    avatar: 'grid place-items-center flex-none rounded-full bg-[var(--c)] text-white font-bold',
+    track: 'rounded-full bg-card2 overflow-hidden',
+    fill: 'block h-full rounded-[inherit] transition-[width] duration-[250ms] ease-out',
+    'list-row': 'flex items-center gap-[.85rem] py-[.55rem] [li+&]:[border-top:1px_solid_var(--border)]',
+    // Card heading in the person page, and a stat tile.
+    'card-h': 'mt-0 mb-[.6rem] text-[1.15rem]',
+    stat: 'grid gap-[.1rem] min-w-[8.5rem] py-[.6rem] px-[.9rem] rounded-[var(--radius)] bg-card shadow-[var(--shadow-sm)]',
+    'stat-n': 'text-[1.8rem] [font-weight:750] tracking-[-.02em] text-fg tabular-nums [&>span[aria-hidden=true]]:text-[color:var(--c)]',
+    // Chores page: filter chips, segmented control, count badge.
+    'person-chip': 'inline-flex items-center gap-[.4rem] w-auto m-0 p-[.15rem] rounded-full text-[.85rem] font-semibold text-fg shadow-none bg-[color-mix(in_srgb,var(--c)_14%,var(--card))] [border:1px_dashed_color-mix(in_srgb,var(--c)_65%,transparent)] [&:not([aria-pressed=true]):hover]:filter-none [&:not([aria-pressed=true]):hover]:bg-[color-mix(in_srgb,var(--c)_24%,var(--card))] [&[aria-pressed=true]]:[border-style:solid] [&[aria-pressed=true]]:border-[var(--c)] [&[aria-pressed=true]]:bg-[color-mix(in_srgb,var(--c)_26%,var(--card))] [&[aria-pressed=true]]:pr-[.7rem] pointer-coarse:min-h-11',
+    'seg-group': 'inline-flex p-[3px] gap-[2px] bg-card2 border border-solid border-line rounded-full max-[40rem]:flex-[1_1_100%]',
+    'seg-btn': 'flex flex-col items-center justify-center gap-[.15rem] min-h-14 w-auto m-0 py-[.4rem] px-[.85rem] text-[.9rem] rounded-full bg-transparent text-muted border-0 shadow-none [&:not([aria-pressed=true]):hover]:text-fg [&:not([aria-pressed=true]):hover]:filter-none [&[aria-pressed=true]]:bg-card [&[aria-pressed=true]]:text-accent [&[aria-pressed=true]]:shadow-[var(--shadow-sm)] pointer-coarse:min-h-11 max-[40rem]:flex-1 max-[40rem]:px-0',
+    'count-badge': 'inline-grid place-items-center min-w-[1.4rem] h-[1.4rem] px-[.4rem] box-border leading-none rounded-full text-[.8rem] text-center',
     // Form row: fields grow from 12rem, buttons size to their label.
     row: 'flex flex-wrap gap-3 items-end [&>div]:flex-[1_1_12rem] [&>div]:min-w-0 [&>.role]:flex-[0_1_12rem] [&_button]:w-auto [&_button]:m-0 [&_button]:py-[.7rem] [&_button]:px-5',
   },
