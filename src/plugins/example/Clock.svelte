@@ -7,5 +7,5 @@
   });
 </script>
 
-<p class="clock" aria-live="off">{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</p>
+<p class="text-[2.5rem] font-semibold tracking-[-.04em] tabular-nums my-1 mx-0 text-fg" aria-live="off">{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</p>
 <p class="muted">Data generated {new Date(generatedAt).toLocaleTimeString()}</p>

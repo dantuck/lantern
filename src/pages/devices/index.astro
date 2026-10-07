@@ -29,7 +29,7 @@ const flash = flashFor(Astro.url.searchParams.get('msg'));
       </tbody>
     </table>
     {sessions.length > 1 && (
-      <form method="post" action="/devices/action" class="stack-top">
+      <form method="post" action="/devices/action" class="mt-4">
         <input type="hidden" name="action" value="revoke_others" />
         <button class="danger" type="submit" data-confirm="Sign out every other device? Each needs a fresh email link to get back in.">Sign out all other devices</button>
       </form>

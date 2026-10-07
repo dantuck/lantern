@@ -25,8 +25,8 @@ const groups = state
 ---
 <section class="card plugin" data-plugin="chores">
   <header class="plugin-head">
-    <h2><Icon name="check-circle" /> Chores today</h2>
-    <a href={href} class="muted">Open</a>
+    <h2 class="plugin-h2"><Icon name="check-circle" /> Chores today</h2>
+    <a href={href} class="plugin-open">Open</a>
   </header>
   {!state ? <p class="muted">Chores couldn't load. Run the database migrations (<code>npm run update</code>).</p>
   : groups.length === 0 ? <p class="muted">No chores today. <a href={href}>Open chores</a>.</p>
