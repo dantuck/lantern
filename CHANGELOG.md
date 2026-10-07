@@ -8,6 +8,18 @@ just before the new code is deployed). A release that needs manual action says s
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-07
+This is the first release to publish. `v0.1.0` was tagged but its release checks never finished, so use `v0.1.1`.
+
+### Added
+- Apache-2.0 `LICENSE` and `NOTICE`, and a `PRIVACY.md` that says what the project and a deployed copy collect.
+- A signed-release key in `allowed_signers`, and a README note on verifying a release tag.
+- A GitHub release workflow: pushing a `v*` tag checks it against `package.json` and this changelog, reruns the checks and publishes the release.
+
+### Changed
+- The welcome page shows the real clone URL and tells people to check out a tagged release.
+- The end-to-end test scripts start Astro's dev server in the background explicitly. They hung on a plain CI runner before; this affects only people running `npm run verify:e2e`.
+
 ## [0.1.0] - 2026-10-06
 ### Action required
 - **Renamed to Lantern.** The Worker, the D1 database and the npm package are now called `lantern` (they were `family-dashboard`). A fresh install needs nothing. An existing install keeps working under its old names: leave `name` and `database_name` in your `wrangler.jsonc` as they are (a D1 database cannot be renamed), and run migrations with `npm run update`, which reads the database name from that file. `npm run db:migrate:remote` assumes the name `lantern`. To move to the new names, export the database, create one called `lantern`, import the export, deploy, and delete the old Worker and database.
