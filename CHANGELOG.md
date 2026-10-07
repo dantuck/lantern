@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.5.0](https://github.com/dantuck/lantern/compare/v0.4.3...v0.5.0) (2026-10-07)
+
+
+### Added
+
+* **chores:** make chore and reward admin touch friendly on phones ([361bcd7](https://github.com/dantuck/lantern/commit/361bcd7bbe7d6c1f52c698ac6b08c580fb8a28dc))
+
 ## [0.4.3](https://github.com/dantuck/lantern/compare/v0.4.2...v0.4.3) (2026-10-07)
 
 
