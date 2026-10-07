@@ -13,8 +13,8 @@ if (!lists) {
 ---
 <section class="card plugin" data-plugin="lists">
   <header class="plugin-head">
-    <h2><Icon name="list" /> Lists</h2>
-    <a href={href} class="muted">Open</a>
+    <h2 class="plugin-h2"><Icon name="list" /> Lists</h2>
+    <a href={href} class="plugin-open">Open</a>
   </header>
   {!lists ? <p class="muted">Lists couldn't load. Run the database migrations (<code>npm run update</code>).</p>
   : lists.length === 0 ? <p class="muted">No lists yet. <a href={href}>Start one</a>.</p>

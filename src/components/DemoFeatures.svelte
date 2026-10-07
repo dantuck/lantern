@@ -17,7 +17,7 @@
       {@const isOff = off.includes(f.id)}
       <tr>
         <td class="primary">{f.name}</td>
-        <td data-label="Type"><span class="badge">{f.kind}</span></td>
+        <td data-label="Type"><span class="tag">{f.kind}</span></td>
         <td data-label="Status">{#if isOff}<span class="muted">off</span>{:else}on{/if}</td>
         <td class="act"><div class="actions">
           <button type="button" class={isOff ? 'ghost' : 'danger'} onclick={() => toggle(f.id)} aria-label={`${isOff ? 'Turn on' : 'Turn off'} ${f.name}`}>{isOff ? 'Turn on' : 'Turn off'}</button>
@@ -26,4 +26,4 @@
     {/each}
   </tbody>
 </table>
-<p class="muted hint">Try it: turn something off and it disappears from the side bar and the dashboard. In the demo this is remembered in this browser only.</p>
+<p class="text-muted hint">Try it: turn something off and it disappears from the side bar and the dashboard. In the demo this is remembered in this browser only.</p>

@@ -19,7 +19,7 @@ import { demoAudit, demoUsers } from '../../demo/data';
         <select id="inv-role" disabled><option>Member (view only)</option><option>Manager (can invite)</option></select></div>
       <button class="demo-off" type="button" disabled title="Not available in the demo">Send invite</button>
     </div>
-    <p class="muted hint">Invitations expire after 7 days. The person signs in with a one-time link sent to that address.</p>
+    <p class="text-muted hint">Invitations expire after 7 days. The person signs in with a one-time link sent to that address.</p>
   </section>
 
   <section class="card">
@@ -30,7 +30,7 @@ import { demoAudit, demoUsers } from '../../demo/data';
         {demoUsers.map((u) => (
           <tr>
             <td class="primary">{u.email}</td>
-            <td data-label="Role"><span class={`badge ${u.role}`}>{u.role}</span></td>
+            <td data-label="Role"><span class={u.role === 'manager' ? 'tag-accent' : 'tag'}>{u.role}</span></td>
             <td data-label="Status">{u.status === 'disabled' ? <span class="muted">disabled</span> : 'active'}</td>
             <td data-label="Since">{u.since}</td>
             <td class="act"><div class="actions">

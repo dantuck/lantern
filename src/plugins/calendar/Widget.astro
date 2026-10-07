@@ -20,26 +20,26 @@ let shown = 0;
 const total = days.reduce((n, d) => n + d.events.length, 0);
 ---
 {days.length === 0 ? (
-  <p class="muted">Nothing scheduled in the next 7 days.</p>
+  <p class="text-muted">Nothing scheduled in the next 7 days.</p>
 ) : (
-  <div class="agenda">
+  <div>
     {days.map((day) => {
       const rows = day.events.slice(0, Math.max(0, LIMIT - shown));
       shown += rows.length;
       return rows.length > 0 && (
         <section class="agenda-day">
-          <h3>{dayLabel(day.key, today, locale)}</h3>
-          <ul>
+          <h3 class="m-0 mb-[.4rem] text-[.72rem] [font-weight:650] uppercase tracking-[.07em] text-muted">{dayLabel(day.key, today, locale)}</h3>
+          <ul class="list-none m-0 p-0">
             {rows.map((ev) => (
-              <li class={people.length ? 'tinted' : undefined} style={colorOf(ev.title) ? `--c:${colorOf(ev.title)}` : undefined}>
-                <span class="when">{ev.allDay ? 'All day' : formatTime(ev.start, timeZone, locale)}</span>
-                <span class="what">{ev.title}{ev.location && <span class="muted"> · {ev.location}</span>}</span>
+              <li class:list={['agenda-li', people.length && 'agenda-li-tinted']} style={colorOf(ev.title) ? `--c:${colorOf(ev.title)}` : undefined}>
+                <span class="text-muted min-w-20 text-[.88rem] tabular-nums pt-[.05rem]">{ev.allDay ? 'All day' : formatTime(ev.start, timeZone, locale)}</span>
+                <span class="font-medium min-w-0 [overflow-wrap:anywhere]">{ev.title}{ev.location && <span class="text-muted font-normal"> · {ev.location}</span>}</span>
               </li>
             ))}
           </ul>
         </section>
       );
     })}
-    {total > LIMIT && <p class="muted"><a href={moreHref}>+{total - LIMIT} more</a></p>}
+    {total > LIMIT && <p class="text-muted"><a href={moreHref}>+{total - LIMIT} more</a></p>}
   </div>
 )}

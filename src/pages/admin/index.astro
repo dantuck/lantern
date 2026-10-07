@@ -28,12 +28,12 @@ const features = [
   {flash && <div class={`notice toast ${flash.ok ? '' : 'error'}`} role="status">{flash.text}</div>}
 
   <nav class="jump" aria-label="Admin sections">
-    <a href="#invite">Invite{invites.length > 0 && <span class="count" title="Pending invitations">{invites.length}</span>}</a>
-    <a href="#members">Members<span class="count">{users.length}</span></a>
-    <a href="#people">People<span class="count">{household.length}</span></a>
-    <a href="#features">Features</a>
-    <a href="#devices">Devices<span class="count">{devices.length}</span></a>
-    <a href="#activity">Activity</a>
+    <a class="jump-link" href="#invite">Invite{invites.length > 0 && <span class="jump-count" title="Pending invitations">{invites.length}</span>}</a>
+    <a class="jump-link" href="#members">Members<span class="jump-count">{users.length}</span></a>
+    <a class="jump-link" href="#people">People<span class="jump-count">{household.length}</span></a>
+    <a class="jump-link" href="#features">Features</a>
+    <a class="jump-link" href="#devices">Devices<span class="jump-count">{devices.length}</span></a>
+    <a class="jump-link" href="#activity">Activity</a>
   </nav>
 
   <section class="card" id="invite">
@@ -45,16 +45,16 @@ const features = [
         <select id="inv-role" name="role"><option value="member">Member (view only)</option><option value="manager">Manager (can invite)</option></select></div>
       <button type="submit">Send invite</button>
     </form>
-    <p class="muted hint">Invitations expire after 7 days. The person signs in with a one-time link sent to that address.</p>
+    <p class="text-muted hint">Invitations expire after 7 days. The person signs in with a one-time link sent to that address.</p>
     {invites.length > 0 && (
       <>
-        <h2 class="stack-top">Pending invitations</h2>
+        <h2 class="mt-4">Pending invitations</h2>
         <table class="stack">
           <thead><tr><th>Email</th><th>Role</th><th>Expires</th><th></th></tr></thead>
           <tbody>
             {invites.map((i) => (
               <tr>
-                <td class="primary">{i.email}</td><td data-label="Role"><span class="badge">{i.role}</span></td><td data-label="Expires"><Time ms={i.expires_at} /></td>
+                <td class="primary">{i.email}</td><td data-label="Role"><span class="tag">{i.role}</span></td><td data-label="Expires"><Time ms={i.expires_at} /></td>
                 <td class="act"><form method="post" action="/admin/action"><input type="hidden" name="action" value="revoke_invite" /><input type="hidden" name="id" value={i.id} /><button class="ghost" type="submit" aria-label={`Revoke invitation for ${i.email}`} data-confirm={`Revoke the invitation for ${i.email}? The link they were sent will stop working.`}>Revoke</button></form></td>
               </tr>
             ))}
@@ -65,15 +65,15 @@ const features = [
   </section>
 
   <section class="card" id="members">
-    <div class="card-head"><h2>Members</h2><span class="muted">{users.length} {users.length === 1 ? 'person' : 'people'} with a login</span></div>
+    <div class="card-head"><h2>Members</h2><span class="text-muted text-[.85rem]">{users.length} {users.length === 1 ? 'person' : 'people'} with a login</span></div>
     <table class="stack">
       <thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Since</th><th></th></tr></thead>
       <tbody>
         {users.map((u) => (
           <tr>
             <td class="primary">{u.email}{u.id === me.id && <span class="muted">&nbsp;(you)</span>}</td>
-            <td data-label="Role"><span class={`badge ${u.role}`}>{u.role}</span></td>
-            <td data-label="Status">{u.disabledAt ? <span class="status off">Disabled</span> : <span class="status">Active</span>}</td>
+            <td data-label="Role"><span class={u.role === 'manager' ? 'tag-accent' : 'tag'}>{u.role}</span></td>
+            <td data-label="Status">{u.disabledAt ? <span class="status-off">Disabled</span> : <span class="status">Active</span>}</td>
             <td data-label="Since"><Time ms={u.createdAt} /></td>
             <td class="act"><div class="actions">
               {!u.disabledAt && (
@@ -96,12 +96,12 @@ const features = [
   </section>
 
   <section class="card" id="people">
-    <div class="card-head"><h2>People</h2><span class="muted">{household.length} of {MAX_PEOPLE}</span></div>
-    <p class="muted hint lead-in">The kids and adults who get a colour on the calendar and a column on the Chores page. A person is just a name; they do not need a login. Chore lists are assigned to them under Chores &rarr; Manage.</p>
-    <div class="people">
+    <div class="card-head"><h2>People</h2><span class="text-muted text-[.85rem]">{household.length} of {MAX_PEOPLE}</span></div>
+    <p class="text-muted hint-lead">The kids and adults who get a colour on the calendar and a column on the Chores page. A person is just a name; they do not need a login. Chore lists are assigned to them under Chores &rarr; Manage.</p>
+    <div class="people-list">
       {household.map((p) => (
-        <div class="person">
-          <form method="post" action="/admin/action" class="row">
+        <div class="person-box">
+          <form method="post" action="/admin/action" class="person-row">
             <input type="hidden" name="action" value="person_save" /><input type="hidden" name="id" value={p.id} />
             <div><label for={`pn-${p.id}`}>Name</label><input id={`pn-${p.id}`} name="name" value={p.name} required maxlength="30" /></div>
             <div class="color"><label for={`pc-${p.id}`}>Colour</label><input id={`pc-${p.id}`} name="color" type="color" value={p.color} /></div>
@@ -114,8 +114,8 @@ const features = [
         </div>
       ))}
       {household.length < MAX_PEOPLE && (
-        <div class="person new">
-          <form method="post" action="/admin/action" class="row">
+        <div class="person-box-new">
+          <form method="post" action="/admin/action" class="person-row">
             <input type="hidden" name="action" value="person_save" />
             <div><label for="pn-new">Add a person</label><input id="pn-new" name="name" required maxlength="30" autocomplete="off" placeholder="Name" /></div>
             <div class="color"><label for="pc-new">Colour</label><input id="pc-new" name="color" type="color" value="#1c7ed6" /></div>
@@ -125,7 +125,7 @@ const features = [
         </div>
       )}
     </div>
-    <p class="muted hint">Calendar words put an event on someone's calendar when they appear in its title, such as a nickname. The name itself always counts. Removing someone keeps their chore lists, which then show under Anyone.</p>
+    <p class="text-muted hint">Calendar words put an event on someone's calendar when they appear in its title, such as a nickname. The name itself always counts. Removing someone keeps their chore lists, which then show under Anyone.</p>
   </section>
 
   <section class="card" id="features">
@@ -136,8 +136,8 @@ const features = [
         {features.map((f) => (
           <tr>
             <td class="primary">{f.name}</td>
-            <td data-label="Type"><span class="badge">{f.kind}</span></td>
-            <td data-label="Status">{off.has(f.id) ? <span class="status off">Off</span> : <span class="status">On</span>}</td>
+            <td data-label="Type"><span class="tag">{f.kind}</span></td>
+            <td data-label="Status">{off.has(f.id) ? <span class="status-off">Off</span> : <span class="status">On</span>}</td>
             <td class="act"><div class="actions"><form method="post" action="/admin/action">
               <input type="hidden" name="action" value="set_feature" /><input type="hidden" name="id" value={f.id} />
               <input type="hidden" name="enabled" value={off.has(f.id) ? '1' : '0'} />
@@ -147,11 +147,11 @@ const features = [
         ))}
       </tbody>
     </table>
-    <p class="muted hint">Turning something off hides it from everyone; its data is kept. Which widgets exist at all is set in <code>dashboard.config.ts</code>.</p>
+    <p class="text-muted hint">Turning something off hides it from everyone; its data is kept. Which widgets exist at all is set in <code>dashboard.config.ts</code>.</p>
   </section>
 
-  <details class="card" id="devices">
-    <summary><h2>Signed-in devices</h2><span class="muted">{devices.length}</span></summary>
+  <details class="card group" id="devices">
+    <summary class="card-summary"><h2>Signed-in devices</h2><span class="text-muted">{devices.length}</span></summary>
     <table class="stack">
       <thead><tr><th>Person</th><th>Device</th><th>Last active</th><th></th></tr></thead>
       <tbody>
@@ -167,8 +167,8 @@ const features = [
     </table>
   </details>
 
-  <details class="card" id="activity">
-    <summary><h2>Recent activity</h2><span class="muted">last {audit.length}</span></summary>
+  <details class="card group" id="activity">
+    <summary class="card-summary"><h2>Recent activity</h2><span class="text-muted">last {audit.length}</span></summary>
     <table class="stack">
       <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Detail</th></tr></thead>
       <tbody>
