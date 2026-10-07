@@ -26,7 +26,7 @@ export default definePlugin({
   secrets: ['MEALQ_API_TOKEN'],
   // Derived from validated config, then checked again by the registry: one exact host, GET only.
   fetchPolicy: (config) => ({ hosts: [config.apiHost] }),
-  cacheTtlSeconds: 900,
+  cacheTtlSeconds: 60,
   async loader({ config, secrets, fetch, now }): Promise<MealPlanData> {
     const from = dayKey(now, config.timeZone);
     return fetchMealPlan(fetch, {
