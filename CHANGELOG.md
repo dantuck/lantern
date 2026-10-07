@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.4.3](https://github.com/dantuck/lantern/compare/v0.4.2...v0.4.3) (2026-10-07)
+
+
+### Fixed
+
+* **nav:** extend side rail under the status bar safe area ([d36e0aa](https://github.com/dantuck/lantern/commit/d36e0aa92c0bd9d8f01629188c8182e80721a040))
+
 ## [0.4.2](https://github.com/dantuck/lantern/compare/v0.4.1...v0.4.2) (2026-10-07)
 
 
