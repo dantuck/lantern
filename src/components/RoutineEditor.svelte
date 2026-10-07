@@ -28,9 +28,9 @@
   <h4 class="mt-[1.1rem] mb-[.4rem] mx-0 text-[.95rem]">{PERIOD_LABEL[sec.period]}</h4>
   <ul class="list-none m-0 p-0">
     {#each sec.items as c (c.id)}
-      <li class="flex flex-wrap items-center gap-2 mb-2">
-        <input class="m-0 flex-[1_1_12rem]" value={c.title} maxlength="80" aria-label="Chore" onchange={(e) => text(e) && send({ action: 'item_update', id: c.id, title: text(e) })} />
-        <input class="m-0 flex-[0_0_5.5rem] w-[5.5rem]" type="number" min="0" max="100" value={c.points} aria-label={`Points for ${c.title}`} onchange={(e) => send({ action: 'item_update', id: c.id, points: num(e) })} />
+      <li class="row-item">
+        <input class="fill-in" value={c.title} maxlength="80" aria-label="Chore" onchange={(e) => text(e) && send({ action: 'item_update', id: c.id, title: text(e) })} />
+        <input class="num-in" type="number" min="0" max="100" value={c.points} aria-label={`Points for ${c.title}`} onchange={(e) => send({ action: 'item_update', id: c.id, points: num(e) })} />
         <select class="field" value={c.period} aria-label={`Time of day for ${c.title}`} onchange={(e) => send({ action: 'item_update', id: c.id, period: e.currentTarget.value })}>
           {#each PERIODS as p (p)}<option value={p}>{PERIOD_LABEL[p]}</option>{/each}
         </select>

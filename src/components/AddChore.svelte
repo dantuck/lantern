@@ -24,8 +24,8 @@
 </script>
 
 <form class="flex flex-wrap items-center gap-2 my-2" onsubmit={submit}>
-  <input class="field flex-[1_1_12rem]" bind:value={title} maxlength="80" placeholder="Add a chore" aria-label="New chore" autocomplete="off" />
-  <input class="m-0 flex-[0_0_5.5rem] w-[5.5rem]" type="number" min="0" max="100" bind:value={points} aria-label="Points" />
+  <input class="fill-in" bind:value={title} maxlength="80" placeholder="Add a chore" aria-label="New chore" autocomplete="off" />
+  <input class="num-in" type="number" min="0" max="100" bind:value={points} aria-label="Points" />
   <select class="field" bind:value={period} aria-label="Time of day">{#each PERIODS as p (p)}<option value={p}>{PERIOD_LABEL[p]}</option>{/each}</select>
   <select class="field" bind:value={when} aria-label="Repeats">
     <option value="every">Every day</option><option value="weekdays">Weekdays</option><option value="weekends">Weekends</option><option value="once">Just once</option>

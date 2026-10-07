@@ -90,36 +90,36 @@
 
 {#if error}<p class="notice error" role="alert">{error}</p>{/if}
 
-<header class="head">
-  <div class="titles">
-    <h1>Chores</h1>
-    {#if intro}<p class="intro">{intro}</p>{/if}
+<header class="flex items-start justify-between gap-x-4 gap-y-3 mb-4">
+  <div class="min-w-0">
+    <h1 class="mt-0 mx-0 mb-1 [html[data-wall]_&]:hidden">Chores</h1>
+    {#if intro}<p class="m-0 text-muted">{intro}</p>{/if}
   </div>
   {#if choreState.manager}
-    <a class="manage-btn" href={manageHref} title="Create routines, set what chores are worth, and approve rewards.">
+    <a class="inline-flex items-center gap-[.55rem] py-[.45rem] px-4 rounded-full bg-accent text-accent-fg [font-weight:650] no-underline shadow-[var(--shadow-sm)] hover:brightness-[1.08] [&_svg]:size-5 [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:2] [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]" href={manageHref} title="Create routines, set what chores are worth, and approve rewards.">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
       Manage
-      {#if choreState.pending.length > 0}<span class="badge" aria-label={`${choreState.pending.length} waiting for approval`}>{choreState.pending.length}</span>{/if}
+      {#if choreState.pending.length > 0}<span class="count-badge font-semibold bg-white text-accent" aria-label={`${choreState.pending.length} waiting for approval`}>{choreState.pending.length}</span>{/if}
     </a>
   {/if}
 </header>
 
 {#if choreState.goals.length > 0}
-  <section class="goals" aria-label="Household goals">
-    <h2>Together</h2>
-    <ul>
+  <section class="mb-5 bg-card border border-solid border-line rounded-[var(--radius)] py-4 px-[1.1rem] shadow-[var(--shadow-sm)]" aria-label="Household goals">
+    <h2 class="mt-0 mx-0 mb-2 text-[1.1rem]">Together</h2>
+    <ul class="list-none m-0 p-0">
       {#each choreState.goals as g (g.id)}
         {@const reached = g.progress >= g.target}
-        <li class:claimed={g.claimed}>
-          <div class="gtop">
+        <li class="py-2 [li+&]:[border-top:1px_solid_var(--border)] {g.claimed ? 'opacity-60' : ''}">
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-[.3rem]">
             <strong>{g.name}</strong>
-            <span class="muted">{g.claimed ? 'Enjoyed!' : reached ? 'Goal reached!' : `${g.progress} / ${g.target} points`}</span>
+            <span class="text-muted text-[.88rem] font-normal flex-1">{g.claimed ? 'Enjoyed!' : reached ? 'Goal reached!' : `${g.progress} / ${g.target} points`}</span>
             {#if choreState.manager && reached && !g.claimed}
               <button type="button" class="small" disabled={busy} onclick={() => send({ action: 'goal_claim', id: g.id })}>Mark as enjoyed</button>
             {/if}
           </div>
-          <div class="gbar" role="progressbar" aria-label={g.name} aria-valuemin={0} aria-valuemax={g.target} aria-valuenow={g.progress}>
-            <span style:width={`${(g.progress / g.target) * 100}%`}></span>
+          <div class="track h-3 mt-[.4rem]" role="progressbar" aria-label={g.name} aria-valuemin={0} aria-valuemax={g.target} aria-valuenow={g.progress}>
+            <span class="fill bg-accent" style:width={`${(g.progress / g.target) * 100}%`}></span>
           </div>
         </li>
       {/each}
@@ -128,50 +128,50 @@
 {/if}
 
 {#if columns.length > 1 || periodChoices.length > 0 || choreState.routines.length > 0}
-  <div class="toolbar" role="group" aria-label="Filter chores">
+  <div class="flex items-center flex-wrap gap-x-[.85rem] gap-y-[.6rem] mb-4" role="group" aria-label="Filter chores">
     {#if columns.length > 1}
-      <div class="people" role="group" aria-label="Show whose chores">
+      <div class="flex flex-wrap items-center gap-[.3rem] mb-5 max-[40rem]:flex-[1_1_100%]" role="group" aria-label="Show whose chores">
         {#each columns as col (col.id ?? 'anyone')}
           {@const on = only.includes(col.id ?? '')}
-          <button type="button" class="person" style:--c={col.person?.color ?? 'var(--accent)'} title={col.name} aria-label={col.name} aria-pressed={on} class:dim={only.length > 0 && !on} onclick={() => toggle(col.id ?? '')}>
-            <span class="avatar sm" aria-hidden="true">{col.person ? initialOf(col.person) : '★'}</span>{#if on}<span class="pn">{col.name}</span>{/if}
+          <button type="button" class="person-chip {only.length > 0 && !on ? 'opacity-50' : ''}" style:--c={col.person?.color ?? 'var(--accent)'} title={col.name} aria-label={col.name} aria-pressed={on} onclick={() => toggle(col.id ?? '')}>
+            <span class="avatar size-[1.6rem] text-[.78rem]" aria-hidden="true">{col.person ? initialOf(col.person) : '★'}</span>{#if on}<span class="pn">{col.name}</span>{/if}
           </button>
         {/each}
-        {#if only.length > 0}<button type="button" class="person clear" onclick={() => (only = [])} aria-label="Show everyone" title="Show everyone">×</button>{/if}
+        {#if only.length > 0}<button type="button" class="inline-flex items-center justify-center rounded-full w-[1.9rem] h-[1.9rem] m-0 p-0 text-[1.1rem] leading-none bg-transparent text-muted shadow-none [border:1px_dashed_var(--border)] pointer-coarse:min-h-11" onclick={() => (only = [])} aria-label="Show everyone" title="Show everyone">×</button>{/if}
       </div>
     {/if}
-    <div class="seg" role="group" aria-label="Show chores that are">
+    <div class="seg-group mb-3" role="group" aria-label="Show chores that are">
       {#each [['all', 'All'], ['todo', 'To do'], ['done', 'Done']] as [v, label] (v)}
-        <button type="button" aria-pressed={status === v} onclick={() => (status = v as Status)}>{label}</button>
+        <button type="button" class="seg-btn" aria-pressed={status === v} onclick={() => (status = v as Status)}>{label}</button>
       {/each}
     </div>
     {#if periodChoices.length > 0}
-      <div class="seg" role="group" aria-label="Time of day">
-        <button type="button" aria-pressed={period === 'all'} onclick={() => (period = 'all')}>All day</button>
-        {#each periodChoices as p (p)}<button type="button" aria-pressed={period === p} onclick={() => (period = p)}>{PERIOD_LABEL[p]}</button>{/each}
+      <div class="seg-group mb-3" role="group" aria-label="Time of day">
+        <button type="button" class="seg-btn" aria-pressed={period === 'all'} onclick={() => (period = 'all')}>All day</button>
+        {#each periodChoices as p (p)}<button type="button" class="seg-btn" aria-pressed={period === p} onclick={() => (period = p)}>{PERIOD_LABEL[p]}</button>{/each}
       </div>
     {/if}
   </div>
 {/if}
 
 {#if filtering && visibleColumns.length === 0}
-  <p class="muted" role="status">Nothing matches these filters. <button type="button" class="linklike" onclick={clear}>Clear filters</button></p>
+  <p class="text-muted text-[.88rem] font-normal" role="status">Nothing matches these filters. <button type="button" class="w-auto m-0 p-0 bg-transparent border-0 shadow-none text-accent underline [font:inherit]" onclick={clear}>Clear filters</button></p>
 {/if}
 
-<div class="cols">
+<div class="columns-[17rem] gap-x-5 mb-6">
   {#each visibleColumns as col (col.id ?? 'anyone')}
     {@const earns = col.person !== undefined}
-    <section class="col" style:--c={col.person?.color ?? 'var(--accent)'} aria-label={`${col.name}'s chores`}>
-      <header>
-        <span class="avatar" aria-hidden="true">{col.person ? initialOf(col.person) : '★'}</span>
-        <h3>{#if col.person}<a class="who" href={`${personBase}/${col.person.id}`} title={`Open ${col.name}'s page`}>{col.name}<svg class="go" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18" /></svg></a>{:else}{col.name}{/if}</h3>
-        {#if col.person}<span class="stars" title="Points to spend"><span aria-hidden="true">★</span> {choreState.balances[col.person.id] ?? 0}<span class="sr"> points</span></span>{/if}
+    <section class="break-inside-avoid mb-5 bg-[color-mix(in_srgb,var(--c)_8%,var(--card))] [border:1px_dashed_color-mix(in_srgb,var(--c)_65%,transparent)] rounded-[var(--radius)] pt-[1.1rem] px-[1.1rem] pb-5 shadow-[var(--shadow-sm)]" style:--c={col.person?.color ?? 'var(--accent)'} aria-label={`${col.name}'s chores`}>
+      <header class="flex items-center gap-[.7rem]">
+        <span class="avatar size-10" aria-hidden="true">{col.person ? initialOf(col.person) : '★'}</span>
+        <h3 class="m-0 flex-1 text-[1.25rem] tracking-[-.02em]">{#if col.person}<a class="group inline-flex items-center gap-[.15rem] text-inherit underline [text-decoration-thickness:2px] [text-decoration-color:color-mix(in_srgb,var(--c)_55%,transparent)] underline-offset-[.22em] rounded-[.35rem] hover:[text-decoration-color:var(--c)] focus-visible:[outline:2px_solid_var(--c)] focus-visible:outline-offset-[3px]" href={`${personBase}/${col.person.id}`} title={`Open ${col.name}'s page`}>{col.name}<svg class="size-[1.1rem] flex-none fill-none [stroke:var(--c)] [stroke-width:3] [stroke-linecap:round] [stroke-linejoin:round] transition-transform duration-150 ease-out group-hover:translate-x-[3px]" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18" /></svg></a>{:else}{col.name}{/if}</h3>
+        {#if col.person}<span class="font-bold tabular-nums text-[color:var(--c)] text-[1.15rem]" title="Points to spend"><span aria-hidden="true">★</span> {choreState.balances[col.person.id] ?? 0}<span class="sr-only"> points</span></span>{/if}
       </header>
       {#if col.person && usesTime}
         {@const who = col.person}
         {@const avail = timeAvailable(choreState, who.id)}
-        <div class="time">
-          <span class="bank" title={timeTitle(who.id)}><span aria-hidden="true">⏱</span> {mins(avail)}<span class="sr"> of screen time</span></span>
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-[.35rem] mt-[.6rem]">
+          <span class="mr-auto [font-weight:650] tabular-nums" title={timeTitle(who.id)}><span aria-hidden="true">⏱</span> {mins(avail)}<span class="sr-only"> of screen time</span></span>
           {#each [15, 30] as m (m)}
             {#if avail >= m}<button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'use_time', person: who.id, minutes: m })}>Use {m}</button>{/if}
           {/each}
@@ -180,59 +180,59 @@
           {/if}
         </div>
       {/if}
-      <div class="bar" role="progressbar" aria-label="Done today" aria-valuemin={0} aria-valuemax={col.total} aria-valuenow={col.done}>
-        <span style:width={col.total ? `${(col.done / col.total) * 100}%` : '0%'}></span>
+      <div class="track h-2 mt-[.8rem] mb-2" role="progressbar" aria-label="Done today" aria-valuemin={0} aria-valuemax={col.total} aria-valuenow={col.done}>
+        <span class="fill bg-[var(--c)]" style:width={col.total ? `${(col.done / col.total) * 100}%` : '0%'}></span>
       </div>
       {#if col.items.length === 0}
-        <p class="empty">Nothing today.</p>
+        <p class="mt-3 mx-0 mb-0 text-muted">Nothing today.</p>
       {/if}
       {#each col.rows as sec (sec.period)}
         {@const all = col.items.filter((i) => i.period === sec.period)}
         {@const bonus = col.routine?.bonuses[sec.period] ?? 0}
         {@const earned = col.routine?.bonusEarned[sec.period] ?? false}
-        <div class="routine">
+        <div class="mt-4">
           {#if sec.period !== 'any' || col.rows.length > 1}
-            <h4>
+            <h4 class="flex flex-wrap items-baseline gap-x-[.6rem] gap-y-[.15rem] m-0 text-[.95rem] tracking-[.01em]">
               {PERIOD_LABEL[sec.period]}
-              <span class="count">{all.filter((i) => i.done).length}/{all.length}</span>
+              <span class="ml-auto [font-weight:650] tabular-nums text-muted">{all.filter((i) => i.done).length}/{all.length}</span>
             </h4>
           {/if}
-          <ul>
+          <ul class="list-none m-0 p-0">
             {#each sec.items as c (c.id)}
-              <li class:done={c.done}>
-                <button type="button" class="tick" aria-pressed={c.done} aria-label={`${c.title}${c.done ? ', done' : ''}`} disabled={busy} onclick={() => send({ action: 'check', id: c.id, done: !c.done })}>
+              <li class="list-row">
+                <button type="button" class="tick size-11 [&_svg]:size-[1.4rem]" aria-pressed={c.done} aria-label={`${c.title}${c.done ? ', done' : ''}`} disabled={busy} onclick={() => send({ action: 'check', id: c.id, done: !c.done })}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
                 </button>
-                <span class="label">{c.title}</span>
-                {#if earns && c.points > 0}<span class="pts">+{c.points}</span>{/if}
+                <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.05rem] font-medium {c.done ? 'text-muted line-through' : ''}">{c.title}</span>
+                {#if earns && c.points > 0}<span class="text-[.85rem] [font-weight:650] text-[color:var(--c)] tabular-nums">+{c.points}</span>{/if}
               </li>
             {/each}
           </ul>
           {#if earns && bonus > 0}
-            <p class="bonus" class:earned>{earned ? `All done! +${bonus} bonus` : `Finish them all for +${bonus} bonus`}</p>
+            <p class="mt-1 mx-0 mb-0 text-[.88rem] {earned ? 'text-[color:var(--c)] [font-weight:650]' : 'text-muted'}">{earned ? `All done! +${bonus} bonus` : `Finish them all for +${bonus} bonus`}</p>
           {/if}
         </div>
       {/each}
 
       {#if col.person && (rewardsFor(col.person.id).length > 0 || pendingFor(col.person.id).length > 0)}
         {@const who = col.person}
-        <details class="shop">
-          <summary>Rewards{#if pendingFor(who.id).length > 0}<span class="badge">{pendingFor(who.id).length}</span>{/if}</summary>
+        <details class="mt-[1.1rem] pt-3 [border-top:1px_solid_var(--border)]">
+          <summary class="cursor-pointer [font-weight:650] pointer-coarse:flex pointer-coarse:items-center pointer-coarse:min-h-11">Rewards{#if pendingFor(who.id).length > 0}<span class="count-badge ml-2 font-semibold bg-[var(--c)] text-white">{pendingFor(who.id).length}</span>{/if}</summary>
           {#each pendingFor(who.id) as r (r.id)}
-            <div class="ask">
-              <span class="label">{r.rewardName} <span class="muted">({pts(r.cost)}{r.minutes > 0 ? `, ${mins(r.minutes)}` : ''}), waiting</span></span>
+            <div class="flex flex-wrap items-center gap-x-[.6rem] gap-y-[.4rem] py-2">
+              <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.05rem] font-medium">{r.rewardName} <span class="text-muted text-[.88rem] font-normal">({pts(r.cost)}{r.minutes > 0 ? `, ${mins(r.minutes)}` : ''}), waiting</span></span>
               {#if choreState.manager}
                 <button type="button" class="small" disabled={busy} onclick={() => send({ action: 'decide', id: r.id, approve: true })}>Approve</button>
                 <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'decide', id: r.id, approve: false })}>Deny</button>
               {/if}
             </div>
           {/each}
-          <ul>
+          <ul class="list-none m-0 p-0">
             {#each rewardsFor(who.id) as r (r.id)}
-              <li>
-                <span class="label">{r.name}{#if r.minutes > 0} <span class="muted">({mins(r.minutes)})</span>{/if}</span>
+              <li class="list-row">
+                <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.05rem] font-medium">{r.name}{#if r.minutes > 0} <span class="text-muted text-[.88rem] font-normal">({mins(r.minutes)})</span>{/if}</span>
                 <button type="button" class="small" disabled={busy || available(who.id) < r.cost} onclick={() => send({ action: 'redeem', person: who.id, rewardId: r.id })}>
-                  <span aria-hidden="true">★</span> {r.cost}<span class="sr"> points, ask for {r.name}</span>
+                  <span aria-hidden="true">★</span> {r.cost}<span class="sr-only"> points, ask for {r.name}</span>
                 </button>
               </li>
             {/each}
@@ -244,83 +244,5 @@
 </div>
 
 {#if choreState.routines.every((r) => r.items.length === 0)}
-  <p class="muted">No chores yet. {#if choreState.manager}<a href={manageHref}>Add the first one</a>.{:else}Ask a manager to set some up.{/if}</p>
+  <p class="text-muted text-[.88rem] font-normal">No chores yet. {#if choreState.manager}<a href={manageHref}>Add the first one</a>.{:else}Ask a manager to set some up.{/if}</p>
 {/if}
-
-
-<style>
-  /* Masonry: columns of different heights pack together instead of leaving gaps under the short ones. */
-  .cols { column-width: 17rem; column-gap: 1.25rem; margin-bottom: 1.5rem; }
-  .col { break-inside: avoid; margin-bottom: 1.25rem; background: color-mix(in srgb, var(--c) 8%, var(--card)); border: 1px dashed color-mix(in srgb, var(--c) 65%, transparent); border-radius: var(--radius); padding: 1.1rem 1.1rem 1.25rem; box-shadow: var(--shadow-sm); }
-  .col header { display: flex; align-items: center; gap: .7rem; }
-  .who { display: inline-flex; align-items: center; gap: .15rem; color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--c) 55%, transparent); text-decoration-thickness: 2px; text-underline-offset: .22em; border-radius: .35rem; }
-  .who .go { width: 1.1rem; height: 1.1rem; flex: none; fill: none; stroke: var(--c); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s ease; }
-  .who:hover { text-decoration-color: var(--c); }
-  .who:hover .go { transform: translateX(3px); }
-  .who:focus-visible { outline: 2px solid var(--c); outline-offset: 3px; }
-  .col h3 { margin: 0; flex: 1; font-size: 1.25rem; letter-spacing: -.02em; }
-  .avatar { display: grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; border-radius: 50%; background: var(--c); color: #fff; font-weight: 700; }
-  .stars { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c); font-size: 1.15rem; }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .time { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; margin-top: .6rem; }
-  .bank { margin-right: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
-  .bar { height: .5rem; margin: .8rem 0 .5rem; border-radius: 999px; background: var(--card-2); overflow: hidden; }
-  .bar span { display: block; height: 100%; border-radius: inherit; background: var(--c); transition: width .25s ease; }
-  .empty { margin: .75rem 0 0; color: var(--muted); }
-  .routine { margin-top: 1rem; }
-  .routine h4 { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .6rem; margin: 0; font-size: .95rem; letter-spacing: .01em; }
-  .count { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--muted); }
-  ul { list-style: none; margin: 0; padding: 0; }
-  .col li { display: flex; align-items: center; gap: .85rem; padding: .55rem 0; }
-  .col li + li { border-top: 1px solid var(--border); }
-  .label { min-width: 0; flex: 1; overflow-wrap: anywhere; font-size: 1.05rem; font-weight: 500; }
-  .done .label { color: var(--muted); text-decoration: line-through; }
-  .pts { font-size: .85rem; font-weight: 650; color: var(--c); font-variant-numeric: tabular-nums; }
-  .bonus { margin: .25rem 0 0; font-size: .88rem; color: var(--muted); }
-  .bonus.earned { color: var(--c); font-weight: 650; }
-  .tick { display: grid; place-items: center; flex: none; width: 2.75rem; height: 2.75rem; margin: 0; padding: 0; border-radius: 50%; background: transparent; border: 2.5px solid var(--c); box-shadow: none; color: transparent; }
-  .tick:hover:not(:disabled) { background: color-mix(in srgb, var(--c) 14%, transparent); filter: none; }
-  .tick[aria-pressed="true"] { background: var(--c); color: #fff; }
-  .tick svg { width: 1.4rem; height: 1.4rem; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-  .shop { margin-top: 1.1rem; border-top: 1px solid var(--border); padding-top: .75rem; }
-  .shop summary { cursor: pointer; font-weight: 650; }
-  .shop summary .badge { margin-left: .5rem; }
-  .badge { display: inline-grid; place-items: center; min-width: 1.4rem; height: 1.4rem; padding: 0 .4rem; box-sizing: border-box; line-height: 1; border-radius: 999px; background: var(--c); color: #fff; font-size: .8rem; text-align: center; }
-  .ask { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; padding: .5rem 0; }
-  .small { width: auto; margin: 0; padding: .3rem .8rem; font-size: .85rem; }
-  @media (pointer: coarse) { .small, .seg button, .person { min-height: 2.75rem; } .shop summary { display: flex; align-items: center; min-height: 2.75rem; } }
-  .muted { font-size: .88rem; font-weight: 400; }
-  .head { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem 1rem; margin-bottom: 1rem; }
-  .titles { min-width: 0; }
-  .titles h1 { margin: 0 0 .25rem; }
-  .intro { margin: 0; color: var(--muted); }
-  :global(html[data-wall]) .titles h1 { display: none; }
-  .manage-btn { display: inline-flex; align-items: center; gap: .55rem; padding: .45rem 1rem; border-radius: 999px; background: var(--accent); color: var(--accent-fg, #fff); font-weight: 650; text-decoration: none; box-shadow: var(--shadow-sm); }
-  .manage-btn:hover { filter: brightness(1.08); }
-  .manage-btn svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .manage-btn .badge { background: #fff; color: var(--accent); }
-  .goals { margin-bottom: 1.25rem; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; box-shadow: var(--shadow-sm); }
-  .goals h2 { margin: 0 0 .5rem; font-size: 1.1rem; }
-  .goals li { padding: .5rem 0; }
-  .goals li + li { border-top: 1px solid var(--border); }
-  .gtop { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .75rem; }
-  .gtop .muted { flex: 1; }
-  .goals .claimed { opacity: .6; }
-  .gbar { height: .75rem; margin-top: .4rem; border-radius: 999px; background: var(--card-2); overflow: hidden; }
-  .gbar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .25s ease; }
-  /* Filter toolbar, in the calendar's style: avatar chips (the name shows when picked) and segmented controls. */
-  .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem .85rem; margin-bottom: 1rem; }
-  .seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--card-2); border: 1px solid var(--border); border-radius: 999px; }
-  .seg button { width: auto; margin: 0; padding: .4rem .85rem; font-size: .9rem; border-radius: 999px; background: transparent; color: var(--muted); border: 0; box-shadow: none; }
-  .seg button:hover { color: var(--fg); filter: none; }
-  .seg button[aria-pressed="true"] { background: var(--card); color: var(--accent); box-shadow: var(--shadow-sm); }
-  .people { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
-  .person { display: inline-flex; align-items: center; gap: .4rem; width: auto; margin: 0; padding: .15rem; border-radius: 999px; font-size: .85rem; font-weight: 600; color: var(--fg); background: color-mix(in srgb, var(--c) 14%, var(--card)); border: 1px dashed color-mix(in srgb, var(--c) 65%, transparent); box-shadow: none; }
-  .person:hover { filter: none; background: color-mix(in srgb, var(--c) 24%, var(--card)); }
-  .person[aria-pressed="true"] { border-style: solid; border-color: var(--c); background: color-mix(in srgb, var(--c) 26%, var(--card)); padding-right: .7rem; }
-  .person.dim { opacity: .5; }
-  .person.clear { width: 1.9rem; height: 1.9rem; justify-content: center; padding: 0; font-size: 1.1rem; line-height: 1; background: transparent; color: var(--muted); border: 1px dashed var(--border); }
-  .person .avatar { width: 1.6rem; height: 1.6rem; font-size: .78rem; }
-  @media (max-width: 40rem) { .seg { flex: 1 1 100%; } .seg button { flex: 1; padding-inline: 0; } .people { flex: 1 1 100%; } }
-  .linklike { width: auto; margin: 0; padding: 0; background: none; border: 0; box-shadow: none; color: var(--accent); text-decoration: underline; font: inherit; }
-</style>
