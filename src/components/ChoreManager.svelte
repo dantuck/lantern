@@ -6,7 +6,8 @@
 
   let { initial, people, demo = false }: { initial: ChoreState; people: Person[]; demo?: boolean } = $props();
 
-  let state = $state<ChoreState>(initial);
+  // svelte-ignore state_referenced_locally
+  let choreState = $state<ChoreState>(initial);
   let error = $state('');
   let busy = $state(false);
 
@@ -15,9 +16,9 @@
   async function send(payload: Record<string, unknown>): Promise<boolean> {
     if (busy) return false;
     busy = true; error = '';
-    const r = await runChores(state, payload, demo);
+    const r = await runChores(choreState, payload, demo);
     busy = false;
-    if (r.ok) { state = r.state; return true; }
+    if (r.ok) { choreState = r.state; return true; }
     error = r.error;
     return false;
   }
@@ -26,10 +27,10 @@
   const owners = $derived([
     ...people.map((p) => ({ id: p.id as string | null, name: p.name, color: p.color })),
     { id: null as string | null, name: 'Anyone', color: 'var(--accent)' },
-    ...state.routines.filter((r) => r.person && !people.some((p) => p.id === r.person)).map((r) => ({ id: r.person, name: nameOf(r.person), color: 'var(--muted)' })),
+    ...choreState.routines.filter((r) => r.person && !people.some((p) => p.id === r.person)).map((r) => ({ id: r.person, name: nameOf(r.person), color: 'var(--muted)' })),
   ]);
-  const itemsOf = (id: string | null): ChoreItem[] => state.routines.find((r) => r.person === id)?.items ?? [];
-  const bonusesOf = (id: string | null) => state.routines.find((r) => r.person === id)?.bonuses ?? periodRecord(0);
+  const itemsOf = (id: string | null): ChoreItem[] => choreState.routines.find((r) => r.person === id)?.items ?? [];
+  const bonusesOf = (id: string | null) => choreState.routines.find((r) => r.person === id)?.bonuses ?? periodRecord(0);
 
   /** Who a reward's scope lets ask: everyone, or the people picked. */
   function scopeLabel(ids: string[] | null): string {
@@ -73,12 +74,12 @@
 
 {#if error}<p class="notice error" role="alert">{error}</p>{/if}
 
-{#if state.pending.length > 0}
+{#if choreState.pending.length > 0}
   <section class="card pending" aria-labelledby="pending-h">
-    <h2 id="pending-h">Waiting for approval <span class="badge">{state.pending.length}</span></h2>
+    <h2 id="pending-h">Waiting for approval <span class="badge">{choreState.pending.length}</span></h2>
     <ul class="asks">
-      {#each state.pending as r (r.id)}
-        {@const left = (state.balances[r.person] ?? 0) - r.cost}
+      {#each choreState.pending as r (r.id)}
+        {@const left = (choreState.balances[r.person] ?? 0) - r.cost}
         <li>
           <span class="what"><strong>{nameOf(r.person)}</strong> asked for <strong>{r.rewardName}</strong> <span class="muted">({r.cost} pts{r.minutes > 0 ? `, ${r.minutes} min` : ''}, {left} left after · {formatWhen(r.requestedAt)})</span></span>
           <button type="button" class="small" disabled={busy || left < 0} onclick={() => send({ action: 'decide', id: r.id, approve: true })}>Approve</button>
@@ -87,7 +88,7 @@
         </li>
       {/each}
     </ul>
-    {#if state.pending.length > 1}
+    {#if choreState.pending.length > 1}
       <p><button type="button" class="small" disabled={busy} onclick={() => send({ action: 'decide_all' })}>Approve all they can afford</button></p>
     {/if}
   </section>
@@ -97,7 +98,7 @@
   <h2>Household goals</h2>
   <p class="muted">A target everyone works toward together. Every point anyone earns counts, and spending points on personal rewards does not lower it. When a goal is reached, treat the household, then mark it as enjoyed.</p>
   <ul class="rows">
-    {#each state.goals as g (g.id)}
+    {#each choreState.goals as g (g.id)}
       <li>
         <input class="grow" value={g.name} maxlength="60" aria-label="Goal" disabled={g.claimed} onchange={(e) => text(e) && send({ action: 'goal_save', id: g.id, name: text(e), target: g.target })} />
         <input class="pts" type="number" min="1" max="1000000" value={g.target} aria-label={`Target for ${g.name}`} disabled={g.claimed} onchange={(e) => send({ action: 'goal_save', id: g.id, name: g.name, target: Math.max(1, num(e)) })} />
@@ -126,7 +127,7 @@
         <span class="muted">{items.length} {items.length === 1 ? 'chore' : 'chores'}{o.id === null ? ' · no points' : ''}</span>
       </summary>
 
-      <RoutineEditor person={o.id} name={o.name} {items} bonuses={bonusesOf(o.id)} day={state.day} {busy} {send} />
+      <RoutineEditor person={o.id} name={o.name} {items} bonuses={bonusesOf(o.id)} day={choreState.day} {busy} {send} />
     </details>
   {/each}
 </section>
@@ -154,7 +155,7 @@
   <h2>Rewards</h2>
   <p class="muted">What points can be spent on. Anyone can ask for a reward they can afford, unless you limit it to certain people, in which case only they see it; nothing is deducted until you approve it, in the waiting list at the top of this page (or on the Chores page).</p>
   <ul class="rows">
-    {#each state.rewards as r (r.id)}
+    {#each choreState.rewards as r (r.id)}
       <li>
         <input class="grow" value={r.name} maxlength="60" aria-label="Reward" onchange={(e) => text(e) && send({ action: 'reward_save', id: r.id, name: text(e), cost: r.cost })} />
         <input class="pts" type="number" min="1" max="100000" value={r.cost} aria-label={`Cost of ${r.name}`} onchange={(e) => send({ action: 'reward_save', id: r.id, name: r.name, cost: Math.max(1, num(e)) })} />
@@ -181,7 +182,7 @@
     <p class="muted">Add your household under <code>people</code> in <code>dashboard.config.ts</code> to hand out points.</p>
   {:else}
     <ul class="balances">
-      {#each people as p (p.id)}<li style:--c={p.color}><span>{p.name}</span> <strong>★ {state.balances[p.id] ?? 0}</strong>{#if state.minutes[p.id]}<span class="muted">⏱ {state.minutes[p.id]} min</span>{/if}</li>{/each}
+      {#each people as p (p.id)}<li style:--c={p.color}><span>{p.name}</span> <strong>★ {choreState.balances[p.id] ?? 0}</strong>{#if choreState.minutes[p.id]}<span class="muted">⏱ {choreState.minutes[p.id]} min</span>{/if}</li>{/each}
     </ul>
     <form class="rows add" onsubmit={adjust}>
       <select bind:value={adjPerson} aria-label="Person">{#each people as p (p.id)}<option value={p.id}>{p.name}</option>{/each}</select>
@@ -195,10 +196,10 @@
       <button type="submit" class="small" disabled={busy || !adjPerson || !timeDelta}>Add minutes</button>
     </form>
   {/if}
-  {#if state.recent.length > 0}
+  {#if choreState.recent.length > 0}
     <h4>Recent</h4>
     <ul class="recent">
-      {#each state.recent as e (e.id)}
+      {#each choreState.recent as e (e.id)}
         <li><span class="when">{formatWhen(e.at)}</span> <span>{nameOf(e.person)}</span> <strong class:neg={e.delta < 0}>{e.delta > 0 ? '+' : ''}{e.delta}</strong> <span class="muted">{LEDGER_LABEL[e.kind]}{e.note ? `: ${e.note}` : ''}</span></li>
       {/each}
     </ul>

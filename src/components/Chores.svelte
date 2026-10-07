@@ -7,7 +7,8 @@
   let { initial, people, intro = '', demo = false, manageHref = '/chores/manage', personBase = '/chores' }: { initial: ChoreState; people: Person[]; intro?: string; demo?: boolean; manageHref?: string; personBase?: string } = $props();
 
   // Rendered once from the server, then replaced by whatever the API answers after each change.
-  let state = $state<ChoreState>(initial);
+  // svelte-ignore state_referenced_locally
+  let choreState = $state<ChoreState>(initial);
   let error = $state('');
   let busy = $state(false);
 
@@ -15,7 +16,7 @@
 
   /** One column per person, plus "Anyone" for chores nobody owns (and for households with no people set up). */
   const columns = $derived.by(() => {
-    const today = todaysRoutines(state.routines);
+    const today = todaysRoutines(choreState.routines);
     const cols: { id: string | null; name: string; person?: Person; routine?: Routine; items: ChoreItem[] }[] = people.map((p) => {
       const routine = today.find((r) => r.person === p.id);
       return { id: p.id, name: p.name, person: p, ...(routine ? { routine } : {}), items: routine?.items ?? [] };
@@ -25,9 +26,9 @@
     return cols;
   });
   const tally = (items: ChoreItem[]) => ({ total: items.length, done: items.filter((i) => i.done).length });
-  const pendingFor = (id: string | null) => state.pending.filter((r) => r.person === id);
-  const rewardsFor = (id: string) => state.rewards.filter((r) => !r.hidden && canAsk(r, id));
-  const available = (id: string) => (state.balances[id] ?? 0) - pendingFor(id).reduce((n, r) => n + r.cost, 0);
+  const pendingFor = (id: string | null) => choreState.pending.filter((r) => r.person === id);
+  const rewardsFor = (id: string) => choreState.rewards.filter((r) => !r.hidden && canAsk(r, id));
+  const available = (id: string) => (choreState.balances[id] ?? 0) - pendingFor(id).reduce((n, r) => n + r.cost, 0);
 
   // --- Filters: whose chores, which time of day, and done or not. Remembered in this browser only. ---
   type Status = 'all' | 'todo' | 'done';
@@ -55,7 +56,7 @@
   const toggle = (id: string) => { only = only.includes(id) ? only.filter((x) => x !== id) : [...only, id]; };
   /** The time-of-day choices that exist today, so the filter never offers an empty option. */
   const periodChoices = $derived.by(() => {
-    const today = PERIODS.filter((p) => state.routines.some((r) => r.items.some((i) => i.due && i.period === p)));
+    const today = PERIODS.filter((p) => choreState.routines.some((r) => r.items.some((i) => i.due && i.period === p)));
     return today.length > 1 ? today : [];
   });
   /** What a column shows after filtering: the chosen time of day, and only the chores in the chosen state. */
@@ -76,13 +77,13 @@
     if (busy) return;
     error = '';
     busy = true;
-    const r = await runChores(state, payload, demo);
+    const r = await runChores(choreState, payload, demo);
     busy = false;
-    if (r.ok) state = r.state; else error = r.error;
+    if (r.ok) choreState = r.state; else error = r.error;
   }
 
-  const timeTitle = (id: string) => (state.allowance[id] ? `${allowanceLeft(state.allowance[id])} left of today's allowance + ${state.minutes[id] ?? 0} banked` : 'Screen time to use');
-  const usesTime = $derived(state.rewards.some((r) => r.minutes > 0) || Object.keys(state.allowance).length > 0 || Object.values(state.minutes).some((n) => n > 0));
+  const timeTitle = (id: string) => (choreState.allowance[id] ? `${allowanceLeft(choreState.allowance[id])} left of today's allowance + ${choreState.minutes[id] ?? 0} banked` : 'Screen time to use');
+  const usesTime = $derived(choreState.rewards.some((r) => r.minutes > 0) || Object.keys(choreState.allowance).length > 0 || Object.values(choreState.minutes).some((n) => n > 0));
   const mins = (n: number) => `${n} min`;
   const pts = (n: number) => `${n} ${n === 1 ? 'point' : 'points'}`;
 </script>
@@ -94,26 +95,26 @@
     <h1>Chores</h1>
     {#if intro}<p class="intro">{intro}</p>{/if}
   </div>
-  {#if state.manager}
+  {#if choreState.manager}
     <a class="manage-btn" href={manageHref} title="Create routines, set what chores are worth, and approve rewards.">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
       Manage
-      {#if state.pending.length > 0}<span class="badge" aria-label={`${state.pending.length} waiting for approval`}>{state.pending.length}</span>{/if}
+      {#if choreState.pending.length > 0}<span class="badge" aria-label={`${choreState.pending.length} waiting for approval`}>{choreState.pending.length}</span>{/if}
     </a>
   {/if}
 </header>
 
-{#if state.goals.length > 0}
+{#if choreState.goals.length > 0}
   <section class="goals" aria-label="Household goals">
     <h2>Together</h2>
     <ul>
-      {#each state.goals as g (g.id)}
+      {#each choreState.goals as g (g.id)}
         {@const reached = g.progress >= g.target}
         <li class:claimed={g.claimed}>
           <div class="gtop">
             <strong>{g.name}</strong>
             <span class="muted">{g.claimed ? 'Enjoyed!' : reached ? 'Goal reached!' : `${g.progress} / ${g.target} points`}</span>
-            {#if state.manager && reached && !g.claimed}
+            {#if choreState.manager && reached && !g.claimed}
               <button type="button" class="small" disabled={busy} onclick={() => send({ action: 'goal_claim', id: g.id })}>Mark as enjoyed</button>
             {/if}
           </div>
@@ -126,7 +127,7 @@
   </section>
 {/if}
 
-{#if columns.length > 1 || periodChoices.length > 0 || state.routines.length > 0}
+{#if columns.length > 1 || periodChoices.length > 0 || choreState.routines.length > 0}
   <div class="toolbar" role="group" aria-label="Filter chores">
     {#if columns.length > 1}
       <div class="people" role="group" aria-label="Show whose chores">
@@ -164,11 +165,11 @@
       <header>
         <span class="avatar" aria-hidden="true">{col.person ? initialOf(col.person) : '★'}</span>
         <h3>{#if col.person}<a class="who" href={`${personBase}/${col.person.id}`} title={`Open ${col.name}'s page`}>{col.name}<svg class="go" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18" /></svg></a>{:else}{col.name}{/if}</h3>
-        {#if col.person}<span class="stars" title="Points to spend"><span aria-hidden="true">★</span> {state.balances[col.person.id] ?? 0}<span class="sr"> points</span></span>{/if}
+        {#if col.person}<span class="stars" title="Points to spend"><span aria-hidden="true">★</span> {choreState.balances[col.person.id] ?? 0}<span class="sr"> points</span></span>{/if}
       </header>
       {#if col.person && usesTime}
         {@const who = col.person}
-        {@const avail = timeAvailable(state, who.id)}
+        {@const avail = timeAvailable(choreState, who.id)}
         <div class="time">
           <span class="bank" title={timeTitle(who.id)}><span aria-hidden="true">⏱</span> {mins(avail)}<span class="sr"> of screen time</span></span>
           {#each [15, 30] as m (m)}
@@ -220,7 +221,7 @@
           {#each pendingFor(who.id) as r (r.id)}
             <div class="ask">
               <span class="label">{r.rewardName} <span class="muted">({pts(r.cost)}{r.minutes > 0 ? `, ${mins(r.minutes)}` : ''}), waiting</span></span>
-              {#if state.manager}
+              {#if choreState.manager}
                 <button type="button" class="small" disabled={busy} onclick={() => send({ action: 'decide', id: r.id, approve: true })}>Approve</button>
                 <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'decide', id: r.id, approve: false })}>Deny</button>
               {/if}
@@ -242,8 +243,8 @@
   {/each}
 </div>
 
-{#if state.routines.every((r) => r.items.length === 0)}
-  <p class="muted">No chores yet. {#if state.manager}<a href={manageHref}>Add the first one</a>.{:else}Ask a manager to set some up.{/if}</p>
+{#if choreState.routines.every((r) => r.items.length === 0)}
+  <p class="muted">No chores yet. {#if choreState.manager}<a href={manageHref}>Add the first one</a>.{:else}Ask a manager to set some up.{/if}</p>
 {/if}
 
 
@@ -268,7 +269,6 @@
   .empty { margin: .75rem 0 0; color: var(--muted); }
   .routine { margin-top: 1rem; }
   .routine h4 { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .6rem; margin: 0; font-size: .95rem; letter-spacing: .01em; }
-  .period { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   .count { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--muted); }
   ul { list-style: none; margin: 0; padding: 0; }
   .col li { display: flex; align-items: center; gap: .85rem; padding: .55rem 0; }

@@ -6,23 +6,24 @@
 
   let { initial, people, who, base = '/chores', demo = false }: { initial: ChoreState; people: Person[]; who: string; base?: string; demo?: boolean } = $props();
 
-  let state = $state<ChoreState>(initial);
+  // svelte-ignore state_referenced_locally
+  let choreState = $state<ChoreState>(initial);
   let error = $state('');
   let busy = $state(false);
 
   const me = $derived(people.find((p) => p.id === who)!);
-  const routine = $derived(state.routines.find((r) => r.person === who));
+  const routine = $derived(choreState.routines.find((r) => r.person === who));
   const chores = $derived(routine?.items.filter((i) => i.due) ?? []);
   const groups = $derived(sections(chores));
-  const points = $derived(state.balances[who] ?? 0);
-  const banked = $derived(state.minutes[who] ?? 0);
-  const allowance = $derived(state.allowance[who]);
+  const points = $derived(choreState.balances[who] ?? 0);
+  const banked = $derived(choreState.minutes[who] ?? 0);
+  const allowance = $derived(choreState.allowance[who]);
   const left = $derived(allowanceLeft(allowance));
-  const minutes = $derived(timeAvailable(state, who)); // what can be spent now
-  const pending = $derived(state.pending.filter((r) => r.person === who));
+  const minutes = $derived(timeAvailable(choreState, who)); // what can be spent now
+  const pending = $derived(choreState.pending.filter((r) => r.person === who));
   const available = $derived(points - pending.reduce((n, r) => n + r.cost, 0));
-  const shop = $derived(state.rewards.filter((r) => !r.hidden && canAsk(r, who)));
-  const history = $derived(state.recent.filter((e) => e.person === who));
+  const shop = $derived(choreState.rewards.filter((r) => !r.hidden && canAsk(r, who)));
+  const history = $derived(choreState.recent.filter((e) => e.person === who));
   const done = $derived(chores.filter((i) => i.done).length);
   const total = $derived(chores.length);
 
@@ -30,9 +31,9 @@
     if (busy) return false;
     error = '';
     busy = true;
-    const r = await runChores(state, payload, demo);
+    const r = await runChores(choreState, payload, demo);
     busy = false;
-    if (r.ok) { state = r.state; return true; }
+    if (r.ok) { choreState = r.state; return true; }
     error = r.error;
     return false;
   }
@@ -71,7 +72,7 @@
     {/each}
     <a class="person all" href={base} title="Everyone's chores">All</a>
   </nav>
-  {#if state.manager}<button type="button" class="manage" aria-pressed={editing} onclick={() => (editing = !editing)}>{editing ? 'Done managing' : 'Manage'}</button>{/if}
+  {#if choreState.manager}<button type="button" class="manage" aria-pressed={editing} onclick={() => (editing = !editing)}>{editing ? 'Done managing' : 'Manage'}</button>{/if}
   </div>
 
   {#if error}<p class="notice error" role="alert">{error}</p>{/if}
@@ -126,11 +127,11 @@
     {/each}
   </section>
 
-      {#if state.manager && editing}
+      {#if choreState.manager && editing}
         <section class="card manage-panel" aria-labelledby="manage-h">
           <h2 id="manage-h">Manage {me.name}</h2>
           <p class="muted">Every chore in {me.name}'s routine, not only today's. Changes save as you make them.</p>
-          <RoutineEditor person={who} name={me.name} items={routine?.items ?? []} bonuses={routine?.bonuses ?? periodRecord(0)} day={state.day} {busy} {send} />
+          <RoutineEditor person={who} name={me.name} items={routine?.items ?? []} bonuses={routine?.bonuses ?? periodRecord(0)} day={choreState.day} {busy} {send} />
 
           <h3>Daily screen time</h3>
           <p class="muted">A base allowance that comes back every day. It is not saved up: whatever is left at midnight is gone. Time they earn from rewards is kept in the bank and used after the allowance.</p>
@@ -165,11 +166,11 @@
       {/if}
     </div>
     <aside class="side">
-  {#if state.goals.length > 0}
+  {#if choreState.goals.length > 0}
     <section class="card goals" aria-label="Household goals">
       <h2>Together</h2>
       <ul>
-        {#each state.goals as g (g.id)}
+        {#each choreState.goals as g (g.id)}
           <li class:claimed={g.claimed}>
             <div class="gtop"><strong>{g.name}</strong><span class="muted">{g.claimed ? 'Enjoyed!' : g.progress >= g.target ? 'Goal reached!' : `${g.progress} / ${g.target} points`}</span></div>
             <div class="gbar" role="progressbar" aria-label={g.name} aria-valuemin={0} aria-valuemax={g.target} aria-valuenow={g.progress}><span style:width={`${(g.progress / g.target) * 100}%`}></span></div>
@@ -186,7 +187,7 @@
         {#each pending as r (r.id)}
           <li>
             <span class="label">{r.rewardName} <span class="muted">({r.cost} points{r.minutes > 0 ? `, ${r.minutes} min` : ''}), waiting for a manager</span></span>
-            {#if state.manager}
+            {#if choreState.manager}
               <button type="button" class="small" disabled={busy || points < r.cost} onclick={() => send({ action: 'decide', id: r.id, approve: true })}>Approve</button>
               <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'decide', id: r.id, approve: false })}>Deny</button>
             {/if}
