@@ -37,7 +37,7 @@ const git = (args) => {
   return { ok: r.status === 0, out: (r.stdout ?? '').trim(), err: (r.stderr ?? '').trim() };
 };
 
-console.log(`Family Dashboard update${DRY ? ' (dry run: nothing will be changed)' : ''}`);
+console.log(`Lantern update${DRY ? ' (dry run: nothing will be changed)' : ''}`);
 
 // ---------- 1. what is being deployed ----------
 step(1, 'What you are about to deploy');
@@ -48,7 +48,7 @@ if (!config || /example\.com/.test(config.hostname ?? '') || checkDatabaseId(con
 const dirProblem = migrationsDirProblem(readFileSync(join(ROOT, 'wrangler.jsonc'), 'utf8'), ROOT);
 if (dirProblem) die(`${dirProblem} Nothing was changed.`);
 const account = config.accountId;
-const dbName = config.databaseName ?? 'family-dashboard';
+const dbName = config.databaseName ?? 'lantern';
 const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
 if (!isVersion(version)) die(`package.json version "${version}" is not x.y.z.`);
 let last = null;

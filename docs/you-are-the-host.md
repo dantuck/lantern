@@ -23,7 +23,7 @@ Because your Cloudflare login is the key to all of it, protect that account firs
 | Job | How often | How |
 |---|---|---|
 | **Update** | When a release lands, and at least every few months | `git fetch --tags`, check out the new tag, read `CHANGELOG.md`, then `npm ci && npm run update`. Update takes a backup first. |
-| **Back up** | Automatic on every update; manually before anything risky | `npx wrangler d1 export family-dashboard --remote --output backup.sql`. Keep it private: it contains member emails and the audit log. It contains none of the API keys or tokens you set (those are Worker secrets, not database rows). |
+| **Back up** | Automatic on every update; manually before anything risky | `npx wrangler d1 export lantern --remote --output backup.sql`. Keep it private: it contains member emails and the audit log. It contains none of the API keys or tokens you set (those are Worker secrets, not database rows). |
 | **Keep the domain renewed** | Yearly | If the domain lapses, the site goes down, and someone who registers it could send convincing sign-in emails from it. Turn on auto-renew. |
 | **Review members** | When people join or leave | Admin: disable anyone who should no longer have access; that signs them out everywhere at once. |
 | **Rotate secrets** | If one might have leaked, or when someone with access leaves | Make a new key or token at the source (Resend, Google, MealQ), then `npx wrangler secret put NAME` and revoke the old one. |
@@ -51,9 +51,9 @@ Run these from the project folder, in this order. They delete your data, so take
 want it. Each command shows what it will delete and asks for confirmation.
 
 ```bash
-npx wrangler d1 export family-dashboard --remote --output final-backup.sql   # optional
+npx wrangler d1 export lantern --remote --output final-backup.sql   # optional
 npx wrangler delete                        # the Worker and its secrets
-npx wrangler d1 delete family-dashboard    # the database: members, sessions, audit log
+npx wrangler d1 delete lantern    # the database: members, sessions, audit log
 npx wrangler kv namespace list             # find the CACHE namespace for this app...
 npx wrangler kv namespace delete --namespace-id <its id>
 ```

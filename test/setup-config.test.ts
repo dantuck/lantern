@@ -7,7 +7,7 @@ import {
 
 const wrangler = readFileSync('wrangler.template.jsonc', 'utf8');
 const dashboard = readFileSync('dashboard.config.example.ts', 'utf8');
-const base = { hostname: 'dash.family.org', mailFrom: 'Family Dashboard <login@family.org>' };
+const base = { hostname: 'dash.family.org', mailFrom: 'Lantern <login@family.org>' };
 const ACCOUNT = 'd98b487290d020c718e6a96224e44260';
 const DB = '0b2a1c3e-1111-4222-8333-444455556666';
 
@@ -36,10 +36,10 @@ describe('setup input checks', () => {
   it('suggests login@<hostname> and never guesses a parent domain', () => {
     expect(defaultSender('dash.family.org', undefined)).toBe('login@dash.family.org');
     expect(defaultSender('dash.family.co.uk', undefined)).toBe('login@dash.family.co.uk'); // not login@co.uk
-    expect(defaultSender('family.org', 'Family Dashboard <login@example.com>')).toBe('login@family.org');
+    expect(defaultSender('family.org', 'Lantern <login@example.com>')).toBe('login@family.org');
   });
   it('keeps the sender already configured when setup is re-run', () => {
-    expect(defaultSender('dash.family.org', 'Family Dashboard <hello@mail.family.org>')).toBe('hello@mail.family.org');
+    expect(defaultSender('dash.family.org', 'Lantern <hello@mail.family.org>')).toBe('hello@mail.family.org');
     expect(defaultSender('dash.family.org', 'mom@family.org')).toBe('mom@family.org');
     expect(defaultSender('dash.family.org', 'garbage')).toBe('login@dash.family.org');
   });
@@ -64,7 +64,7 @@ describe('setup input checks', () => {
     expect(cleanPath('~other/key.json', '/Users/me')).toBe('~other/key.json');
   });
   it('parses the database id from wrangler output', () => {
-    expect(parseDatabaseId(`{\n "binding": "DB",\n "database_name": "family-dashboard",\n "database_id": "${DB}"\n}`)).toBe(DB);
+    expect(parseDatabaseId(`{\n "binding": "DB",\n "database_name": "lantern",\n "database_id": "${DB}"\n}`)).toBe(DB);
     expect(parseDatabaseId('error')).toBeNull();
   });
 });
@@ -74,7 +74,7 @@ describe('wrangler.jsonc edits', () => {
     const out = applyWranglerValues(wrangler, { ...base, databaseId: DB, accountId: ACCOUNT });
     expect(out).toContain('"pattern": "dash.family.org"');
     expect(out).toContain('"APP_ORIGIN": "https://dash.family.org"');
-    expect(out).toContain('"MAIL_FROM": "Family Dashboard <login@family.org>"');
+    expect(out).toContain('"MAIL_FROM": "Lantern <login@family.org>"');
     expect(out).toContain(`"database_id": "${DB}"`);
     expect(out).toContain(`"account_id": "${ACCOUNT}"`);
     expect(out).toContain('// Reachable ONLY on your own domain');
@@ -84,7 +84,7 @@ describe('wrangler.jsonc edits', () => {
   it('is idempotent and round-trips through readWranglerValues', () => {
     const once = applyWranglerValues(wrangler, { ...base, databaseId: DB, accountId: ACCOUNT });
     expect(applyWranglerValues(once, { ...base, databaseId: DB, accountId: ACCOUNT })).toBe(once);
-    expect(readWranglerValues(once)).toEqual({ hostname: 'dash.family.org', mailFrom: base.mailFrom, databaseId: DB, databaseName: 'family-dashboard', accountId: ACCOUNT });
+    expect(readWranglerValues(once)).toEqual({ hostname: 'dash.family.org', mailFrom: base.mailFrom, databaseId: DB, databaseName: 'lantern', accountId: ACCOUNT });
   });
   it('leaves values containing $ patterns intact', () => {
     const out = applyWranglerValues(wrangler, { hostname: 'a.b.org', mailFrom: 'Me $& $1 <x@b.org>' });

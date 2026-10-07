@@ -7,11 +7,11 @@ export ASTRO_TELEMETRY_DISABLED=1 WRANGLER_SEND_METRICS=false DO_NOT_TRACK=1   #
 cd "$(dirname "$0")/.."
 P=${CSP_PORT:-8787}; B=http://localhost:$P; ST=.wrangler/state; TMP=${TMPDIR:-/tmp}
 PUBLIC_ENABLE_EXAMPLE=1 npx astro build >/dev/null 2>&1 || { echo "build failed"; exit 1; }
-rm -rf $ST; npx wrangler d1 migrations apply family-dashboard --local --persist-to $ST >/dev/null 2>&1
+rm -rf $ST; npx wrangler d1 migrations apply lantern --local --persist-to $ST >/dev/null 2>&1
 SID=$(node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))')
 HASH=$(node -e 'console.log(require("crypto").createHash("sha256").update(process.argv[1]).digest("hex"))' "$SID")
 NOW=$(node -e 'console.log(Date.now())')
-npx wrangler d1 execute family-dashboard --local --persist-to $ST --command "
+npx wrangler d1 execute lantern --local --persist-to $ST --command "
  INSERT INTO users (id,email,role,created_at) VALUES ('u1','mom@example.com','manager',$NOW);
  INSERT INTO sessions (id_hash,user_id,device_label,created_at,last_seen,expires_at) VALUES ('$HASH','u1','csp-check',$NOW,$NOW,$NOW+86400000);" >/dev/null 2>&1
 # Job control gives wrangler its own process group, so cleanup can stop it and its workerd child without

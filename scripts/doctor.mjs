@@ -34,7 +34,7 @@ const ok = (msg) => ({ level: 'ok', msg });
 const warn = (msg, fix) => ({ level: 'warn', msg, fix });
 const fail = (msg, fix) => ({ level: 'fail', msg, fix });
 
-console.log(`Family Dashboard doctor${OFFLINE ? ' (offline: Cloudflare checks skipped)' : ''}`);
+console.log(`Lantern doctor${OFFLINE ? ' (offline: Cloudflare checks skipped)' : ''}`);
 
 section('This machine', checkNode(process.versions.node));
 
@@ -95,7 +95,7 @@ if (OFFLINE) {
 
   if (account) {
     // Database first: whether anyone has signed in changes how the bootstrap secret is judged.
-    const dbName = v.databaseName ?? 'family-dashboard';
+    const dbName = v.databaseName ?? 'lantern';
     const sql = (q) => wr(['d1', 'execute', dbName, '--remote', '--json', '--command', q]);
     let hasUsers;
     const dbFindings = [];

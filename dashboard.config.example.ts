@@ -8,7 +8,7 @@ const showExample = import.meta.env.DEV || import.meta.env.PUBLIC_ENABLE_EXAMPLE
  * secrets are Worker secrets (see README) and are declared by each plugin.
  */
 export default {
-  title: 'Family Dashboard',
+  title: 'Lantern',
   // Your household. Each person gets a colour on the calendar and a column on the Chores page. An event goes on a
   // person's calendar when their name (or any word in `match`) appears in its title. `color` is optional.
   people: [

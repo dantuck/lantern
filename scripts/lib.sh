@@ -15,7 +15,7 @@ get() { curl -s -H "Cookie: __Host-session=$1" "$B$2"; }
 
 # Fresh local D1 plus a dev server; both are cleaned up when the script exits.
 start_dev() {
-  rm -rf .wrangler/state; npx wrangler d1 migrations apply family-dashboard --local >/dev/null 2>&1
+  rm -rf .wrangler/state; npx wrangler d1 migrations apply lantern --local >/dev/null 2>&1
   npx astro dev --port 4321 >/dev/null 2>&1; sleep 6
   trap 'npx astro dev stop >/dev/null 2>&1; rm -rf "$T"' EXIT
 }

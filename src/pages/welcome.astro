@@ -11,15 +11,15 @@ const features = [
 ];
 
 const steps = [
-  { title: 'Get the code', body: 'You need git, Node 22.12+, a domain, and free Cloudflare and Resend accounts.', code: 'git clone <repository address> family-dashboard\ncd family-dashboard\nnpm ci' },
+  { title: 'Get the code', body: 'You need git, Node 22.12+, a domain, and free Cloudflare and Resend accounts.', code: 'git clone <repository address> lantern\ncd lantern\nnpm ci' },
   { title: 'Run the guided setup', body: 'It creates your database, deploys, and stores your secrets safely. Rehearse first with a dry run.', code: 'npm run setup -- --dry-run\nnpm run setup' },
   { title: 'Sign in and invite your household', body: 'Open your address, use the emailed link, then invite everyone from Admin.' },
 ];
 ---
-<Base title="Family Dashboard: a private home screen for your household" description="A private, read-only dashboard for one household. Calendar and meal plan on one screen, invite-only, no passwords. Run your own copy on Cloudflare’s free tier." bare>
+<Base title="Lantern: a private home screen for your household" description="A private, read-only dashboard for one household. Calendar and meal plan on one screen, invite-only, no passwords. Run your own copy on Cloudflare’s free tier." bare>
   <div class="lp">
     <header class="lp-nav">
-      <a class="lp-brand" href="/welcome"><img src="/favicon.svg" alt="" width="28" height="28" /> Family Dashboard</a>
+      <a class="lp-brand" href="/welcome"><img src="/favicon.svg" alt="" width="28" height="28" /> Lantern</a>
       <nav aria-label="Page sections">
         <a href="#setup">Get your own</a>
         <a href="/demo">Demo</a>
@@ -98,7 +98,7 @@ const steps = [
     </section>
 
     <footer class="lp-foot">
-      <span>Family Dashboard · open source, self-hosted, no telemetry</span>
+      <span>Lantern · open source, self-hosted, no telemetry</span>
       <span><a href="/demo">Demo</a> · <a href="/login">Sign in</a></span>
     </footer>
   </div>

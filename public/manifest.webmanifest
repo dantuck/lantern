@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Family Dashboard",
-  "short_name": "Family",
+  "name": "Lantern",
+  "short_name": "Lantern",
   "description": "A private dashboard for our household.",
   "start_url": "/",
   "scope": "/",

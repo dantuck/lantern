@@ -7,7 +7,7 @@ import { registry } from '../plugins/registry';
 import { isOn } from '../lib/features';
 // `full` lets a page (the calendar) use the whole width of a wall display instead of the usual reading width.
 interface Props { title?: string; wide?: boolean; full?: boolean; bare?: boolean; description?: string; demo?: boolean; feature?: string }
-const { title = 'Family Dashboard', wide = false, full = false, bare = false, description, demo = false, feature } = Astro.props;
+const { title = 'Lantern', wide = false, full = false, bare = false, description, demo = false, feature } = Astro.props;
 const user = Astro.locals.user;
 const path = Astro.url.pathname;
 const current = (href: string) => (path === href ? 'page' : undefined);
@@ -34,7 +34,7 @@ const hasRail = demo || !!user;
     <meta name="theme-color" content="#c2570a" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Family" />
+    <meta name="apple-mobile-web-app-title" content="Lantern" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -60,7 +60,7 @@ const hasRail = demo || !!user;
       </nav>
     ) : user ? (
       <nav class="nav">
-        <a class="brand" href="/" aria-label="Family Dashboard home"><img src="/favicon.svg" alt="" width="28" height="28" /></a>
+        <a class="brand" href="/" aria-label="Lantern home"><img src="/favicon.svg" alt="" width="28" height="28" /></a>
         <a href="/" aria-current={current('/')}><Icon name="home" /><span>Dashboard</span></a>
         {pluginLinks.map((l) => <a href={l.href} aria-current={current(l.href)}><Icon name={l.icon} /><span>{l.label}</span></a>)}
         {isOn(off, 'chores') && <a href="/chores" aria-current={current('/chores')}><Icon name="check-circle" /><span>Chores</span></a>}

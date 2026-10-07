@@ -1,4 +1,4 @@
-# MealQ API contract for the Family Dashboard
+# MealQ API contract for Lantern
 
 The dashboard's **MealQ plugin** shows a household's meal plan. It needs one new read-only endpoint on the MealQ API and a way to issue a scoped token for it. This document is the contract the plugin is built and tested against. `test/fixtures/mealq-meal-plan.json` is a conforming response; the MealQ API's own tests can validate against the same file.
 

@@ -1,5 +1,5 @@
 {
-  "name": "family-dashboard",
+  "name": "lantern",
   "type": "module",
   "private": true,
   "engines": { "node": ">=22.12.0" },
@@ -21,8 +21,8 @@
     "preview": "node scripts/run.mjs wrangler dev",
     "check": "node scripts/run.mjs astro check",
     "test": "vitest run",
-    "db:migrate:local": "node scripts/run.mjs wrangler d1 migrations apply family-dashboard --local",
-    "db:migrate:remote": "node scripts/run.mjs wrangler d1 migrations apply family-dashboard --remote",
+    "db:migrate:local": "node scripts/run.mjs wrangler d1 migrations apply lantern --local",
+    "db:migrate:remote": "node scripts/run.mjs wrangler d1 migrations apply lantern --remote",
     "verify": "vitest run && npm run check && npm run build && bash scripts/check-bundle.sh && node scripts/audit.mjs",
     "verify:e2e": "bash scripts/smoke-admin.sh && bash scripts/smoke-plugins.sh && bash scripts/check-csp.sh"
   },

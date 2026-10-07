@@ -83,7 +83,7 @@ export function checkUsers({ total, managers }) {
   return [ok(`${total} member(s), ${managers} manager(s)`)];
 }
 
-/** Newest timestamp in names like family-dashboard-2026-10-06T15-03-49-983Z.sql, as epoch ms (or null). */
+/** Newest timestamp in names like lantern-2026-10-06T15-03-49-983Z.sql, as epoch ms (or null). */
 export function latestBackup(names) {
   let best = null;
   for (const n of names) {
@@ -97,10 +97,10 @@ export function latestBackup(names) {
 
 export function checkBackups(names, now = Date.now()) {
   const t = latestBackup(names);
-  if (t === null) return [warn('no backup on this machine yet', '`npm run update` takes one before every update, or: npx wrangler d1 export family-dashboard --remote --output backup.sql')];
+  if (t === null) return [warn('no backup on this machine yet', '`npm run update` takes one before every update, or: npx wrangler d1 export lantern --remote --output backup.sql')];
   const days = Math.floor((now - t) / 86_400_000);
   return days > 90
-    ? [warn(`latest backup is ${days} days old`, 'npx wrangler d1 export family-dashboard --remote --output backup.sql')]
+    ? [warn(`latest backup is ${days} days old`, 'npx wrangler d1 export lantern --remote --output backup.sql')]
     : [ok(`latest backup is ${days} day(s) old`)];
 }
 

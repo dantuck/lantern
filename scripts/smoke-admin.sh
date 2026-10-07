@@ -25,8 +25,8 @@ check "member sees devices page" "$(get "$K" /devices | grep -c 'Your devices')"
 check "invite was single use" "$(post "$M" -d 'action=revoke_invite&id=whatever' $B/admin/action)" "303 $B/admin?msg=not_found"
 
 echo "roles and safety"
-KID_ID=$(npx wrangler d1 execute family-dashboard --local --json --command "select id from users where email='kid@example.com'" 2>/dev/null | grep -o '"id": "[^"]*"' | head -1 | cut -d'"' -f4)
-MOM_ID=$(npx wrangler d1 execute family-dashboard --local --json --command "select id from users where email='mom@example.com'" 2>/dev/null | grep -o '"id": "[^"]*"' | head -1 | cut -d'"' -f4)
+KID_ID=$(npx wrangler d1 execute lantern --local --json --command "select id from users where email='kid@example.com'" 2>/dev/null | grep -o '"id": "[^"]*"' | head -1 | cut -d'"' -f4)
+MOM_ID=$(npx wrangler d1 execute lantern --local --json --command "select id from users where email='mom@example.com'" 2>/dev/null | grep -o '"id": "[^"]*"' | head -1 | cut -d'"' -f4)
 check "cannot disable the only manager" "$(post "$M" -d "action=set_disabled&id=$MOM_ID&disabled=1" $B/admin/action)" "303 $B/admin?msg=last_manager"
 check "cannot demote the only manager" "$(post "$M" -d "action=set_role&id=$MOM_ID&role=member" $B/admin/action)" "303 $B/admin?msg=last_manager"
 check "invalid role ignored" "$(post "$M" -d "action=set_role&id=$KID_ID&role=root" $B/admin/action)" "303 $B/admin?msg=bad_request"

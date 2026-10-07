@@ -1,6 +1,6 @@
 'use strict';
 /*
- * Family Dashboard service worker. Hand-written so the caching rules are short enough to audit.
+ * Lantern service worker. Hand-written so the caching rules are short enough to audit.
  *
  * What it does
  *   - Precaches the offline page.

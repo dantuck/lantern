@@ -1,5 +1,5 @@
 {
-  "name": "family-dashboard",
+  "name": "lantern",
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -17,14 +17,14 @@
   "dependencies_instrumentation": { "enabled": false },
   "assets": { "binding": "ASSETS", "directory": "./dist", "html_handling": "none" },
   "d1_databases": [
-    { "binding": "DB", "database_name": "family-dashboard", "database_id": "REPLACE_AFTER_d1_create" }
+    { "binding": "DB", "database_name": "lantern", "database_id": "REPLACE_AFTER_d1_create" }
   ],
   "kv_namespaces": [
     { "binding": "CACHE" }
   ],
   "vars": {
     "APP_ORIGIN": "http://localhost:4321",
-    "MAIL_FROM": "Family Dashboard <login@example.com>"
+    "MAIL_FROM": "Lantern <login@example.com>"
   }
   // Secrets (wrangler secret put): RESEND_API_KEY, BOOTSTRAP_MANAGER_EMAIL,
   // GOOGLE_SERVICE_ACCOUNT_JSON, MEALQ_API_TOKEN

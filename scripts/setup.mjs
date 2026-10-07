@@ -20,7 +20,7 @@ import { PRIVACY_ENV } from './lib/privacy-env.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DRY = process.argv.includes('--dry-run');
-const DB_NAME = 'family-dashboard';
+const DB_NAME = 'lantern';
 const WRANGLER = join(ROOT, 'wrangler.jsonc');
 const DASHBOARD = join(ROOT, 'dashboard.config.ts');
 
@@ -45,7 +45,7 @@ function die(msg) {
 }
 
 // ---------- main ----------
-console.log(`Family Dashboard setup${DRY ? ' (dry run: nothing will be changed)' : ''}`);
+console.log(`Lantern setup${DRY ? ' (dry run: nothing will be changed)' : ''}`);
 console.log('You will need: a Cloudflare account with your domain on it, and a Resend account with that domain verified.');
 
 if (!nodeVersionOk(process.versions.node)) die(`Node ${MIN_NODE} or newer is required (you have ${process.versions.node}).`);
@@ -84,7 +84,7 @@ const hostname = normalizeHostname(await ask('Hostname for the dashboard (a doma
 const sender = await ask('Address emails are sent from (its domain must be verified in Resend)', {
   def: defaultSender(hostname, current.mailFrom), check: checkEmail,
 });
-const mailFrom = `Family Dashboard <${sender}>`;
+const mailFrom = `Lantern <${sender}>`;
 const timeZone = await ask('Time zone (IANA name, e.g. America/Chicago)', {
   def: defaultTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone), check: checkTimeZone,
 });
@@ -99,7 +99,7 @@ if (useCalendar) {
   what you share with it. To make one (about 5 minutes):
     1. Go to https://console.cloud.google.com and create or pick a project (any name).
     2. APIs & Services > Library > search "Google Calendar API" > Enable.
-    3. IAM & Admin > Service Accounts > Create service account. Name it e.g. family-dashboard; skip the optional
+    3. IAM & Admin > Service Accounts > Create service account. Name it e.g. lantern; skip the optional
        role and access steps.
     4. Open the new service account > Keys > Add key > Create new key > JSON. A .json file downloads.
     5. Keep that file private: it works like a password. Setup sends it to Cloudflare and keeps no copy; you can

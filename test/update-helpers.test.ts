@@ -50,7 +50,7 @@ describe('migration state', () => {
     expect(parseAppliedMigrations('[{"results":[],"success":true}]')).toEqual([]);
   });
   it('names backups safely and sortably', () => {
-    expect(backupFileName('family-dashboard', new Date('2026-10-06T12:34:56.789Z'))).toBe('family-dashboard-2026-10-06T12-34-56-789Z.sql');
+    expect(backupFileName('lantern', new Date('2026-10-06T12:34:56.789Z'))).toBe('lantern-2026-10-06T12-34-56-789Z.sql');
   });
 });
 

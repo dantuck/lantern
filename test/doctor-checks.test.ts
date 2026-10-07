@@ -9,7 +9,7 @@ import {
 
 const template = readFileSync('wrangler.template.jsonc', 'utf8');
 const good = applyWranglerValues(template, {
-  hostname: 'dash.family.org', mailFrom: 'Family Dashboard <login@family.org>',
+  hostname: 'dash.family.org', mailFrom: 'Lantern <login@family.org>',
   databaseId: '0b2a1c3e-1111-4222-8333-444455556666', accountId: 'd98b487290d020c718e6a96224e44260',
 });
 const levels = (fs: { level: string }[]) => fs.map((f) => f.level);
@@ -92,12 +92,12 @@ describe('doctor: database, backups, releases', () => {
     expect(levels(checkMigrations({ pending: [], unknown: ['0009_y.sql'] }))).toEqual(['fail']);
   });
   it('finds the newest backup and warns when there is none or it is old', () => {
-    const names = ['family-dashboard-2026-07-01T00-00-00-000Z.sql', 'family-dashboard-2026-10-06T15-03-49-983Z.sql', 'notes.txt'];
+    const names = ['lantern-2026-07-01T00-00-00-000Z.sql', 'lantern-2026-10-06T15-03-49-983Z.sql', 'notes.txt'];
     expect(latestBackup(names)).toBe(Date.parse('2026-10-06T15:03:49.983Z'));
     const now = Date.parse('2026-10-08T00:00:00Z');
     expect(levels(checkBackups(names, now))).toEqual(['ok']);
     expect(levels(checkBackups([], now))).toEqual(['warn']);
-    expect(levels(checkBackups(['family-dashboard-2026-01-01T00-00-00-000Z.sql'], now))).toEqual(['warn']);
+    expect(levels(checkBackups(['lantern-2026-01-01T00-00-00-000Z.sql'], now))).toEqual(['warn']);
   });
   it('compares this checkout with the last deploy', () => {
     const r = { version: '0.1.0', deployedAt: 'x' };

@@ -1,4 +1,4 @@
-# Family Dashboard
+# Lantern
 
 A private, read-only dashboard for one household, installable as a PWA. Astro + Svelte on Cloudflare Workers.
 Sign-in is by emailed magic link only; **managers** invite everyone else. Widgets are plugins (Google Calendar and MealQ meal plan today). Built in: **people** with their own colours, **chores** and shared **lists**, and a **wall display** mode for a tablet or monitor on the kitchen wall.
@@ -39,7 +39,7 @@ Everything runs on Cloudflare's free tier plus Resend's free tier.
 **Fastest path:** `npm run setup` walks through everything below on your machine with your own Cloudflare login (`npx wrangler login` first): it asks which account to use and pins it, writes your local config, creates the database and tables, runs `verify`, deploys, and sets the secrets (typed hidden, sent straight to Cloudflare, never written to disk). `npm run setup -- --dry-run` asks the questions and shows what it would do without changing anything. It is safe to re-run. You still need your domain on Cloudflare and a verified sending domain in Resend (step 4). The manual steps follow for reference.
 
 1. **Domain.** Put your domain on Cloudflare. In `wrangler.jsonc` set `routes[0].pattern` to the hostname (e.g. `dashboard.example.com`) and `vars.APP_ORIGIN` to `https://` plus that hostname. The app refuses to send any link if `APP_ORIGIN` is missing, not `https`, or still `localhost`. `workers_dev` and preview URLs are off on purpose: the app is reachable only on your domain.
-2. **Database.** `npx wrangler d1 create family-dashboard`, paste the printed `database_id` into `wrangler.jsonc`, then `npm run db:migrate:remote`.
+2. **Database.** `npx wrangler d1 create lantern`, paste the printed `database_id` into `wrangler.jsonc`, then `npm run db:migrate:remote`.
 3. **Cache.** The `CACHE` KV namespace is provisioned on first deploy (or run `npx wrangler kv namespace create CACHE` and add its `id`).
 4. **Email (Resend).** Create an account, add and verify your sending domain (SPF and DKIM records), and add a DMARC record (`v=DMARC1; p=quarantine; rua=mailto:you@yourdomain`). Create an API key with *sending access* only. Set `vars.MAIL_FROM` to an address on that domain. Leave **link and open tracking off** (the default): tracking rewrites URLs and breaks the sign-in link.
 5. **Secrets.**
@@ -109,10 +109,10 @@ Other protections: strict CSP (hashes, no `unsafe-inline` for scripts), HSTS, `f
 - **Someone lost a phone / left the household:** *Devices* (own) or *Admin → Signed-in devices* (anyone) to sign devices out; *Admin → Members → Disable* removes access and signs them out everywhere immediately.
 - **Locked out of every manager account** (the last manager is protected from being demoted or disabled in the app, but a lost mailbox can still do it): promote an existing user directly in the database, then sign in normally with a fresh link:
   ```bash
-  npx wrangler d1 execute family-dashboard --remote --command "UPDATE users SET role = 'manager', disabled_at = NULL WHERE email = 'you@example.com'"
+  npx wrangler d1 execute lantern --remote --command "UPDATE users SET role = 'manager', disabled_at = NULL WHERE email = 'you@example.com'"
   ```
 - **Rotate a plugin secret:** `wrangler secret put` it again; the cache refreshes within the plugin's TTL.
-- **Backups:** `npx wrangler d1 export family-dashboard --remote --output backup.sql` (users, invites, audit log; nothing else of value is stored).
+- **Backups:** `npx wrangler d1 export lantern --remote --output backup.sql` (users, invites, audit log; nothing else of value is stored).
 - **Offline copies:** the service worker keeps a copy of the dashboard for 24 hours so it opens without signal, and wipes it on sign-out or revocation. To disable that entirely, set `OFFLINE_PAGES = false` in `public/sw.js` and bump `VERSION`.
 - **Dependency audit:** `scripts/audit.mjs` fails the build on any high/critical advisory not explicitly accepted. One is accepted (`http-cache-semantics`, an Astro build-time dependency that is not shipped); the reasoning is recorded in that file.
 

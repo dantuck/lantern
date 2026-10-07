@@ -1,4 +1,4 @@
-# Setting up your own Family Dashboard
+# Setting up your own Lantern
 
 This walks you from nothing to a working dashboard on your own domain. Plan on about an hour, most of it waiting
 for DNS. You need to be comfortable pasting commands into a terminal, but you do not need to write code.
@@ -69,8 +69,8 @@ receives no mail; that is fine for a system sender.
 ## 1. Get the code
 
 ```bash
-git clone <the repository address> family-dashboard
-cd family-dashboard
+git clone <the repository address> lantern
+cd lantern
 git tag --list              # pick the newest release tag, for example v0.1.0
 git checkout v0.1.0         # deploy a tagged release, not the latest unreleased work
 npm ci                      # installs exactly the locked dependencies
@@ -128,7 +128,7 @@ now. Menu names change over time, so look for the item with the same name.
    The name does not matter.
 2. **APIs & Services, Library**: search for **Google Calendar API** and click **Enable**. Without this step,
    requests are refused.
-3. **IAM & Admin, Service Accounts, Create service account**. Name it something like `family-dashboard`. Skip the
+3. **IAM & Admin, Service Accounts, Create service account**. Name it something like `lantern`. Skip the
    optional steps about roles and access; it needs none.
 4. Open the new service account, go to **Keys, Add key, Create new key**, choose **JSON**, and create it. A `.json`
    file downloads.
@@ -143,7 +143,7 @@ now. Menu names change over time, so look for the item with the same name.
 **Share your calendar with it**
 
 5. Open the downloaded file in a text editor and find `client_email`; it looks like
-   `family-dashboard@your-project.iam.gserviceaccount.com`. Setup also prints this address for you once it has read
+   `lantern@your-project.iam.gserviceaccount.com`. Setup also prints this address for you once it has read
    the file. It is not secret.
 6. In Google Calendar, open the settings of the calendar you want to show ("Settings and sharing"), then **Share
    with specific people or groups**, add that address, and give it the permission **See all event details**.
