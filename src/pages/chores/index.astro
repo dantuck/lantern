@@ -15,7 +15,5 @@ const day = dayKey(Date.now(), householdZone);
 const [state, people] = await Promise.all([choreState(env.DB, day, isManager(Astro.locals)), loadPeople(env.DB)]);
 ---
 <Base title="Chores" wide>
-  <h1>Chores</h1>
-  <p>{formatDay(day, { weekday: 'long', month: 'long', day: 'numeric' })}. Ticks reset each morning.</p>
-  <Chores client:load initial={state} people={people} />
+  <Chores client:load initial={state} people={people} intro={`${formatDay(day, { weekday: 'long', month: 'long', day: 'numeric' })}. Ticks reset each morning.`} />
 </Base>

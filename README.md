@@ -1,6 +1,6 @@
 # Lantern
 
-A private, read-only dashboard for one household, installable as a PWA. Astro + Svelte on Cloudflare Workers.
+A private dashboard for one household (calendar, meals, chores, rewards, shared goals, screen time and lists), installable as a PWA. Astro + Svelte on Cloudflare Workers.
 Sign-in is by emailed magic link only; **managers** invite everyone else. Widgets are plugins (Google Calendar and MealQ meal plan today). Built in: **people** with their own colours, **chores** and shared **lists**, and a **wall display** mode for a tablet or monitor on the kitchen wall.
 
 - Nobody can edit anything through it: the only write paths are sign-in, sign-out and manager invites.
@@ -77,9 +77,11 @@ An event goes on a person's calendar when their name (or a `match` word) appears
 
 Chores, rewards and lists are stored in your D1 database, so run the new migrations (`npm run update`, or `npm run db:migrate:remote`). Any signed-in member can tick chores off, ask for a reward and use the lists; only **managers** create and change chores and rewards.
 
-**Chore lists (routines).** A manager creates a list for a person, such as a *Morning routine*, picks the days it repeats (every day, weekdays, certain days, or just once), a time of day, and adds the chores. Ticks are stored per day, so each routine starts fresh every morning it is scheduled; nothing needs to be reset. Manage them at **Chores → Manage** (`/chores/manage`, managers only).
+**Chores (one routine per person).** Each person has a single routine, split by time of day (morning, afternoon, evening, any time), and "Anyone" has one too for shared chores. A manager adds chores to it, giving each a time of day, the days it repeats (every day, weekdays, certain days) or a single date for a one-off. Ticks are stored per day, so each chore starts fresh every day it is scheduled; nothing needs to be reset. Manage them at **Chores → Manage** (`/chores/manage`, managers only).
 
-**Rewards.** Give each chore some points, and optionally an *all-done bonus* for finishing a whole list. Points go to the person the list is for (lists for "Anyone" earn none) and are taken back if a chore is un-ticked. Managers add rewards with a point cost; anyone can ask for one they can afford from the person's column on the Chores page, and a manager approves or denies it there, which deducts the points. A reward can be limited to certain chore lists, so only the people those lists belong to can ask for it. Managers can also add or remove points by hand. Points need `people` in your config. The **wall display** button in the side bar hides the navigation, enlarges everything, goes fullscreen and asks the screen to stay awake; the choice is remembered per browser.
+**Rewards.** Give each chore some points, and optionally an *all-done bonus* for each time of day, paid when every chore due then is ticked. Points go to the person the chore is for (chores for "Anyone" earn none) and are taken back if a chore is un-ticked. Managers add rewards with a point cost; anyone can ask for one they can afford from the person's column on the Chores page, and a manager approves or denies it there, which deducts the points. A reward can be limited to certain people, so only they can ask for it. Managers can also add or remove points by hand. Points need `people` in your config. The **wall display** button in the side bar hides the navigation, enlarges everything, goes fullscreen and asks the screen to stay awake; the choice is remembered per browser.
+
+**Screen time.** A reward can add minutes to a person's *screen time bank*, and a manager can also give each person a *daily allowance* (optionally different on weekends) from the person's page, **Manage**. The allowance comes back every day and is not saved up; earned minutes are kept in the bank. Spending ("Use 15") takes the day's allowance first, then the bank. The dashboard only keeps count: honouring it on the device is up to the household. Each person has their own page at `/chores/<person>`, linked from their name on the Chores page, where managers can manage that person's chores, points and screen time.
 
 Managers can switch any widget, and the built-in Chores and Lists, on or off under **Admin → Widgets and features**. `dashboard.config.ts` still decides which widgets exist; the switch only hides them (their data is kept).
 

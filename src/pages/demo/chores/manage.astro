@@ -6,6 +6,6 @@ import { demoChores, demoPeople } from '../../../demo/data';
 <Base title="Manage chores · Demo" wide demo feature="chores">
   <p data-demo-back><a href="/demo/chores">&larr; Back to chores</a></p>
   <h1>Manage chores</h1>
-  <p>This is what a manager sees. Add a routine, change what a chore is worth, add a reward, or approve the request below. In the demo nothing is saved.</p>
+  <p>This is what a manager sees. Add a chore to someone's routine, change what it is worth, add a reward, or approve the request below. In the demo nothing is saved.</p>
   <ChoreManager client:load initial={demoChores()} people={demoPeople} demo />
 </Base>

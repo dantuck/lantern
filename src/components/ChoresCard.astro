@@ -2,7 +2,7 @@
 import { env } from 'cloudflare:workers';
 import Icon from './Icon.astro';
 import { choreState } from '../lib/chores';
-import { todaysLists, type ChoreState } from '../lib/choreTypes';
+import { todaysRoutines, type ChoreState } from '../lib/choreTypes';
 import { dayKey } from '../lib/dates';
 import { householdZone } from '../lib/household';
 import { loadPeople } from '../lib/peopleStore';
@@ -17,10 +17,10 @@ if (!state) {
   try { state = await choreState(env.DB, dayKey(Date.now(), householdZone), false); }
   catch (e) { console.error('chores card: could not read chores:', e instanceof Error ? e.message : 'unknown'); }
 }
-const today = state ? todaysLists(state.lists) : [];
+const today = state ? todaysRoutines(state.routines) : [];
 const groups = state
-  ? [...people.map((p) => ({ name: p.name, color: p.color, items: today.filter((l) => l.person === p.id).flatMap((l) => l.items) })),
-     { name: 'Anyone', color: 'var(--accent)', items: today.filter((l) => !l.person || !people.some((p) => p.id === l.person)).flatMap((l) => l.items) }].filter((g) => g.items.length > 0)
+  ? [...people.map((p) => ({ name: p.name, color: p.color, items: today.filter((r) => r.person === p.id).flatMap((r) => r.items) })),
+     { name: 'Anyone', color: 'var(--accent)', items: today.filter((r) => !r.person || !people.some((p) => p.id === r.person)).flatMap((r) => r.items) }].filter((g) => g.items.length > 0)
   : [];
 ---
 <section class="card plugin" data-plugin="chores">

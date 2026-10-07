@@ -1,0 +1,11 @@
+---
+import Base from '../../../layouts/Base.astro';
+import PersonChores from '../../../components/PersonChores.svelte';
+import { demoChores, demoPeople } from '../../../demo/data';
+
+const who = demoPeople.find((p) => p.id === Astro.params.person);
+if (!who) return new Response('Not found', { status: 404 });
+---
+<Base title={`${who.name} · Chores · Demo`} wide demo feature="chores">
+  <PersonChores client:load initial={demoChores()} people={demoPeople} who={who.id} base="/demo/chores" demo />
+</Base>

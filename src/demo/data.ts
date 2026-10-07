@@ -1,6 +1,7 @@
 // Fixture data for /demo. Everything here is invented; nothing is fetched, stored, or tied to a real household.
 // Dates are relative to "now" so the demo always looks current. The demo runs in UTC so "today" matches its clock times.
-import { DAY_MS, addDays, dayKey, startOfDayMs, weekdayOf } from '../lib/dates';
+import { allowanceFor, periodRecord } from '../lib/choreTypes';
+import { DAY_MS, addDays, dayKey, startOfDayMs } from '../lib/dates';
 import type { CalEvent, CalendarData } from '../plugins/calendar/types';
 import type { WeatherData } from '../plugins/calendar/weatherView';
 import { parsePeople } from '../lib/peopleConfig';
@@ -134,35 +135,44 @@ export const demoAudit = [
 
 // --- Chores and lists -------------------------------------------------------
 
-/** [list name, person id or null, period, weekday mask, bonus, [chore, points, ticked already][]] */
-const ROUTINES: [string, string | null, 'morning' | 'afternoon' | 'evening' | 'any', number, number, [string, number, boolean][]][] = [
-  ['Morning routine', 'agnes', 'morning', 127, 3, [['Make your bed', 1, true], ['Brush teeth', 1, true], ['Feed Fluffy', 2, false], ['Pack your school bag', 1, false]]],
-  ['Ballet day', 'agnes', 'afternoon', 0b0100000, 2, [['Ballet bag by the door', 2, false]]],
-  ['After school', 'margo', 'afternoon', 0b0111110, 5, [['Walk the dog', 2, true], ['Homework', 3, false], ['Empty the dishwasher', 2, false]]],
-  ['Morning routine', 'edith', 'morning', 127, 3, [['Tidy the lab bench', 2, false], ['Feed the goldfish', 1, false]]],
-  ['Evening jobs', 'gru', 'evening', 0b0001000, 0, [['Take out the trash', 1, false], ['Rocket repairs', 1, false]]],
-  ['Minion duties', 'minions', 'any', 127, 4, [['Peel the bananas', 1, true], ['Sweep the lair', 1, false]]],
-  ['House', null, 'any', 127, 0, [['Water the plants', 0, false]]],
+type Period = 'morning' | 'afternoon' | 'evening' | 'any';
+/** [person id or null, all-done bonus per time of day, [chore, points, time of day, ticked already][]] */
+const ROUTINES: [string | null, Partial<Record<Period, number>>, [string, number, Period, boolean][]][] = [
+  ['agnes', { morning: 3, afternoon: 2 }, [['Make your bed', 1, 'morning', true], ['Brush teeth', 1, 'morning', true], ['Feed Fluffy', 2, 'morning', false], ['Pack your school bag', 1, 'morning', false], ['Ballet bag by the door', 2, 'afternoon', false]]],
+  ['margo', { afternoon: 5 }, [['Walk the dog', 2, 'afternoon', true], ['Homework', 3, 'afternoon', false], ['Empty the dishwasher', 2, 'afternoon', false]]],
+  ['edith', { morning: 3 }, [['Tidy the lab bench', 2, 'morning', false], ['Feed the goldfish', 1, 'morning', false]]],
+  ['gru', {}, [['Take out the trash', 1, 'evening', false], ['Rocket repairs', 1, 'evening', false]]],
+  ['minions', { any: 4 }, [['Peel the bananas', 1, 'any', true], ['Sweep the lair', 1, 'any', false]]],
+  [null, {}, [['Water the plants', 0, 'any', false]]],
 ];
 
 export function demoChores(now = Date.now()): import('../lib/choreTypes').ChoreState {
   const day = dayKey(now, DEMO_TZ);
-  const lists = ROUTINES.map(([name, person, period, mask, bonus, chores], li) => {
-    const days = mask === 0b0100000 || mask === 0b0001000 ? 1 << weekdayOf(day) : mask; // the one-day lists are always due in the demo
-    const items = chores.map(([title, points, done], i) => ({ id: `c${li}-${i}`, title, points, done, days: null, due: true }));
-    return { id: `l${li}`, name, person, period, days, onceDate: null, bonus, due: true, bonusEarned: items.every((i) => i.done), items };
+  const routines = ROUTINES.map(([person, bonus, chores], ri) => {
+    const items = chores.map(([title, points, period, done], i) => ({ id: `c${ri}-${i}`, title, points, done, period, days: null, onceDate: null, due: true }));
+    const bonuses = { ...periodRecord(0), ...bonus };
+    const earned = (p: Period) => bonuses[p] > 0 && items.some((i) => i.period === p) && items.filter((i) => i.period === p).every((i) => i.done);
+    return { id: `r${ri}`, person, bonuses, bonusEarned: { morning: earned('morning'), afternoon: earned('afternoon'), evening: earned('evening'), any: earned('any') }, items };
   });
   const balances: Record<string, number> = { agnes: 14, margo: 31, edith: 8, gru: 3, minions: 22 };
-  for (const l of lists) if (l.person) for (const i of l.items) if (i.done) balances[l.person] = (balances[l.person] ?? 0) + i.points;
+  for (const r of routines) if (r.person) for (const i of r.items) if (i.done) balances[r.person] = (balances[r.person] ?? 0) + i.points;
   return {
-    day, manager: true, lists, balances,
+    day, manager: true, routines, balances, minutes: { agnes: 45, margo: 20, minions: 15 },
+    allowance: {
+      agnes: { weekday: 60, weekend: 90, today: allowanceFor(day, 60, 90), used: 20 },
+      margo: { weekday: 45, weekend: null, today: 45, used: 0 },
+    },
     rewards: [
-      { id: 'r1', name: 'Pick the movie', cost: 10, listIds: null },
-      { id: 'r2', name: 'Extra screen time', cost: 20, listIds: null },
-      { id: 'r4', name: 'New ballet shoes', cost: 30, listIds: ['l0', 'l1'] }, // only Agnes's lists, so only Agnes sees it
-      { id: 'r3', name: 'Ice cream trip', cost: 40, listIds: null },
+      { id: 'r1', name: 'Pick the movie', cost: 10, minutes: 0, people: null, hidden: false },
+      { id: 'r2', name: 'Extra screen time', cost: 20, minutes: 30, people: null, hidden: false },
+      { id: 'r4', name: 'New ballet shoes', cost: 30, minutes: 0, people: ['agnes'], hidden: false }, // only Agnes sees it
+      { id: 'r3', name: 'Ice cream trip', cost: 40, minutes: 0, people: null, hidden: false },
     ],
-    pending: [{ id: 'req1', person: 'margo', rewardName: 'Extra screen time', cost: 20, requestedAt: now - 20 * 60_000 }],
+    goals: [
+      { id: 'g1', name: 'Family movie night out', target: 150, progress: 96, claimed: false },
+      { id: 'g2', name: 'Pizza Friday', target: 60, progress: 60, claimed: false },
+    ],
+    pending: [{ id: 'req1', person: 'margo', rewardName: 'Extra screen time', cost: 20, minutes: 30, requestedAt: now - 20 * 60_000 }],
     recent: [
       { id: 'e1', person: 'margo', delta: 2, kind: 'chore', note: 'Walk the dog', at: now - 60 * 60_000 },
       { id: 'e2', person: 'minions', delta: 1, kind: 'chore', note: 'Peel the bananas', at: now - 2 * 60 * 60_000 },

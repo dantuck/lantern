@@ -1,117 +1,95 @@
 import { addDays, weekdayOf } from './dates';
-import { fitItemDays, isDue, itemDue, type ChoreList, type ChoreState, type Period } from './choreTypes';
+import { itemDue, periodRecord, PERIODS, type ChoreState, type Period, type Routine } from './choreTypes';
 import { rewardState } from './rewards';
 
-export const MAX_LISTS = 40;
-export const MAX_ITEMS_PER_LIST = 30;
+export const MAX_ITEMS_PER_ROUTINE = 60;
 /** Ticks older than this are dropped; nothing shows past days. */
 const KEEP_CHECK_DAYS = 60;
 
-interface ListRow { id: string; name: string; person: string | null; period: Period; days: number; once_date: string | null; bonus: number }
-interface ItemRow { id: string; list_id: string; title: string; points: number; days: number | null }
-
-const PERIOD_ORDER: Record<Period, number> = { morning: 0, afternoon: 1, evening: 2, any: 3 };
+interface RoutineRow { id: string; person: string | null }
+interface ItemRow { id: string; list_id: string; title: string; points: number; period: Period; days: number | null; once_date: string | null }
 
 export async function choreState(db: D1Database, day: string, manager: boolean): Promise<ChoreState> {
   // Independent reads, so they go out together rather than one round-trip after another.
-  const [listRows, itemRows, checkRows, bonusRows, rewards] = await Promise.all([
-    db.prepare('SELECT * FROM chore_lists ORDER BY created_at, id').all<ListRow>(),
-    db.prepare('SELECT * FROM chore_items ORDER BY created_at, id').all<ItemRow>(),
+  const [routineRows, itemRows, checkRows, paidRows, bonusRows, rewards] = await Promise.all([
+    db.prepare('SELECT id, person FROM chore_lists ORDER BY created_at, id').all<RoutineRow>(),
+    db.prepare('SELECT id, list_id, title, points, period, days, once_date FROM chore_items ORDER BY created_at, id').all<ItemRow>(),
     db.prepare('SELECT item_id FROM chore_checks WHERE day = ?').bind(day).all<{ item_id: string }>(),
     db.prepare("SELECT ref FROM reward_ledger WHERE kind = 'bonus' AND ref LIKE ?").bind(`%:${day}`).all<{ ref: string }>(),
-    rewardState(db),
+    db.prepare('SELECT person, period, bonus FROM chore_bonus').all<{ person: string; period: Period; bonus: number }>(),
+    rewardState(db, day),
   ]);
-  const lists = listRows.results;
   const done = new Set(checkRows.results.map((r) => r.item_id));
-  const bonusPaid = new Set(bonusRows.results.map((r) => r.ref));
+  const paid = new Set(paidRows.results.map((r) => r.ref));
+  const bonusOf = new Map<string, Record<Period, number>>();
+  for (const b of bonusRows.results) {
+    const row = bonusOf.get(b.person) ?? periodRecord(0);
+    row[b.period] = b.bonus;
+    bonusOf.set(b.person, row);
+  }
   const itemsByList = new Map<string, ItemRow[]>();
   for (const i of itemRows.results) {
     const group = itemsByList.get(i.list_id);
     if (group) group.push(i); else itemsByList.set(i.list_id, [i]);
   }
-  const view: ChoreList[] = lists
-    .map((l) => ({
-      id: l.id, name: l.name, person: l.person, period: l.period, days: l.days, onceDate: l.once_date, bonus: l.bonus,
-      due: isDue({ days: l.days, onceDate: l.once_date }, day),
-      bonusEarned: bonusPaid.has(`${l.id}:${day}`),
-      items: (itemsByList.get(l.id) ?? []).map((i) => ({ id: i.id, title: i.title, points: i.points, done: done.has(i.id), days: i.days, due: itemDue({ days: l.days, onceDate: l.once_date }, i.days, day) })),
-    }))
-    .sort((a, b) => PERIOD_ORDER[a.period] - PERIOD_ORDER[b.period]); // stable, so creation order holds within a period
-  return { day, manager, lists: view, ...rewards };
+  const routines: Routine[] = routineRows.results.map((r) => {
+    return {
+      id: r.id, person: r.person,
+      bonuses: (r.person && bonusOf.get(r.person)) || periodRecord(0),
+      bonusEarned: Object.fromEntries(PERIODS.map((p) => [p, r.person !== null && paid.has(`${r.person}:${p}:${day}`)])) as Record<Period, boolean>,
+      items: (itemsByList.get(r.id) ?? []).map((i) => ({
+        id: i.id, title: i.title, points: i.points, done: done.has(i.id), period: i.period, days: i.days, onceDate: i.once_date,
+        due: itemDue({ days: i.days, onceDate: i.once_date }, day),
+      })),
+    };
+  });
+  return { day, manager, routines, ...rewards };
 }
 
-export interface ListInput {
-  name: string;
-  person: string | null;
-  period: Period;
-  days: number;
-  onceDate: string | null;
-  bonus: number;
-}
-
-/** Creates a list (with optional starting chores) or, given an id, updates its settings. */
-export async function saveList(
-  db: D1Database, input: ListInput, opts: { id?: string; items?: { title: string; points: number; days?: number | null | undefined }[] } = {}, now = Date.now(),
-): Promise<'ok' | 'limit' | 'not_found' | 'bad_request'> {
-  if (opts.id) {
-    const r = await db
-      .prepare('UPDATE chore_lists SET name = ?, person = ?, period = ?, days = ?, once_date = ?, bonus = ? WHERE id = ?')
-      .bind(input.name, input.person, input.period, input.days, input.onceDate, input.bonus, opts.id)
-      .run();
-    if ((r.meta.changes ?? 0) === 0) return 'not_found';
-    await refitItems(db, opts.id, input);
-    return 'ok';
-  }
-  if ((opts.items ?? []).some((i) => fitItemDays(input, i.days ?? null) === 'outside')) return 'bad_request';
-  const count = await db.prepare('SELECT COUNT(*) AS n FROM chore_lists').first<{ n: number }>();
-  if ((count?.n ?? 0) >= MAX_LISTS) return 'limit';
+/** The routine row for a person (or null for "Anyone"), created the first time they are given a chore. */
+async function routineFor(db: D1Database, person: string | null, now: number): Promise<string> {
+  const found = await db.prepare('SELECT id FROM chore_lists WHERE person IS ?').bind(person).first<{ id: string }>();
+  if (found) return found.id;
   const id = crypto.randomUUID();
-  await db
-    .prepare('INSERT INTO chore_lists (id, name, person, period, days, once_date, bonus, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(id, input.name, input.person, input.period, input.days, input.onceDate, input.bonus, now)
-    .run();
-  for (const [i, item] of (opts.items ?? []).slice(0, MAX_ITEMS_PER_LIST).entries()) await addItem(db, id, item.title, item.points, item.days ?? null, now + i);
-  return 'ok';
+  await db.prepare("INSERT INTO chore_lists (id, name, person, created_at) VALUES (?, '', ?, ?)").bind(id, person, now).run();
+  return id;
 }
 
-/** After a list's schedule changes, trims its chores' own weekdays to the days it still runs. Ones left with none follow the list. */
-async function refitItems(db: D1Database, listId: string, list: { days: number; onceDate: string | null }): Promise<void> {
-  const { results } = await db.prepare('SELECT id, days FROM chore_items WHERE list_id = ? AND days IS NOT NULL').bind(listId).all<{ id: string; days: number }>();
-  for (const i of results) {
-    const trimmed = list.onceDate !== null ? 0 : i.days & list.days;
-    const next = trimmed === 0 ? null : fitItemDays(list, trimmed);
-    if (next !== i.days) await db.prepare('UPDATE chore_items SET days = ? WHERE id = ?').bind(next, i.id).run();
-  }
+export interface ChoreInput {
+  title: string;
+  points: number;
+  period: Period;
+  /** Weekday bitmask, or null for every day. */
+  days: number | null;
+  /** A one-off date, which wins over `days`. */
+  onceDate: string | null;
 }
 
-export async function removeList(db: D1Database, id: string): Promise<boolean> {
-  const r = await db.prepare('DELETE FROM chore_lists WHERE id = ?').bind(id).run();
-  return (r.meta.changes ?? 0) > 0;
-}
+const validDays = (days: number | null) => days === null || (Number.isInteger(days) && days >= 1 && days <= 127);
 
-export async function addItem(db: D1Database, listId: string, title: string, points: number, days: number | null = null, now = Date.now()): Promise<'ok' | 'limit' | 'not_found' | 'bad_request'> {
-  const list = await db.prepare('SELECT days, once_date FROM chore_lists WHERE id = ?').bind(listId).first<{ days: number; once_date: string | null }>();
-  if (!list) return 'not_found';
-  const fit = fitItemDays({ days: list.days, onceDate: list.once_date }, days);
-  if (fit === 'outside') return 'bad_request';
+export async function addItem(db: D1Database, person: string | null, input: ChoreInput, now = Date.now()): Promise<'ok' | 'limit' | 'bad_request'> {
+  if (!validDays(input.days)) return 'bad_request';
+  const listId = await routineFor(db, person, now);
   const count = await db.prepare('SELECT COUNT(*) AS n FROM chore_items WHERE list_id = ?').bind(listId).first<{ n: number }>();
-  if ((count?.n ?? 0) >= MAX_ITEMS_PER_LIST) return 'limit';
-  await db.prepare('INSERT INTO chore_items (id, list_id, title, points, days, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(crypto.randomUUID(), listId, title, points, fit, now).run();
+  if ((count?.n ?? 0) >= MAX_ITEMS_PER_ROUTINE) return 'limit';
+  await db
+    .prepare('INSERT INTO chore_items (id, list_id, title, points, period, days, once_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(crypto.randomUUID(), listId, input.title, input.points, input.period, input.onceDate === null ? input.days : null, input.onceDate, now)
+    .run();
   return 'ok';
 }
 
-/** `days` of undefined leaves the chore's weekdays as they are; null makes it follow its list again. */
-export async function updateItem(db: D1Database, id: string, title: string, points: number, days?: number | null): Promise<'ok' | 'not_found' | 'bad_request'> {
-  let r;
-  if (days === undefined) r = await db.prepare('UPDATE chore_items SET title = ?, points = ? WHERE id = ?').bind(title, points, id).run();
-  else {
-    const list = await db.prepare('SELECT l.days, l.once_date FROM chore_items i JOIN chore_lists l ON l.id = i.list_id WHERE i.id = ?').bind(id).first<{ days: number; once_date: string | null }>();
-    if (!list) return 'not_found';
-    const fit = fitItemDays({ days: list.days, onceDate: list.once_date }, days);
-    if (fit === 'outside') return 'bad_request';
-    r = await db.prepare('UPDATE chore_items SET title = ?, points = ?, days = ? WHERE id = ?').bind(title, points, fit, id).run();
-  }
-  return (r.meta.changes ?? 0) > 0 ? 'ok' : 'not_found';
+/** Anything left out of `changes` stays as it is. Giving a date makes it a one-off; giving `onceDate: null` makes it repeat again. */
+export async function updateItem(db: D1Database, id: string, changes: Partial<ChoreInput>): Promise<'ok' | 'not_found' | 'bad_request'> {
+  const row = await db.prepare('SELECT title, points, period, days, once_date FROM chore_items WHERE id = ?').bind(id).first<{ title: string; points: number; period: Period; days: number | null; once_date: string | null }>();
+  if (!row) return 'not_found';
+  const next = { title: row.title, points: row.points, period: row.period, days: row.days, onceDate: row.once_date, ...changes };
+  if (!validDays(next.days)) return 'bad_request';
+  await db
+    .prepare('UPDATE chore_items SET title = ?, points = ?, period = ?, days = ?, once_date = ? WHERE id = ?')
+    .bind(next.title, next.points, next.period, next.onceDate === null ? next.days : null, next.onceDate, id)
+    .run();
+  return 'ok';
 }
 
 export async function removeItem(db: D1Database, id: string): Promise<boolean> {
@@ -119,18 +97,24 @@ export async function removeItem(db: D1Database, id: string): Promise<boolean> {
   return (r.meta.changes ?? 0) > 0;
 }
 
+/** Sets what a person earns for finishing every chore due in a time of day. Zero removes it. */
+export async function setBonus(db: D1Database, person: string, period: Period, bonus: number): Promise<void> {
+  if (bonus <= 0) await db.prepare('DELETE FROM chore_bonus WHERE person = ? AND period = ?').bind(person, period).run();
+  else await db.prepare('INSERT INTO chore_bonus (person, period, bonus) VALUES (?, ?, ?) ON CONFLICT (person, period) DO UPDATE SET bonus = excluded.bonus').bind(person, period, bonus).run();
+}
+
 /**
- * Ticks a chore off (or back on) for `day` and keeps the points in step: the chore's points go to the list's owner, plus
- * the list's bonus once everything in it is done. Un-ticking takes them back. Ticking twice is harmless, and a chore can
- * only be ticked on a day its list is scheduled, so points cannot be farmed from lists that are not due.
+ * Ticks a chore off (or back on) for `day` and keeps the points in step: the chore's points go to its owner, plus their bonus for
+ * that time of day once everything due in it is done. Un-ticking takes them back. Ticking twice is harmless, and a chore can only
+ * be ticked on a day it is scheduled, so points cannot be farmed from chores that are not due.
  */
 export async function setCheck(db: D1Database, id: string, day: string, done: boolean, now = Date.now()): Promise<'ok' | 'not_found' | 'not_due'> {
   const row = await db
-    .prepare('SELECT i.title, i.points, i.days AS item_days, l.id AS list_id, l.person, l.days, l.once_date, l.bonus FROM chore_items i JOIN chore_lists l ON l.id = i.list_id WHERE i.id = ?')
+    .prepare('SELECT i.title, i.points, i.period, i.days, i.once_date, l.person FROM chore_items i JOIN chore_lists l ON l.id = i.list_id WHERE i.id = ?')
     .bind(id)
-    .first<{ title: string; points: number; item_days: number | null; list_id: string; person: string | null; days: number; once_date: string | null; bonus: number }>();
+    .first<{ title: string; points: number; period: Period; days: number | null; once_date: string | null; person: string | null }>();
   if (!row) return 'not_found';
-  if (done && !itemDue({ days: row.days, onceDate: row.once_date }, row.item_days, day)) return 'not_due';
+  if (done && !itemDue({ days: row.days, onceDate: row.once_date }, day)) return 'not_due';
   const ref = `${id}:${day}`;
   if (done) {
     await db.prepare('INSERT INTO chore_checks (item_id, day, done_at) VALUES (?, ?, ?) ON CONFLICT (item_id, day) DO NOTHING').bind(id, day, now).run();
@@ -145,22 +129,27 @@ export async function setCheck(db: D1Database, id: string, day: string, done: bo
     await db.prepare('DELETE FROM chore_checks WHERE item_id = ? AND day = ?').bind(id, day).run();
     await db.prepare("DELETE FROM reward_ledger WHERE kind = 'chore' AND ref = ?").bind(ref).run();
   }
-  await syncBonus(db, row.list_id, row.person, row.bonus, row.once_date !== null, day, now);
+  await syncBonus(db, row.person, row.period, day, now);
   return 'ok';
 }
 
-/** Pays the list's completion bonus when every chore due that day is ticked for `day`, and takes it back if one is un-ticked. */
-async function syncBonus(db: D1Database, listId: string, person: string | null, bonus: number, once: boolean, day: string, now: number) {
-  if (!person || bonus <= 0) return;
+/** Pays a person's bonus for a time of day when every chore due then is ticked for `day`, and takes it back if one is un-ticked. */
+async function syncBonus(db: D1Database, person: string | null, period: Period, day: string, now: number) {
+  if (!person) return;
+  const set = await db.prepare('SELECT bonus FROM chore_bonus WHERE person = ? AND period = ?').bind(person, period).first<{ bonus: number }>();
+  if (!set) return;
+  const ref = `${person}:${period}:${day}`;
   const t = await db
-    .prepare('SELECT COUNT(*) AS total, COUNT(c.item_id) AS ticked FROM chore_items i LEFT JOIN chore_checks c ON c.item_id = i.id AND c.day = ? WHERE i.list_id = ? AND (i.days IS NULL OR ? = 1 OR ((i.days >> ?) & 1) = 1)')
-    .bind(day, listId, once ? 1 : 0, weekdayOf(day))
+    .prepare(`SELECT COUNT(*) AS total, COUNT(c.item_id) AS ticked
+      FROM chore_items i JOIN chore_lists l ON l.id = i.list_id LEFT JOIN chore_checks c ON c.item_id = i.id AND c.day = ?
+      WHERE l.person = ? AND i.period = ?
+        AND CASE WHEN i.once_date IS NOT NULL THEN i.once_date = ? ELSE (i.days IS NULL OR ((i.days >> ?) & 1) = 1) END`)
+    .bind(day, person, period, day, weekdayOf(day))
     .first<{ total: number; ticked: number }>();
-  const ref = `${listId}:${day}`;
   if (t && t.total > 0 && t.ticked === t.total) {
     await db
       .prepare("INSERT INTO reward_ledger (id, person, delta, kind, ref, note, at) VALUES (?, ?, ?, 'bonus', ?, 'All done', ?) ON CONFLICT (kind, ref) DO NOTHING")
-      .bind(crypto.randomUUID(), person, bonus, ref, now)
+      .bind(crypto.randomUUID(), person, set.bonus, ref, now)
       .run();
   } else {
     await db.prepare("DELETE FROM reward_ledger WHERE kind = 'bonus' AND ref = ?").bind(ref).run();

@@ -29,3 +29,7 @@ export async function postChores(payload: Record<string, unknown>): Promise<Sent
 export async function runChores(state: ChoreState, payload: Record<string, unknown>, demo: boolean): Promise<Sent> {
   return demo ? { ok: true, state: applyDemo(state, payload) } : postChores(payload);
 }
+
+/** What an input's `change` event holds: its number (0 when empty or not a number), or its trimmed text. */
+export const num = (e: Event): number => Number((e.currentTarget as HTMLInputElement).value) || 0;
+export const text = (e: Event): string => (e.currentTarget as HTMLInputElement).value.trim();

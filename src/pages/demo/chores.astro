@@ -1,12 +1,8 @@
 ---
-import DemoBack from '../../components/DemoBack.astro';
 import Base from '../../layouts/Base.astro';
 import Chores from '../../components/Chores.svelte';
 import { demoChores, demoPeople } from '../../demo/data';
 ---
 <Base title="Chores · Demo" wide demo feature="chores">
-  <DemoBack />
-  <h1>Chores</h1>
-  <p>Try ticking things off, asking for a reward or approving one. In the demo nothing is saved.</p>
-  <Chores client:load initial={demoChores()} people={demoPeople} manageHref="/demo/chores/manage" demo />
+  <Chores client:load initial={demoChores()} people={demoPeople} intro="Try ticking things off, asking for a reward or approving one. In the demo nothing is saved." manageHref="/demo/chores/manage" personBase="/demo/chores" demo />
 </Base>
