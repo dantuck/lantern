@@ -8,3 +8,5 @@ wrangler.jsonc
 dashboard.config.ts
 backups/
 .deployed.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
