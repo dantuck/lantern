@@ -80,15 +80,15 @@ const hasRail = demo || !!user;
     )}
     {hasRail ? (
       <>
-        <nav class="nav" aria-label={demo ? 'Demo' : 'Main'}>
-          <a class="brand" href={demo ? '/demo' : '/'} aria-label={demo ? 'Demo home' : 'Lantern home'}><img src="/favicon.svg" alt="" width="28" height="28" /></a>
-          {items.map((l) => <a href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}
-          <span class="spacer"></span>
-          {!demo && <button class="link" data-install-app type="button" hidden>Install app</button>}
-          <button class="link" type="button" popovertarget="display-menu" aria-label="Display options"><Icon name="sliders" /><span>Display</span></button>
+        <nav class="nav rail" aria-label={demo ? 'Demo' : 'Main'}>
+          <a class="flex items-center justify-center mb-3" href={demo ? '/demo' : '/'} aria-label={demo ? 'Demo home' : 'Lantern home'}><img class="block size-[2.4rem]" src="/favicon.svg" alt="" width="28" height="28" /></a>
+          {items.map((l) => <a class="rail-link" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}
+          <span class="flex-[1_0_1rem]"></span>
+          {!demo && <button class="rail-btn" data-install-app type="button" hidden>Install app</button>}
+          <button class="rail-btn" type="button" popovertarget="display-menu" aria-label="Display options"><Icon name="sliders" /><span>Display</span></button>
           {demo
-            ? <a class="plain-link" href={user ? '/' : '/welcome'}>{user ? 'Exit demo' : 'Back to site'}</a>
-            : <form method="post" action="/auth/logout"><button class="link" type="submit">Sign out</button></form>}
+            ? <a class="rail-act" href={user ? '/' : '/welcome'}>{user ? 'Exit demo' : 'Back to site'}</a>
+            : <form class="m-0 flex" method="post" action="/auth/logout"><button class="rail-btn" type="submit">Sign out</button></form>}
         </nav>
 
         <div id="display-menu" class="display-menu" popover>
@@ -102,18 +102,18 @@ const hasRail = demo || !!user;
         </div>
 
         <nav class="tabbar" aria-label={demo ? 'Demo' : 'Main'}>
-          {tabs.map((l) => <a href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}
-          <button class="tab" type="button" popovertarget="more" aria-label="More options" aria-current={moreCurrent ? 'page' : undefined}><Icon name="more" /><span>More</span></button>
+          {tabs.map((l) => <a class="tab-item" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}
+          <button class="tab-item" type="button" popovertarget="more" aria-label="More options" aria-current={moreCurrent ? 'page' : undefined}><Icon name="more" /><span>More</span></button>
         </nav>
-        <div id="more" class="sheet" popover>
-          {more.length > 0 && <div class="sheet-links">{more.map((l) => <a href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}</div>}
+        <div id="more" class="sheet sheet-pop" popover>
+          {more.length > 0 && <div class="sheet-links grid gap-[.15rem]">{more.map((l) => <a class="sheet-link" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}</div>}
           <div class="sheet-utils">
-            <div class="util"><ThemeToggle /><span>Theme</span></div>
-            <div class="util"><WallToggle /><span>Full screen</span></div>
-            {!demo && <button class="link" data-install-app type="button" hidden>Install app</button>}
+            <div class="util grid justify-items-center gap-[.15rem] text-[.7rem] font-semibold text-muted"><ThemeToggle /><span>Theme</span></div>
+            <div class="util grid justify-items-center gap-[.15rem] text-[.7rem] font-semibold text-muted"><WallToggle /><span>Full screen</span></div>
+            {!demo && <button class="sheet-act" data-install-app type="button" hidden>Install app</button>}
             {demo
-              ? <a class="plain-link" href={user ? '/' : '/welcome'}>{user ? 'Exit demo' : 'Back to site'}</a>
-              : <form method="post" action="/auth/logout"><button class="link" type="submit">Sign out</button></form>}
+              ? <a class="sheet-act ml-auto" href={user ? '/' : '/welcome'}>{user ? 'Exit demo' : 'Back to site'}</a>
+              : <form class="[margin:0_0_0_auto] flex" method="post" action="/auth/logout"><button class="sheet-act" type="submit">Sign out</button></form>}
           </div>
         </div>
       </>
