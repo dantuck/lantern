@@ -19,12 +19,16 @@
   const AGENDA_DAYS = 14;
   const VIEW_KEY = 'calendar-view';
 
+  // svelte-ignore state_referenced_locally
   const todayKey = dayKey(nowMs, timeZone);
+  // svelte-ignore state_referenced_locally
   const firstKey = dayKey(windowStart, timeZone);
+  // svelte-ignore state_referenced_locally
   const lastKey = dayKey(windowEnd, timeZone);
 
   let view = $state<View>('week');
   let cursor = $state(todayKey); // the focused day: selected in month view, anchors every other view
+  // svelte-ignore state_referenced_locally
   let now = $state(nowMs);
 
   // Remember the last view; phones start on the agenda, which reads best on a narrow screen.

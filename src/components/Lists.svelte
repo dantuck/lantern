@@ -3,6 +3,7 @@
 
   let { initial, demo = false }: { initial: HList[]; demo?: boolean } = $props();
 
+  // svelte-ignore state_referenced_locally
   let lists = $state<HList[]>(initial);
   let error = $state('');
   let busy = $state(false);

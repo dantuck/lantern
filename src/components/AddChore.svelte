@@ -9,6 +9,7 @@
   let points = $state(1);
   let period = $state<Period>('any');
   let when = $state<When>('every');
+  // svelte-ignore state_referenced_locally
   let date = $state(day);
 
   const DAYS = { every: null, weekdays: WEEKDAYS_MASK, weekends: WEEKENDS_MASK }; // a null mask is every day
