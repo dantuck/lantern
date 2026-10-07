@@ -251,7 +251,7 @@
 <style>
   /* Masonry: columns of different heights pack together instead of leaving gaps under the short ones. */
   .cols { column-width: 17rem; column-gap: 1.25rem; margin-bottom: 1.5rem; }
-  .col { break-inside: avoid; margin-bottom: 1.25rem; background: var(--card); border: 1px solid var(--border); border-top: 6px solid var(--c); border-radius: var(--radius); padding: 1.1rem 1.1rem 1.25rem; box-shadow: var(--shadow-sm); }
+  .col { break-inside: avoid; margin-bottom: 1.25rem; background: color-mix(in srgb, var(--c) 8%, var(--card)); border: 1px dashed color-mix(in srgb, var(--c) 65%, transparent); border-radius: var(--radius); padding: 1.1rem 1.1rem 1.25rem; box-shadow: var(--shadow-sm); }
   .col header { display: flex; align-items: center; gap: .7rem; }
   .who { display: inline-flex; align-items: center; gap: .15rem; color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--c) 55%, transparent); text-decoration-thickness: 2px; text-underline-offset: .22em; border-radius: .35rem; }
   .who .go { width: 1.1rem; height: 1.1rem; flex: none; fill: none; stroke: var(--c); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s ease; }
@@ -314,9 +314,9 @@
   .seg button:hover { color: var(--fg); filter: none; }
   .seg button[aria-pressed="true"] { background: var(--card); color: var(--accent); box-shadow: var(--shadow-sm); }
   .people { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
-  .person { display: inline-flex; align-items: center; gap: .4rem; width: auto; margin: 0; padding: .15rem; border-radius: 999px; font-size: .85rem; font-weight: 600; color: var(--fg); background: color-mix(in srgb, var(--c) 14%, var(--card)); border: 2px solid transparent; box-shadow: none; }
+  .person { display: inline-flex; align-items: center; gap: .4rem; width: auto; margin: 0; padding: .15rem; border-radius: 999px; font-size: .85rem; font-weight: 600; color: var(--fg); background: color-mix(in srgb, var(--c) 14%, var(--card)); border: 1px dashed color-mix(in srgb, var(--c) 65%, transparent); box-shadow: none; }
   .person:hover { filter: none; background: color-mix(in srgb, var(--c) 24%, var(--card)); }
-  .person[aria-pressed="true"] { border-color: var(--c); padding-right: .7rem; }
+  .person[aria-pressed="true"] { border-style: solid; border-color: var(--c); background: color-mix(in srgb, var(--c) 26%, var(--card)); padding-right: .7rem; }
   .person.dim { opacity: .5; }
   .person.clear { width: 1.9rem; height: 1.9rem; justify-content: center; padding: 0; font-size: 1.1rem; line-height: 1; background: transparent; color: var(--muted); border: 1px dashed var(--border); }
   .person .avatar { width: 1.6rem; height: 1.6rem; font-size: .78rem; }
