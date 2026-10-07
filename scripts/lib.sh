@@ -16,7 +16,10 @@ get() { curl -s -H "Cookie: __Host-session=$1" "$B$2"; }
 # Fresh local D1 plus a dev server; both are cleaned up when the script exits.
 start_dev() {
   rm -rf .wrangler/state; npx wrangler d1 migrations apply lantern --local >/dev/null 2>&1
-  npx astro dev --port 4321 >/dev/null 2>&1; sleep 6
+  # --background is explicit: without it Astro only detaches when it detects an AI agent, so on a plain CI runner
+  # this call would run in the foreground and never return.
+  npx astro dev --background --port 4321 >/dev/null 2>&1
+  for _ in $(seq 1 60); do curl -s -m 2 -o /dev/null $B/login && break; sleep 1; done
   trap 'npx astro dev stop >/dev/null 2>&1; rm -rf "$T"' EXIT
 }
 
