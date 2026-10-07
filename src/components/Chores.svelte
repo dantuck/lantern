@@ -217,7 +217,7 @@
       {#if col.person && (rewardsFor(col.person.id).length > 0 || pendingFor(col.person.id).length > 0)}
         {@const who = col.person}
         <details class="shop">
-          <summary>Rewards{#if pendingFor(who.id).length > 0} <span class="badge">{pendingFor(who.id).length}</span>{/if}</summary>
+          <summary>Rewards{#if pendingFor(who.id).length > 0}<span class="badge">{pendingFor(who.id).length}</span>{/if}</summary>
           {#each pendingFor(who.id) as r (r.id)}
             <div class="ask">
               <span class="label">{r.rewardName} <span class="muted">({pts(r.cost)}{r.minutes > 0 ? `, ${mins(r.minutes)}` : ''}), waiting</span></span>
@@ -284,7 +284,8 @@
   .tick svg { width: 1.4rem; height: 1.4rem; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
   .shop { margin-top: 1.1rem; border-top: 1px solid var(--border); padding-top: .75rem; }
   .shop summary { cursor: pointer; font-weight: 650; }
-  .badge { display: inline-block; min-width: 1.3rem; padding: 0 .4rem; border-radius: 999px; background: var(--c); color: #fff; font-size: .8rem; text-align: center; }
+  .shop summary .badge { margin-left: .5rem; }
+  .badge { display: inline-grid; place-items: center; min-width: 1.4rem; height: 1.4rem; padding: 0 .4rem; box-sizing: border-box; line-height: 1; border-radius: 999px; background: var(--c); color: #fff; font-size: .8rem; text-align: center; }
   .ask { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; padding: .5rem 0; }
   .small { width: auto; margin: 0; padding: .3rem .8rem; font-size: .85rem; }
   @media (pointer: coarse) { .small, .seg button, .person { min-height: 2.75rem; } .shop summary { display: flex; align-items: center; min-height: 2.75rem; } }
