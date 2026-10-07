@@ -146,8 +146,16 @@ if (DRY) {
   dry(`export "${dbName}" to ${backupPath}`);
 } else {
   mkdirSync(BACKUPS, { recursive: true, mode: 0o700 });
-  const ex = wr(['d1', 'export', dbName, '--remote', '--output', backupPath]);
-  if (ex.status !== 0 || !existsSync(backupPath) || statSync(backupPath).size === 0) die('the backup failed or is empty; nothing was changed.');
+  // stdin and stdout stay attached so Wrangler's confirmation prompt works; stderr is captured so it can be shown again in the failure message.
+  const ex = spawnSync('npx', ['wrangler', 'd1', 'export', dbName, '--remote', '--output', backupPath], {
+    cwd: ROOT, encoding: 'utf8', env: { ...process.env, ...PRIVACY_ENV, CLOUDFLARE_ACCOUNT_ID: account },
+    stdio: ['inherit', 'inherit', 'pipe'],
+  });
+  if (ex.stderr) process.stderr.write(ex.stderr);
+  if (ex.status !== 0 || !existsSync(backupPath) || statSync(backupPath).size === 0) {
+    const why = ex.error ? `\n${ex.error.message}` : ex.stderr?.trim() ? `\nWrangler said:\n${ex.stderr.trim()}` : '\nWrangler printed no error.';
+    die(`the backup failed or is empty (exit ${ex.status ?? ex.signal}); nothing was changed.${why}`);
+  }
   chmodSync(backupPath, 0o600);
   console.log(`  Saved ${backupPath} (contains member emails and the audit log; keep it private).`);
 }
