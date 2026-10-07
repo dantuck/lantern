@@ -39,7 +39,7 @@ check "demote kid back (kid is last manager now: blocked)" "$(post "$K" -d "acti
 echo "devices"
 K2=$(login kid@example.com)
 check "second kid device signs in" "$([ -n "$K2" ] && echo y)" y
-check "kid sees two devices" "$(get "$K2" /devices | grep -o 'Sign out</button>' | wc -l | tr -d ' ')" 3 # 2 devices + nav
+check "kid sees two devices" "$(get "$K2" /devices | grep -o 'name="action" value="revoke"' | wc -l | tr -d ' ')" 2 # one revoke form per device
 check "sign out others keeps current" "$(post "$K2" -d 'action=revoke_others' $B/devices/action)" "303 $B/devices?msg=others_revoked"
 check "old device is dead" "$(code -H "Cookie: __Host-session=$K" $B/devices)" 302
 check "current device alive" "$(code -H "Cookie: __Host-session=$K2" $B/devices)" 200
