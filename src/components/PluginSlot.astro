@@ -17,7 +17,7 @@ const result = await loadPluginData(plugin, { env: env as unknown as Record<stri
 const id = plugin.def.id;
 const View = (view === 'page' ? pages[`../plugins/${id}/Page.astro`] : undefined)?.default ?? widgets[`../plugins/${id}/Widget.astro`]?.default;
 ---
-<PluginCard id={id} name={plugin.def.name} icon={plugin.def.icon} span={plugin.span} href={view === 'card' ? `/p/${id}` : undefined}>
+<PluginCard id={id} name={plugin.def.name} icon={plugin.def.icon} span={plugin.span} href={view === 'card' ? `/p/${id}` : undefined} view={view}>
   {(result.status === 'ok' || result.status === 'stale') && View ? (
     <>
       {result.status === 'stale' && (

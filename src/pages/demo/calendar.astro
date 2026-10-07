@@ -1,13 +1,11 @@
 ---
-import DemoBack from '../../components/DemoBack.astro';
 import Base from '../../layouts/Base.astro';
 import PluginCard from '../../components/PluginCard.astro';
 import CalendarPage from '../../plugins/calendar/Page.astro';
 import { demoCalendar, demoCalendarConfig, demoPeople } from '../../demo/data';
 ---
 <Base title="Calendar · Demo" wide full demo feature="calendar">
-  <DemoBack />
-  <PluginCard id="calendar" name="Calendar" icon="calendar">
+  <PluginCard id="calendar" name="Calendar" icon="calendar" view="page">
     <CalendarPage data={demoCalendar()} config={demoCalendarConfig} people={demoPeople} />
   </PluginCard>
 </Base>

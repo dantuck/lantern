@@ -1,6 +1,5 @@
 ---
 import Base from '../../layouts/Base.astro';
-import Icon from '../../components/Icon.astro';
 import PluginSlot from '../../components/PluginSlot.astro';
 import { getEnabledPlugin } from '../../plugins/registry';
 import { isOn } from '../../lib/features';
@@ -9,6 +8,5 @@ const plugin = getEnabledPlugin(Astro.params.id ?? '');
 if (!plugin || !isOn(Astro.locals.disabled, plugin.def.id)) return new Response('Not found', { status: 404 });
 ---
 <Base title={plugin.def.name} wide>
-  <p><a class="back" href="/"><Icon name="arrow-left" /> Dashboard</a></p>
   <PluginSlot plugin={plugin} view="page" />
 </Base>

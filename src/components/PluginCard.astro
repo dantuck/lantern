@@ -1,13 +1,16 @@
 ---
 import Icon from './Icon.astro';
 // Presentational shell shared by the live dashboard (PluginSlot) and the demo pages.
-interface Props { id: string; name: string; icon: string; span?: number; href?: string | undefined }
-const { id, name, icon, span = 1, href } = Astro.props;
+// A 'page' view fills the page, so the heading and "Open" link go; the nav already says where you are.
+interface Props { id: string; name: string; icon: string; span?: number; href?: string | undefined; view?: 'card' | 'page' }
+const { id, name, icon, span = 1, href, view = 'card' } = Astro.props;
 ---
-<section class={`card plugin ${span === 2 ? 'span-2' : ''}`} data-plugin={id}>
-  <header class="plugin-head">
-    <h2><Icon name={icon} /> {name}</h2>
-    {href && <a href={href} class="muted">Open</a>}
-  </header>
+<section class={`card plugin ${span === 2 ? 'span-2' : ''}`} data-plugin={id} aria-label={view === 'page' ? name : undefined}>
+  {view === 'card' && (
+    <header class="plugin-head">
+      <h2><Icon name={icon} /> {name}</h2>
+      {href && <a href={href} class="muted">Open</a>}
+    </header>
+  )}
   <slot />
 </section>
