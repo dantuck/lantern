@@ -8,6 +8,7 @@ Sign-in is by emailed magic link only; **managers** invite everyone else. Widget
 - **New here?** [`docs/setup-guide.md`](docs/setup-guide.md) walks through everything, step by step. [`docs/you-are-the-host.md`](docs/you-are-the-host.md) explains what you are now responsible for.
 - What it talks to, what is stored, and what telemetry exists (none): [`SECURITY.md`](SECURITY.md). Who it defends against, and what it does not: [`docs/threat-model.md`](docs/threat-model.md).
 - Licensed under [Apache-2.0](LICENSE) (see [`NOTICE`](NOTICE)). Privacy policy: [`PRIVACY.md`](PRIVACY.md).
+- Releases are signed git tags. The signing key is in [`allowed_signers`](allowed_signers) (`code@dantuck.com`, fingerprint `SHA256:hahocRRuJTKXrhPj6C7h/nYw53IGhtxo7esAhHiyTPE`). To verify one: `git config gpg.ssh.allowedSignersFile allowed_signers && git tag -v v0.1.0`.
 - Writing a plugin: [`src/plugins/README.md`](src/plugins/README.md). MealQ API requirements: [`docs/mealq-api-contract.md`](docs/mealq-api-contract.md).
 
 ## Develop locally
