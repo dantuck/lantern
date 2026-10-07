@@ -7,11 +7,20 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**.
 
 ## [Unreleased]
+
+## [0.1.0] - 2026-10-06
 ### Action required
+- **Renamed to Lantern.** The Worker, the D1 database and the npm package are now called `lantern` (they were `family-dashboard`). A fresh install needs nothing. An existing install keeps working under its old names: leave `name` and `database_name` in your `wrangler.jsonc` as they are (a D1 database cannot be renamed), and run migrations with `npm run update`, which reads the database name from that file. `npm run db:migrate:remote` assumes the name `lantern`. To move to the new names, export the database, create one called `lantern`, import the export, deploy, and delete the old Worker and database.
 - Chores, lists, rewards and the new on/off switches need new database migrations (`0003_chores_lists.sql`, `0004_features.sql`, `0005_chore_routines.sql`, `0006_reward_scope.sql`): run `npm run update` (or `npm run db:migrate:remote`). Until you do, the dashboard's Chores and Lists cards say they could not load, and the on/off switches have no effect; everything else works.
 - Optional: add `people` (and `weather` for the calendar) to your `dashboard.config.ts`; see the README. Without `people` the calendar looks as before, in one colour.
+- Existing installs keep their own `wrangler.jsonc`. To match the new defaults, set `"observability": { "enabled": false }`, `"send_metrics": false` and `"dependencies_instrumentation": { "enabled": false }` (see `wrangler.template.jsonc`), then deploy. Skip `observability` if you want to keep your logs.
+- Existing installs: if you set a `MEALQ_HOUSEHOLD_ID` secret, you can delete it (`npx wrangler secret delete MEALQ_HOUSEHOLD_ID`).
 
 ### Added
+- `npm run setup`: guided first-time deploy on your own Cloudflare account (`--dry-run` to preview).
+- `npm run update`: backs up the database, applies new migrations, and deploys, showing what changed.
+- Local settings live in untracked `wrangler.jsonc` and `dashboard.config.ts`, created from templates, so updates never conflict with them.
+- MealQ widget reads the household from the access token; no household id secret is needed.
 - **Sign in with a code from another device.** The sign-in email now also contains an 8-digit code. Read the email on your phone, then type the code into the sign-in page in the browser where you asked for it (the link only works in that same browser). The code expires in 10 minutes, works once, and is burned after 5 wrong guesses. It needs the new `0009_login_code.sql` migration: run `npm run update`.
 - **Turn widgets and features on or off.** Managers get a *Widgets and features* section in Admin to hide any widget from `dashboard.config.ts`, or the built-in Chores and Lists, for everyone. Hidden things disappear from the dashboard, the side bar and their pages and APIs; their data is kept. Each change is recorded in the activity log. Everything starts on. The demo's admin page has the same switches (remembered in the visitor's browser only), so the effect can be tried without signing in.
 - **People and colours.** List your household under `people` in `dashboard.config.ts`. Calendar events take the colour of whoever their title names, with filter chips to show one person's day, and the dashboard widget tints events the same way.
@@ -42,16 +51,3 @@ just before the new code is deployed). A release that needs manual action says s
 - Setup suggests `login@<your hostname>` as the sender instead of guessing a parent domain (which came out wrong for domains like `example.co.uk`), and keeps your configured sender on a re-run.
 - Setup now requires Node 22.12 or newer, as Astro does (it wrongly accepted 20 before); `package.json` declares it in `engines`.
 - New installs have request logging (`observability`) **off**, plus `send_metrics` and dependency reporting off, in `wrangler.jsonc`.
-
-### Action required
-- Existing installs keep their own `wrangler.jsonc`. To match the new defaults, set `"observability": { "enabled": false }`, `"send_metrics": false` and `"dependencies_instrumentation": { "enabled": false }` (see `wrangler.template.jsonc`), then deploy. Skip `observability` if you want to keep your logs.
-
-## [0.1.0] - 2026-10-06
-### Added
-- `npm run setup`: guided first-time deploy on your own Cloudflare account (`--dry-run` to preview).
-- `npm run update`: backs up the database, applies new migrations, and deploys, showing what changed.
-- Local settings live in untracked `wrangler.jsonc` and `dashboard.config.ts`, created from templates, so updates never conflict with them.
-- MealQ widget reads the household from the access token; no household id secret is needed.
-
-### Action required
-- Existing installs: if you set a `MEALQ_HOUSEHOLD_ID` secret, you can delete it (`npx wrangler secret delete MEALQ_HOUSEHOLD_ID`).
