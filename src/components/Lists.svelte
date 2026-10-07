@@ -81,7 +81,7 @@
       <ul class="list-none m-0 p-0">
         {#each [...open, ...done] as i (i.id)}
           <li class="flex items-center gap-[.8rem] py-[.45rem] [li+&]:[border-top:1px_solid_var(--border)]">
-            <button type="button" class="tick size-11 [&_svg]:size-[1.3rem]" aria-pressed={i.done} aria-label={`${i.text}${i.done ? ', done' : ''}`} disabled={busy} onclick={() => send({ action: 'done', id: i.id, done: !i.done })}>
+            <button type="button" class="tick size-11 [--tick-fg:var(--accent-fg)] [&_svg]:size-[1.3rem]" aria-pressed={i.done} aria-label={`${i.text}${i.done ? ', done' : ''}`} disabled={busy} onclick={() => send({ action: 'done', id: i.id, done: !i.done })}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
             </button>
             <span class="flex-1 min-w-0 [overflow-wrap:anywhere] text-[1.05rem] font-medium {i.done ? 'text-muted line-through' : ''}">{i.text}</span>
@@ -97,8 +97,8 @@
         <button class="w-auto m-0 py-[.7rem] px-[1.1rem]" type="submit" disabled={busy || !(drafts[l.id] ?? '').trim()}>Add</button>
       </form>
       <footer class="flex flex-wrap gap-2 justify-end mt-[.85rem]">
-        {#if done.length > 0}<button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'clear_done', listId: l.id })}>Clear {done.length} done</button>{/if}
-        <button type="button" class="ghost small [&&]:text-danger" disabled={busy} onclick={() => removeList(l.id)} onblur={() => confirming === l.id && (confirming = null)}>
+        {#if done.length > 0}<button type="button" class="ghost small [&&&]:py-[.35rem] [&&&]:px-[.85rem] pointer-coarse:[&&&]:px-4" disabled={busy} onclick={() => send({ action: 'clear_done', listId: l.id })}>Clear {done.length} done</button>{/if}
+        <button type="button" class="ghost small [&&]:text-danger [&&&]:py-[.35rem] [&&&]:px-[.85rem] pointer-coarse:[&&&]:px-4" disabled={busy} onclick={() => removeList(l.id)} onblur={() => confirming === l.id && (confirming = null)}>
           {confirming === l.id ? 'Really delete?' : 'Delete list'}
         </button>
       </footer>
