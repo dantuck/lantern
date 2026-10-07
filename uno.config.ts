@@ -29,6 +29,14 @@ export default defineConfig({
     'sheet-link': 'flex items-center gap-[.9rem] min-h-13 px-[.9rem] rounded-[14px] text-fg font-semibold no-underline [&:not([aria-current]):hover]:bg-card2 [&[aria-current]]:text-accent [&[aria-current]]:bg-accent-soft [&_.icon:not(.icon-img)]:size-[1.4rem] [&_.icon-img]:size-[1.5rem]',
     'sheet-utils': 'flex flex-wrap items-center gap-x-3 gap-y-2 pt-[.6rem] px-2 pb-[.2rem] [&_.theme]:border [&_.theme]:border-solid [&_.theme]:border-line [.sheet-links+&]:mt-2 [.sheet-links+&]:[border-top:1px_solid_var(--border)]',
     'sheet-act': 'inline-flex items-center min-h-11 py-[.4rem] px-[.9rem] border border-solid border-line rounded-[12px] bg-transparent shadow-none text-fg text-[.9rem] font-semibold no-underline [button&]:m-0 [button&]:w-auto [&[hidden]]:hidden',
+    // Compact button (row actions) and bare field inside a flex form. `&&` outranks `.row button`, as the old scoped `.small` did.
+    small: '[&&]:w-auto [&&]:m-0 [&&]:py-[.3rem] [&&]:px-[.8rem] [&&]:text-[.85rem] pointer-coarse:min-h-11',
+    field: 'm-0 w-auto',
+    // Weekday toggle in the chore editor.
+    'day-chip': '[&&]:w-auto [&&]:m-0 py-[.3rem] px-[.65rem] rounded-full bg-transparent text-inherit border-[1.5px] border-solid border-line shadow-none text-[.85rem] pointer-coarse:min-h-11 [&[aria-pressed=true]]:bg-accent [&[aria-pressed=true]]:border-accent [&[aria-pressed=true]]:text-white [&:disabled:not([aria-pressed=true])]:opacity-35 [&:disabled:not([aria-pressed=true])]:line-through',
+    // Round check button. Colour comes from --c (a person's colour) and falls back to the accent; size is set where it is used.
+    tick: 'grid place-items-center flex-none m-0 p-0 rounded-full bg-transparent border-[2.5px] border-solid border-[var(--c,var(--accent))] shadow-none text-transparent [&:hover:not(:disabled)]:bg-[color-mix(in_srgb,var(--c,var(--accent))_14%,transparent)] [&:hover:not(:disabled)]:filter-none [&[aria-pressed=true]]:bg-[var(--c,var(--accent))] [&[aria-pressed=true]]:text-white [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:3] [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]',
+    'icon-btn': 'grid place-items-center flex-none size-11 m-0 p-0 rounded-full bg-transparent text-muted border-0 shadow-none [&:hover:not(:disabled)]:bg-card2 [&:hover:not(:disabled)]:text-fg [&:hover:not(:disabled)]:filter-none [&_svg]:size-[1.1rem] [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:2] [&_svg]:[stroke-linecap:round]',
     // Form row: fields grow from 12rem, buttons size to their label.
     row: 'flex flex-wrap gap-3 items-end [&>div]:flex-[1_1_12rem] [&>div]:min-w-0 [&>.role]:flex-[0_1_12rem] [&_button]:w-auto [&_button]:m-0 [&_button]:py-[.7rem] [&_button]:px-5',
   },
