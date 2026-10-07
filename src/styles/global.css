@@ -150,21 +150,21 @@ td .actions { display: flex; gap: .4rem; justify-content: flex-end; flex-wrap: w
 .stack-top { margin-top: 1rem; }
 
 /* Dashboard grid ----------------------------------------------------------- */
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr)); gap: 1.25rem; align-items: start; }
-.grid .card { margin: 0; }
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr)); gap: 1.25rem; align-items: start; }
+.dash-grid .card { margin: 0; }
 /* Columns follow the dashboard's own width (.dash is a size container), so the side rail's 6rem is already accounted for:
    1 column on phones, 2 on portrait tablets, 3 on landscape tablets. Wide widgets only span once there is a second column. */
 .dash { container-type: inline-size; }
 .span-2 { grid-column: auto; }
-.grid { grid-auto-flow: dense; }
+.dash-grid { grid-auto-flow: dense; }
 /* The meal plan is far taller than its neighbours: it spans two rows but contributes no height to them (height: 0, min-height: 100% of its area),
    so it stretches to match the cards beside it and scrolls inside instead of opening a gap under them. */
 @container (min-width: 36rem) {
-  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(9rem, auto); }
+  .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(9rem, auto); }
   .span-2 { grid-column: span 2; }
-  .grid > [data-plugin="mealq"] { grid-row: span 2; height: 0; min-height: 100%; overflow-y: auto; }
+  .dash-grid > [data-plugin="mealq"] { grid-row: span 2; height: 0; min-height: 100%; overflow-y: auto; }
 }
-@container (min-width: 52rem) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container (min-width: 52rem) { .dash-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (min-width: 64rem) { main.wide { max-width: 80rem; } }
 /* Tablets and other touch screens: a little larger type for arm's-length reading, and roomier summaries. */
 @media (min-width: 48rem) and (max-width: 89.99rem) and (pointer: coarse) {
@@ -173,11 +173,11 @@ td .actions { display: flex; gap: .4rem; justify-content: flex-end; flex-wrap: w
   .mini-bar { height: .7rem; }
   .meal-days { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
   /* A long card (the meal plan) would leave a hole beside shorter ones; let it scroll inside itself. */
-  .grid > .card { max-height: 42rem; overflow-y: auto; overscroll-behavior: contain; }
+  .dash-grid > .card { max-height: 42rem; overflow-y: auto; overscroll-behavior: contain; }
 }
 /* Touch scrollbars are hidden, so a card that scrolls inside itself shows a soft shadow on any edge with more content beyond it. */
 @media (min-width: 48rem) and (pointer: coarse) {
-  .grid > .card {
+  .dash-grid > .card {
     background-image:
       linear-gradient(var(--card) 30%, transparent), linear-gradient(transparent, var(--card) 70%),
       radial-gradient(farthest-side at 50% 0, rgba(0,0,0,.18), transparent), radial-gradient(farthest-side at 50% 100%, rgba(0,0,0,.18), transparent);
@@ -192,10 +192,10 @@ td .actions { display: flex; gap: .4rem; justify-content: flex-end; flex-wrap: w
    outgrows its slot scrolls inside itself. */
 @media (min-width: 64rem) and (orientation: landscape) and (pointer: coarse) {
   main.wide > h1 { margin-bottom: .75rem; }
-  .grid { grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); height: calc(100dvh - 8rem); align-items: stretch; }
-  .grid > .card { max-height: none; overflow-y: auto; overscroll-behavior: contain; padding: 1.1rem; }
-  .grid > .span-2 { grid-column: 1; grid-row: span 2; }
-  .grid > [data-plugin="mealq"] { grid-row: span 2; }
+  .dash-grid { grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); height: calc(100dvh - 8rem); align-items: stretch; }
+  .dash-grid > .card { max-height: none; overflow-y: auto; overscroll-behavior: contain; padding: 1.1rem; }
+  .dash-grid > .span-2 { grid-column: 1; grid-row: span 2; }
+  .dash-grid > [data-plugin="mealq"] { grid-row: span 2; }
   .mini li { grid-template-columns: 4.25rem 1fr auto; gap: .6rem; }
 }
 .plugin-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
