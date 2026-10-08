@@ -32,6 +32,40 @@
 
   const send = pipe.send;
 
+  let menu = $state<HTMLElement>();
+  let picked = $state<number | null>(null); // minutes awaiting confirmation
+  const fromAllowance = $derived(Math.min(picked ?? 0, allowance ? left : 0));
+  let used = $state(false); // spent: the thank-you shows for a moment before the menu closes
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
+  async function confirmUse() {
+    if (picked === null) return;
+    const m = picked;
+    if (!(await send({ action: 'use_time', person: who, minutes: m }))) return;
+    used = true;
+    closeTimer = setTimeout(() => menu?.hidePopover(), 1800);
+  }
+  $effect(() => () => clearTimeout(closeTimer));
+  /** Every way of closing the menu lands here: forget the pending step so it reopens fresh. */
+  function menuToggled(e: Event) {
+    if ((e as ToggleEvent).newState !== 'closed') return;
+    clearTimeout(closeTimer);
+    picked = null;
+    used = false;
+  }
+
+  // Spending screen time: a popover (like the Display menu) of 5 minute blocks, plus the exact remainder when it is not a multiple of 5.
+  const useOptions = $derived.by(() => {
+    const opts: number[] = [];
+    for (let m = 5; m <= minutes; m += 5) opts.push(m);
+    if (minutes % 5 !== 0 || opts.length === 0) opts.push(minutes);
+    return opts;
+  });
+  let slot = $state(2); // slider position, an index into useOptions
+  const slotAt = $derived(Math.min(slot, useOptions.length - 1));
+  const chosen = $derived(useOptions[slotAt] ?? 0);
+  const slotPct = $derived(useOptions.length > 1 ? (slotAt / (useOptions.length - 1)) * 100 : 100);
+  const afterPct = $derived(minutes && picked !== null ? ((minutes - picked) / minutes) * 100 : 0);
+
   // --- Manager tools for this person ---
   let editing = $state(false);
   let allowDaily = $state(0);
@@ -54,6 +88,8 @@
     if (await send({ action: 'adjust_time', person: who, delta: timeDelta, note: note.trim() })) note = '';
   }
 
+  // Stat tiles shrink to pills on phones (screen time keeps its own row).
+  const pill = 'max-[34rem]:flex max-[34rem]:items-center max-[34rem]:min-w-0 max-[34rem]:gap-[.2rem] max-[34rem]:py-[.25rem] max-[34rem]:px-[.65rem] max-[34rem]:rounded-full';
   const initialOf = (p: Person) => [...p.name][0]!.toUpperCase();
 </script>
 
@@ -72,28 +108,60 @@
 
   {#if error}<p class="notice error sticky top-2 z-30" role="alert">{error}</p>{/if}
 
-  <header class="flex flex-wrap items-center gap-x-5 gap-y-3 mb-5 py-[1.1rem] px-5 border border-solid border-[color-mix(in_srgb,var(--c)_35%,var(--border))] rounded-[var(--radius)] shadow-[var(--shadow-sm)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--c)_24%,var(--card)),color-mix(in_srgb,var(--c)_7%,var(--card)))]">
-    <span class="avatar size-16 text-[1.7rem] shadow-[0_0_0_4px_color-mix(in_srgb,var(--c)_30%,var(--card))]" aria-hidden="true">{initialOf(me)}</span>
-    <h1 class="m-0 text-[2rem] flex-[1_1_8rem]">{me.name}</h1>
-    <div class="flex flex-wrap gap-3">
-      <div class="stat"><span class="stat-n"><span aria-hidden="true">★</span> {points}</span><span class="text-muted text-[.9rem]">points</span></div>
-      <div class="stat">
-        <span class="stat-n"><span aria-hidden="true">⏱</span> {minutes}</span><span class="text-muted text-[.9rem]">{allowance ? `min: ${left} left today + ${banked} banked` : 'min screen time'}</span>
+  <header class="flex flex-wrap items-center gap-x-5 gap-y-3 mb-5 py-[1.1rem] px-5 border border-solid border-[color-mix(in_srgb,var(--c)_35%,var(--border))] rounded-[var(--radius)] shadow-[var(--shadow-sm)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--c)_24%,var(--card)),color-mix(in_srgb,var(--c)_7%,var(--card)))] max-[34rem]:gap-x-2 max-[34rem]:gap-y-2 max-[34rem]:mb-3 max-[34rem]:p-3">
+    <span class="avatar size-16 text-[1.7rem] shadow-[0_0_0_4px_color-mix(in_srgb,var(--c)_30%,var(--card))] max-[34rem]:size-10 max-[34rem]:text-[1.1rem] max-[34rem]:shadow-none" aria-hidden="true">{initialOf(me)}</span>
+    <h1 class="m-0 text-[2rem] flex-[1_1_8rem] max-[34rem]:text-[1.5rem] max-[34rem]:basis-0 max-[34rem]:min-w-0">{me.name}</h1>
+    <!-- On phones the wrapper dissolves: points and chores become pills beside the name, screen time a slim full-width row. -->
+    <div class="flex flex-wrap gap-3 max-[34rem]:contents">
+      <div class="stat {pill}"><span class="stat-n max-[34rem]:text-[1rem]"><span aria-hidden="true">★</span> {points}</span><span class="text-muted text-[.9rem] max-[34rem]:sr-only">points</span></div>
+      <div class="stat {pill}"><span class="stat-n max-[34rem]:text-[1rem]"><span aria-hidden="true">✓</span> {done}/{total}</span><span class="text-muted text-[.9rem] max-[34rem]:sr-only">chores today</span></div>
+      <div class="stat max-[34rem]:order-last max-[34rem]:basis-full max-[34rem]:grid-cols-[1fr_auto] max-[34rem]:items-center max-[34rem]:gap-x-3 max-[34rem]:py-[.5rem]">
+        <span class="stat-n max-[34rem]:text-[1.3rem]"><span aria-hidden="true">⏱</span> {minutes}</span><span class="text-muted text-[.9rem] max-[34rem]:text-[.8rem] max-[34rem]:[grid-column:1]">{allowance ? `min: ${left} left today + ${banked} banked` : 'min screen time'}</span>
         {#if minutes > 0}
-          <span class="flex flex-wrap gap-[.4rem] mt-[.35rem]">
-            {#each [15, 30] as m (m)}
-              {#if minutes >= m}<button type="button" class="small" disabled={busy} onclick={() => send({ action: 'use_time', person: who, minutes: m })}>Use {m}</button>{/if}
-            {/each}
-            {#if minutes !== 15 && minutes !== 30}<button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'use_time', person: who, minutes })}>Use all</button>{/if}
-          </span>
+          <div class="mt-[.35rem] max-[34rem]:mt-0 max-[34rem]:[grid-column:2] max-[34rem]:[grid-row:1/span_2]">
+            <button type="button" class="small use-btn" disabled={busy} popovertarget="use-menu">Use</button>
+            <div id="use-menu" class="use-menu" popover bind:this={menu} ontoggle={menuToggled}>
+              {#if used}
+                <div class="use-hooray" role="status"><span class="use-big" aria-hidden="true">🎉</span><p class="m-0 text-[1.2rem] font-bold">Enjoy your screen time, {me.name}!</p><p class="note m-0">{picked} minutes of screen time, starting now.</p></div>
+              {:else if picked === null}
+                <p class="use-title">How much screen time do you want to use?</p>
+                <p class="use-big-n">{chosen}<span> min</span></p>
+                <input class="use-range" type="range" min="0" max={useOptions.length - 1} step="1" style:--pct={`${slotPct}%`} bind:value={slot} disabled={useOptions.length < 2} aria-label="Minutes of screen time to use" aria-valuetext={`${chosen} minutes`} />
+                <p class="use-ends"><span>{useOptions[0]} min</span><span>{useOptions[useOptions.length - 1]} min</span></p>
+                <div class="flex items-center gap-2">
+                  <button type="button" class="ghost small use-back" popovertarget="use-menu" popovertargetaction="hide">Cancel</button>
+                  <button type="button" class="use-go flex-1 w-auto" onclick={() => (picked = chosen)}>Next</button>
+                </div>
+              {:else}
+                <p class="use-title">Ready to use</p>
+                <p class="use-big-n">{picked}<span> min</span></p>
+                <div class="use-bar" role="img" aria-label={`${minutes - picked} of ${minutes} minutes left after this`}>
+                  <span class="use-left" style:width={`${afterPct}%`}></span>
+                  <span class="use-spent"></span>
+                </div>
+                <p class="use-key"><span class="use-dot left"></span>left for later <span class="use-dot spent"></span>using now</p>
+                <p class="m-0 mt-2 text-center font-semibold">{minutes - picked > 0 ? `You'll still have ${minutes - picked} min left!` : "That's all your time. Make it count!"}</p>
+                <p class="note m-0 text-center">{#if fromAllowance > 0}{fromAllowance} from today's time{/if}{#if fromAllowance > 0 && picked > fromAllowance}, {/if}{#if picked > fromAllowance}{picked - fromAllowance} from your saved-up time{/if}</p>
+                <div class="grid gap-2 mt-3 justify-items-center">
+                  <button type="button" class="use-go" disabled={busy} onclick={confirmUse}>Let's go! 🚀</button>
+                  <button type="button" class="ghost small use-back" onclick={() => (picked = null)}>Not yet</button>
+                </div>
+              {/if}
+            </div>
+          </div>
         {/if}
       </div>
-      <div class="stat"><span class="stat-n"><span aria-hidden="true">✓</span> {done}/{total}</span><span class="text-muted text-[.9rem]">chores today</span></div>
     </div>
   </header>
 
   <div class="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] max-[52rem]:grid-cols-[minmax(0,1fr)] gap-x-6 items-start">
     <div>
+  {#if choreState.manager && editing}
+  <section class="card" aria-labelledby="today-h">
+    <h2 class="card-h" id="today-h">Routine <span class="note">{routine?.items.length ?? 0} {routine?.items.length === 1 ? 'chore' : 'chores'}, tap one to edit</span></h2>
+    <RoutineEditor person={who} name={me.name} items={routine?.items ?? []} bonuses={routine?.bonuses ?? periodRecord(0)} day={choreState.day} {busy} {send} collapsible />
+  </section>
+  {:else}
   <section class="card" aria-labelledby="today-h">
     <h2 class="card-h" id="today-h">Today <span class="note">{done}/{total} done</span></h2>
     <div class="track h-[.6rem]" role="progressbar" aria-label="Done today" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}><span class="fill bg-[var(--c)]" style:width={total ? `${(done / total) * 100}%` : '0%'}></span></div>
@@ -121,14 +189,12 @@
       <p class="note">Nothing today.</p>
     {/each}
   </section>
+  {/if}
 
       {#if choreState.manager && editing}
         <section class="card" aria-labelledby="manage-h">
-          <h2 class="card-h" id="manage-h">Manage {me.name}</h2>
-          <p class="note">Every chore in {me.name}'s routine, not only today's. Changes save as you make them.</p>
-          <RoutineEditor person={who} name={me.name} items={routine?.items ?? []} bonuses={routine?.bonuses ?? periodRecord(0)} day={choreState.day} {busy} {send} />
-
-          <h3 class="mt-6 mb-1 mx-0 text-[1rem]">Daily screen time</h3>
+          <h2 class="card-h" id="manage-h">Screen time and points</h2>
+          <h3 class="mt-2 mb-1 mx-0 text-[1rem]">Daily screen time</h3>
           <p class="note">A base allowance that comes back every day. It is not saved up: whatever is left at midnight is gone. Time they earn from rewards is kept in the bank and used after the allowance.</p>
           <form class="flex flex-wrap items-end gap-x-[.9rem] gap-y-[.6rem] mt-[.6rem]" onsubmit={saveAllowance}>
             <div class="grid gap-1">
