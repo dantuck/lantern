@@ -1,14 +1,14 @@
 ---
 import { dayKey, dayLabel } from '../../lib/dates';
 import type { MealQConfig } from './plugin';
-import type { Meal, MealPlanData, Slot } from './client';
+import type { Meal, MealPlanData } from './client';
+import { SLOT_COLOR, SLOT_LABEL } from './slots';
 
 interface Props { data: MealPlanData; config: MealQConfig }
 const { data, config } = Astro.props;
 const today = dayKey(Date.now(), config.timeZone);
 // The cache can be minutes old, so drop days that have already passed.
 const days = data.days.filter((d) => d.date >= today);
-const LABEL: Record<Slot, string> = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack', other: 'Other' };
 const hasDetails = (m: Meal) => Boolean(m.ingredients?.length || m.prepMinutes || m.recipeUrl);
 const planned = days.some((d) => d.meals.length > 0);
 ---
@@ -29,8 +29,8 @@ const planned = days.some((d) => d.meals.length > 0);
             ) : (
               <ul class="meal-ul">
                 {day.meals.map((m) => (
-                  <li data-slot={m.slot}>
-                    <span class="meal-slot">{LABEL[m.slot]}</span>
+                  <li style={`--c:${SLOT_COLOR[m.slot]}`}>
+                    <span class="meal-slot">{SLOT_LABEL[m.slot]}</span>
                     <span class="font-semibold leading-[1.3] [overflow-wrap:anywhere]">{m.title}</span>
                     {m.note && <span class="text-[.85rem] text-muted [overflow-wrap:anywhere]">{m.note}</span>}
                   </li>

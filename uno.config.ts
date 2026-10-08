@@ -1,6 +1,5 @@
 import { defineConfig, presetWind4, transformerDirectives, transformerVariantGroup } from 'unocss';
 import extractorSvelte from '@unocss/extractor-svelte';
-
 // Colours and sizes point at the CSS variables in src/styles/global.css, so the light/dark theme switch
 // (html[data-theme] and prefers-color-scheme) keeps working without a `dark:` variant on every element.
 export default defineConfig({
@@ -72,6 +71,11 @@ export default defineConfig({
     'cal-colhead': 'flex flex-col items-center w-auto m-0 py-2 px-0 border-solid [border-width:0_0_0_1px] border-line rounded-none bg-transparent text-fg shadow-none font-normal hover:bg-card2 hover:filter-none',
     'cal-banner': 'flex items-baseline gap-2 min-w-0 mx-1 my-0 py-[.15rem] px-[.55rem] text-[.78rem] font-normal text-left cursor-pointer shadow-none text-fg bg-[color-mix(in_srgb,var(--c)_14%,var(--card))] [border:1px_dashed_color-mix(in_srgb,var(--c)_65%,transparent)] rounded-full hover:bg-[color-mix(in_srgb,var(--c)_26%,var(--card))] hover:filter-none',
     'cal-block': 'absolute block box-border m-0 text-left font-normal cursor-pointer border-solid [border-width:0_0_0_4px] [border-color:var(--c)] shadow-none overflow-hidden py-[.2rem] px-2 rounded-[10px] text-[.8rem] leading-[1.25] bg-[color-mix(in_srgb,var(--c)_18%,var(--card))] text-fg min-h-[1.1rem] hover:bg-[color-mix(in_srgb,var(--c)_30%,var(--card))] hover:filter-none @max-[46rem]:py-[.15rem] @max-[46rem]:pr-[.3rem] @max-[46rem]:pl-[.4rem] @max-[46rem]:text-[.75rem] @max-[46rem]:[border-left-width:3px] @max-[46rem]:rounded-[8px]',
+    'cal-toggle': 'inline-flex items-center gap-[.35rem] w-auto m-0 py-[.3rem] px-[.7rem] rounded-full text-[.8rem] font-semibold text-muted shadow-none bg-transparent [border:1px_dashed_var(--border)] hover:filter-none hover:text-fg [&[aria-pressed=true]]:text-fg [&[aria-pressed=true]]:bg-[color-mix(in_srgb,var(--c)_16%,var(--card))] [&[aria-pressed=true]]:[border:1px_solid_var(--c)] pointer-coarse:min-h-11',
+    'cal-dialog': 'overflow-auto p-0 m-auto border border-solid border-line rounded-[var(--radius)] bg-card text-fg shadow-[var(--shadow-md),0_24px_60px_-20px_rgb(0_0_0/.45)] open:animate-[expand_.18s_cubic-bezier(.2,.8,.2,1)] motion-reduce:open:animate-none backdrop:bg-[rgb(20_15_10/.45)] backdrop:backdrop-blur-[3px] open:backdrop:animate-[fade_.18s_ease-out] motion-reduce:open:backdrop:animate-none',
+    'cal-dialog-head': 'sticky top-0 z-[1] flex items-center gap-2 py-4 px-[1.1rem] bg-card [border-bottom:1px_solid_var(--border)]',
+    'routine-row': 'ghost flex items-center gap-[.85rem] w-[calc(100%+1.5rem)] -mx-3 m-0 py-[.55rem] px-3 min-h-12 text-left rounded-[var(--radius-sm)] border-0 shadow-none bg-transparent text-fg [&&&:hover]:bg-[color-mix(in_srgb,var(--c,var(--accent))_10%,var(--card))] [&&&:active]:bg-[color-mix(in_srgb,var(--c,var(--accent))_16%,var(--card))] [&&&:hover]:filter-none transition-colors',
+    'cal-label': 'm-0 mb-1 text-[.72rem] [font-weight:650] uppercase tracking-[.07em] text-muted',
     'cal-pill': 'py-[.05rem] px-2 rounded-full bg-card2 text-[.75rem]',
     'cal-pill-who': 'py-[.05rem] px-2 rounded-full text-[.75rem] bg-[color-mix(in_srgb,var(--c)_18%,var(--card))] text-[color:color-mix(in_srgb,var(--c)_72%,var(--fg))] font-semibold',
     // Landing page (/welcome).
@@ -93,7 +97,7 @@ export default defineConfig({
     'meal-head': 'block list-none [&::-webkit-details-marker]:hidden',
     'meal-chev': 'cursor-pointer relative after:content-[""] after:absolute after:top-[.2rem] after:right-0 after:size-2 after:[border:solid_var(--muted)] after:[border-width:0_2px_2px_0] after:rotate-45 after:transition-transform after:duration-150 group-open:after:top-[.45rem] group-open:after:[rotate:-135deg] focus-visible:[outline:2px_solid_var(--ring)] focus-visible:outline-offset-4 focus-visible:rounded-md',
     'meal-slot': 'text-[.7rem] [font-weight:650] uppercase tracking-[.06em] text-[color:var(--c)]',
-    'meal-ul': 'list-none m-0 p-0 grid gap-[.7rem] [&_li]:grid [&_li]:gap-[.1rem] [&_li]:pl-3 [&_li]:[border-left:3px_solid_var(--c)] [&_li]:[--c:var(--muted)] [&_li[data-slot=breakfast]]:[--c:#e0a100] [&_li[data-slot=lunch]]:[--c:#3f9d5a] [&_li[data-slot=dinner]]:[--c:var(--accent)] [&_li[data-slot=snack]]:[--c:#7a6fd0]',
+    'meal-ul': 'list-none m-0 p-0 grid gap-[.7rem] [&_li]:grid [&_li]:gap-[.1rem] [&_li]:pl-3 [&_li]:[border-left:3px_solid_var(--c)] [&_li]:[--c:var(--muted)] ',
     'agenda-day': '[&+&]:mt-5',
     'agenda-li': 'flex gap-[.85rem] py-2 [&:not(:first-child)]:[border-top:1px_solid_var(--border)]',
     'agenda-li-tinted': '[border-left:4px_solid_var(--c,var(--accent))] pl-3',

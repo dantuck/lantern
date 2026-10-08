@@ -50,6 +50,8 @@ The dashboard sends no cookies and follows no cross-host redirects, so the endpo
 | `meals[].slot` | string | One of `breakfast`, `lunch`, `dinner`, `snack`. Anything else is shown as "Other". |
 | `meals[].title` | string | 1 to 200 chars. The recipe or meal name. |
 | `meals[].note` | string, optional | At most 300 chars. |
+| `meals[].description` | string, optional | At most 600 chars. A short summary of the meal. Shown in the calendar's meal popup. |
+| `meals[].instructions` | string[], optional | At most 30 steps of 1 to 600 chars, in order. Shown as a numbered list in the calendar's meal popup. |
 | `meals[].ingredients` | string[], optional | At most 50 items of 1 to 100 chars. Names only. |
 | `meals[].prepMinutes` | integer, optional | 1 to 1440. |
 | `meals[].recipeUrl` | string, optional | At most 500 chars, **`https://` only**; anything else fails validation. Shown as an "Open recipe" link. |

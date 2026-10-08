@@ -4,10 +4,10 @@ import { groupByDay } from './agenda';
 import { env } from 'cloudflare:workers';
 import { loadPeople } from '../../lib/peopleStore';
 import { peopleOf, type Person } from '../../lib/people';
-import type { CalendarConfig } from './plugin';
+import type { CalendarViewConfig } from './plugin';
 import type { CalendarData } from './types';
 
-interface Props { data: CalendarData; config: CalendarConfig; moreHref?: string; people?: Person[] }
+interface Props { data: CalendarData; config: CalendarViewConfig; moreHref?: string; people?: Person[] }
 const { data, config, moreHref = '/p/calendar', people: givenPeople } = Astro.props;
 const people = givenPeople ?? (await loadPeople(env.DB));
 const colorOf = (title: string) => (people.length ? (peopleOf(title, people)[0]?.color ?? 'var(--accent)') : undefined);

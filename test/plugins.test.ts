@@ -117,6 +117,18 @@ describe('loadPluginData', () => {
     await loadPluginData(p, { env: { MY_KEY: 'k', RESEND_API_KEY: 'nope', DB: {} }, kv: fakeKv() });
     expect(seen).toEqual({ MY_KEY: 'k' });
   });
+  it('passes optional secrets when set and runs without them when not', async () => {
+    const seen: unknown[] = [];
+    const p = enabled(make({ secrets: ['MY_KEY'], optionalSecrets: ['EXTRA_KEY'], loader: async ({ secrets }: never) => { seen.push(secrets); return 1; } } as never));
+    expect((await loadPluginData(p, { env: { MY_KEY: 'k', EXTRA_KEY: 'x', OTHER: 'no' }, kv: fakeKv() })).status).toBe('ok');
+    expect((await loadPluginData(p, { env: { MY_KEY: 'k' }, kv: fakeKv() })).status).toBe('ok');
+    expect((await loadPluginData(p, { env: { EXTRA_KEY: 'x' }, kv: fakeKv() })).status).toBe('unconfigured'); // required ones still count
+    expect(seen).toEqual([{ MY_KEY: 'k', EXTRA_KEY: 'x' }, { MY_KEY: 'k' }]);
+  });
+  it('rejects reserved or malformed optional secret names', () => {
+    expect(() => buildRegistry(mods(make({ optionalSecrets: ['DB'] } as never)), cfg())).toThrow(/reserved/);
+    expect(() => buildRegistry(mods(make({ optionalSecrets: ['lower'] } as never)), cfg())).toThrow(/bad secret/);
+  });
   it('reports unconfigured when a declared secret is missing or empty, without running the loader', async () => {
     const loader = vi.fn();
     const p = enabled(make({ secrets: ['A_KEY', 'B_KEY'], loader } as never));

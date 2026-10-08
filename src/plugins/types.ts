@@ -26,8 +26,12 @@ export interface PluginDefinition<C = unknown, D = unknown> {
   /** Shown in the card header: a Feather icon name (see src/lib/icons.ts), or an image under public/icons/ such as "/icons/logo.png" (other paths fall back to a neutral icon). */
   icon: string;
   configSchema: z.ZodType<C>;
+  /** Optional: fill in raw config from the other enabled plugins' entries (e.g. a shared API host) before it is validated. */
+  resolveConfig?(raw: unknown, siblings: readonly { id: string; config?: unknown }[]): unknown;
   /** Names of Worker secrets this plugin needs. All are required for the plugin to run. */
   secrets: readonly string[];
+  /** Worker secrets the plugin can use but doesn't need. Passed to the loader when set; a missing one never blocks the card. */
+  optionalSecrets?: readonly string[];
   /** Static, or derived from the plugin's validated config (e.g. a configurable API host). Validated at startup either way. */
   fetchPolicy: FetchPolicy | ((config: C) => FetchPolicy);
   /** How long loader output is served from cache before refetching. */

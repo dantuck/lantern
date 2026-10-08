@@ -14,7 +14,7 @@ Then enable it in `dashboard.config.ts` (your local copy of `dashboard.config.ex
 
 - **`id`**: lowercase slug, must equal the folder name.
 - **`configSchema`**: zod schema for non-secret settings from `dashboard.config.ts`. Invalid config fails at startup and in tests.
-- **`secrets`**: names of Worker secrets (`wrangler secret put NAME`). The host passes the loader only these. If any is missing the card shows "not set up" and the loader never runs. Platform bindings (`DB`, `RESEND_API_KEY`, ...) are reserved and rejected.
+- **`secrets`**: names of Worker secrets (`wrangler secret put NAME`). The host passes the loader only these. If any is missing the card shows "not set up" and the loader never runs. **`optionalSecrets`** are passed when set and never block the card (the calendar uses `MEALQ_API_TOKEN` this way for its meal plan). Platform bindings (`DB`, `RESEND_API_KEY`, ...) are reserved and rejected.
 - **`fetchPolicy`**: exact hostnames (https only) and methods the loader may use. Default is GET only. Widen on purpose and say why (e.g. `POST` to an OAuth token endpoint).
 - **`cacheTtlSeconds`**: loader output is cached in KV for this long. If the loader fails, the last good copy (up to 24h) is shown, marked as saved data.
 - **`loader(ctx)`**: server-only and read-only. Use `ctx.fetch`, never the global `fetch`. It has 8 seconds. Return JSON-serialisable data.

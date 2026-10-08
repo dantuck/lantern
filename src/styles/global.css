@@ -57,6 +57,9 @@
 /* Base --------------------------------------------------------------------- */
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; font-size: 100%; accent-color: var(--accent); scrollbar-gutter: stable; -webkit-tap-highlight-color: transparent; }
+/* A modal dialog (the calendar's day and meal popups) freezes the page behind it; scrolling inside it never carries over to the page. */
+html:has(dialog:modal) { overflow: hidden; }
+dialog { overscroll-behavior: contain; }
 body {
   margin: 0; min-height: 100dvh;
   font: 1rem/1.5 var(--font); letter-spacing: -.005em;
@@ -288,8 +291,8 @@ main:focus { outline: none; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
 /* Display menu (rail): theme and full screen live in one popover beside the rail, like the phone's More sheet. */
-.display-menu { margin: 0; inset: auto auto max(1rem, env(safe-area-inset-bottom)) 6.5rem; width: 16rem; padding: .85rem; background: var(--card); color: var(--fg);
-  border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md); }
+.display-menu, .use-menu { background: var(--card); color: var(--fg); border: 1px solid var(--border); box-shadow: var(--shadow-md); }
+.display-menu { margin: 0; inset: auto auto max(1rem, env(safe-area-inset-bottom)) 6.5rem; width: 16rem; padding: .85rem; border-radius: var(--radius); }
 .dm-label { margin: 0 0 .4rem; font-size: .72rem; font-weight: 650; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: .3rem; margin-bottom: .75rem; }
 .seg button, .dm-row { display: flex; align-items: center; justify-content: center; gap: .4rem; width: auto; min-height: 2.75rem; margin: 0; padding: .4rem .5rem; border: 1px solid var(--border);
@@ -299,6 +302,54 @@ main:focus { outline: none; }
 .seg button:hover, .dm-row:hover { background: var(--card-2); filter: none; }
 .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
 html[data-wall] .display-menu { display: none; }
+/* Use screen time (person page): a popover under the Use button, so nothing in the page reflows. It follows the person's colour (--c). */
+.use-menu { --k: var(--c, var(--accent)); margin: auto; width: min(22rem, calc(100vw - 2rem)); max-height: min(30rem, 80dvh); overflow: auto; padding: 1rem;
+  border-radius: calc(var(--radius) + 4px); box-shadow: var(--shadow-md), 0 24px 60px -20px rgb(0 0 0 / .45); }
+.use-menu::backdrop { background: rgb(20 15 10 / .25); backdrop-filter: blur(2px); }
+.use-btn { anchor-name: --use; }
+/* Where anchor positioning exists, open right under the Use button (flipping if there is no room); otherwise it stays centred. */
+@supports (position-area: bottom) {
+  .use-menu { position-anchor: --use; position-area: bottom span-left; margin: .5rem 0 0; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; }
+}
+/* Fade and rise in and out (top-layer elements need allow-discrete to animate display). */
+.use-menu, .use-menu::backdrop { opacity: 0; transition: opacity .18s ease-out, translate .18s cubic-bezier(.2, .8, .2, 1), overlay .18s allow-discrete, display .18s allow-discrete; }
+.use-menu { translate: 0 -.4rem; }
+.use-menu:popover-open { opacity: 1; translate: 0 0; }
+.use-menu:popover-open::backdrop { opacity: 1; }
+@starting-style { .use-menu:popover-open, .use-menu:popover-open::backdrop { opacity: 0; } .use-menu:popover-open { translate: 0 -.4rem; } }
+.use-title { margin: 0 0 .5rem; font-size: 1.05rem; font-weight: 700; text-wrap: balance; }
+.use-big-n { margin: 0 0 .5rem; text-align: center; font-size: 3rem; font-weight: 800; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--k); }
+.use-big-n span:last-child { font-size: 1rem; font-weight: 600; letter-spacing: 0; color: var(--muted); }
+/* Chunky slider: a fat track that fills in the person's colour, with a big round thumb for small fingers. */
+.use-range { --track: 1.5rem; --thumb: 2.75rem; -webkit-appearance: none; appearance: none; display: block; width: 100%; height: var(--thumb); margin: .25rem 0 0; padding: 0; background: transparent; cursor: pointer; touch-action: pan-y; }
+input.use-range, input.use-range:hover, input.use-range:focus-visible { border: 0; border-radius: 0; box-shadow: none; min-height: 0; transition: none; outline: none; }
+.use-range::-webkit-slider-runnable-track { height: var(--track); border-radius: 999px; border: 1px solid var(--border); background: linear-gradient(to right, var(--k) var(--pct), var(--card-2) var(--pct)); }
+.use-range::-moz-range-track { height: var(--track); border-radius: 999px; border: 1px solid var(--border); background: linear-gradient(to right, var(--k) var(--pct), var(--card-2) var(--pct)); }
+.use-range::-webkit-slider-thumb { -webkit-appearance: none; box-sizing: border-box; width: var(--thumb); height: var(--thumb); margin-top: calc((var(--track) - var(--thumb)) / 2 - 1px); border-radius: 50%; background: #fff; border: .35rem solid var(--k); box-shadow: 0 2px 8px rgb(0 0 0 / .3); transition: scale .12s; }
+.use-range::-moz-range-thumb { box-sizing: border-box; width: var(--thumb); height: var(--thumb); border-radius: 50%; background: #fff; border: .35rem solid var(--k); box-shadow: 0 2px 8px rgb(0 0 0 / .3); transition: scale .12s; }
+.use-range:active::-webkit-slider-thumb { scale: 1.08; }
+.use-range:active::-moz-range-thumb { scale: 1.08; }
+.use-range:focus-visible::-webkit-slider-thumb { outline: 3px solid color-mix(in srgb, var(--k) 45%, transparent); outline-offset: 2px; }
+.use-range:focus-visible::-moz-range-thumb { outline: 3px solid color-mix(in srgb, var(--k) 45%, transparent); outline-offset: 2px; }
+.use-range:disabled { opacity: .6; cursor: default; }
+.use-ends { display: flex; justify-content: space-between; margin: 0 0 .9rem; font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.use-go { width: 100%; min-height: 3.25rem; margin: 0; font-size: 1.15rem; font-weight: 800; }
+.use-back { width: auto; min-height: 3.25rem; margin: 0; padding: 0 1.1rem; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--muted); font-size: .95rem; font-weight: 650; box-shadow: none; }
+.use-back:hover:not(:disabled) { background: var(--card-2); color: var(--fg); border-color: color-mix(in srgb, var(--muted) 50%, var(--border)); filter: none; }
+.use-big { display: block; font-size: 3rem; }
+.use-hooray { display: grid; justify-items: center; gap: .3rem; padding: 1rem 0; text-align: center; text-wrap: balance; }
+.use-hooray .use-big { animation: use-pop .5s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes use-pop { from { transform: scale(.3) rotate(-20deg); opacity: 0; } }
+/* After-balance bar: solid is what stays, striped is what is being used. */
+.use-bar { display: flex; height: 1.1rem; border-radius: 999px; overflow: hidden; background: var(--card-2); border: 1px solid var(--border); }
+.use-left { background: var(--k); transition: width .3s; }
+.use-spent { flex: 1; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--k) 35%, var(--card)) 0 .4rem, var(--card) .4rem .8rem); }
+.use-key { display: flex; justify-content: center; align-items: center; gap: .35rem; margin: .35rem 0 0; font-size: .75rem; color: var(--muted); }
+.use-dot { width: .7rem; height: .7rem; border-radius: 50%; }
+.use-dot.left { background: var(--k); }
+.use-dot.spent { background: color-mix(in srgb, var(--k) 35%, var(--card)); margin-left: .5rem; }
+@media (prefers-reduced-motion: reduce) { .use-menu, .use-menu::backdrop { transition: none; } .use-hooray .use-big { animation: none; } .use-left, .use-range::-webkit-slider-thumb, .use-range::-moz-range-thumb { transition: none; } }
+
 @media print { .display-menu, .nav, .tabbar, .sheet, .jump, .wall-exit, .toast, .skip, .theme-float { display: none !important; } body.has-rail { padding-left: 0; } body { background: #fff; color: #000; } .card { box-shadow: none; break-inside: avoid; } }
 
 /* Install banner (src/scripts/pwa.ts): touch devices, signed in, dismissible. Sits above the tab bar on phones, bottom-left of the page beside the rail on tablets. */

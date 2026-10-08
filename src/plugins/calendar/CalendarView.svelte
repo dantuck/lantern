@@ -6,10 +6,14 @@
   import { iconMarkup } from '../../lib/icons';
   import { describeWeather, type WeatherData } from './weatherView';
   import type { CalEvent } from './types';
+  import type { Meal, MealDay } from '../mealq/client';
+  import { SLOTS, SLOT_COLOR, SLOT_LABEL, type Slot } from '../mealq/slots';
 
-  let { events, timeZone, locale, nowMs, windowStart, windowEnd, people = [], weather }: {
+  let { events, timeZone, locale, nowMs, windowStart, windowEnd, people = [], weather, meals = [], mealSlots = ['dinner'] }: {
     events: CalEvent[]; timeZone: string; locale: string; nowMs: number; windowStart: number; windowEnd: number;
     people?: Person[]; weather?: WeatherData | undefined;
+    /** MealQ days that have meals, and which slots show until someone changes the toggles. */
+    meals?: MealDay[] | undefined; mealSlots?: Slot[] | undefined;
   } = $props();
 
   type View = 'month' | 'week' | 'day' | 'agenda';
@@ -18,6 +22,7 @@
   ];
   const AGENDA_DAYS = 14;
   const VIEW_KEY = 'calendar-view';
+  const SLOTS_KEY = 'calendar-meal-slots';
 
   // svelte-ignore state_referenced_locally
   const todayKey = dayKey(nowMs, timeZone);
@@ -27,6 +32,8 @@
   const lastKey = dayKey(windowEnd, timeZone);
 
   let view = $state<View>('week');
+  let slotChoice = $state<Slot[] | null>(null); // the viewer's own toggles; null follows the `mealSlots` default
+  const shownSlots = $derived(slotChoice ?? mealSlots);
   let cursor = $state(todayKey); // the focused day: selected in month view, anchors every other view
   // svelte-ignore state_referenced_locally
   let now = $state(nowMs);
@@ -36,6 +43,8 @@
     try {
       const wanted = new URLSearchParams(location.search).get('view');
       const saved = localStorage.getItem(VIEW_KEY);
+      const slots = JSON.parse(localStorage.getItem(SLOTS_KEY) ?? 'null');
+      if (Array.isArray(slots)) slotChoice = SLOTS.filter((x) => slots.includes(x));
       if (VIEWS.some((v) => v.id === wanted)) view = wanted as View; // ?view=week is a shareable link
       else if (VIEWS.some((v) => v.id === saved)) view = saved as View;
       else if (matchMedia('(max-width: 40rem)').matches) view = 'agenda';
@@ -46,6 +55,11 @@
   function setView(v: View) {
     view = v;
     try { localStorage.setItem(VIEW_KEY, v); } catch {}
+  }
+
+  function toggleSlot(slot: Slot) {
+    slotChoice = shownSlots.includes(slot) ? shownSlots.filter((x) => x !== slot) : [...shownSlots, slot];
+    try { localStorage.setItem(SLOTS_KEY, JSON.stringify(slotChoice)); } catch {}
   }
 
   const fmt = (opts: Intl.DateTimeFormatOptions, key: string) => formatDay(key, opts, locale);
@@ -83,6 +97,40 @@
   const usesFamily = $derived(events.some((ev) => whoOf(ev).includes(FAMILY)));
   const chips = $derived(roster.filter((p) => p !== FAMILY || usesFamily));
 
+  // --- Meals: a band above the hours, chips in the month grid and rows in the agenda; a click opens the meal ---
+  /** Slots that actually have a meal, so the toggles never offer an empty choice. */
+  const slotsPresent = $derived(SLOTS.filter((slot) => meals.some((d) => d.meals.some((m) => m.slot === slot))));
+  const NO_MEALS: Meal[] = [];
+  const shownByDay = $derived(new Map(meals.map((d) => [d.date, d.meals.filter((m) => shownSlots.includes(m.slot))])));
+  const mealsOn = (key: string): Meal[] => shownByDay.get(key) ?? NO_MEALS;
+  /** Every meal currently shown, in order, for the previous/next buttons in the meal panel. */
+  const mealList = $derived(meals.flatMap((d) => mealsOn(d.date).map((m) => ({ key: d.date, meal: m }))));
+
+  const dayMeals = $derived(mealsOn(cursor));
+  let mealDlg = $state<HTMLDialogElement>();
+  let pickedId = $state<string | null>(null);
+  const pickedAt = $derived(mealList.findIndex((x) => x.meal.id === pickedId));
+  const picked = $derived(pickedAt >= 0 ? mealList[pickedAt]! : null);
+  const prevMeal = $derived(pickedAt > 0 ? mealList[pickedAt - 1]! : null);
+  const nextMeal = $derived(pickedAt >= 0 ? (mealList[pickedAt + 1] ?? null) : null);
+  function openMeal(id: string) {
+    pickedId = id;
+    mealDlg?.showModal();
+  }
+  /** Other meals shown that week, by ingredient, so one shop covers them. */
+  const norm = (ingredient: string) => ingredient.trim().toLowerCase();
+  const sharedIngredients = $derived.by(() => {
+    const shared = new Map<string, string[]>();
+    if (!picked) return shared;
+    const first = weekStartKey(picked.key), last = addDays(first, 6);
+    for (const x of mealList) {
+      if (x.meal.id === picked.meal.id || x.key < first || x.key > last) continue;
+      for (const ing of new Set(x.meal.ingredients?.map(norm))) shared.set(ing, [...(shared.get(ing) ?? []), x.meal.title]);
+    }
+    return shared;
+  });
+  const alsoIn = (ingredient: string) => sharedIngredients.get(norm(ingredient)) ?? [];
+
   // --- Weather ---
   const wx = (key: string) => (weather?.days[key] ? { ...weather.days[key]!, ...describeWeather(weather.days[key]!.code) } : null);
 
@@ -98,7 +146,7 @@
   const byKey = $derived(new Map(days.map((d) => [d.key, d.events])));
   /** Each day's events split once: banners (multi-day) and everything else. */
   const split = $derived(new Map(days.map((d) => [d.key, { banners: d.events.filter(isBanner), rest: d.events.filter((e) => !isBanner(e)) }])));
-  const agendaDays = $derived(days.filter((d) => d.events.length > 0));
+  const agendaDays = $derived(days.filter((d) => d.events.length > 0 || mealsOn(d.key).length > 0));
 
   /** Where Previous/Next would land, or null when that is outside the days we have data for. */
   function step(delta: -1 | 1): string | null {
@@ -268,6 +316,13 @@
         {#if only.length > 0}<button type="button" class="inline-flex items-center justify-center rounded-full w-[1.9rem] h-[1.9rem] m-0 p-0 text-[1.1rem] leading-none bg-transparent text-muted shadow-none [border:1px_dashed_var(--border)]" onclick={() => (only = [])} aria-label="Show everyone" title="Show everyone">×</button>{/if}
       </div>
     {/if}
+    {#if slotsPresent.length > 0}
+      <div class="flex flex-wrap items-center gap-[.3rem] mb-5 max-[40rem]:col-span-full {chips.length > 0 ? '' : 'ml-auto max-[40rem]:ml-0'}" role="group" aria-label="Show meals">
+        {#each slotsPresent as slot (slot)}
+          <button type="button" class="cal-toggle" style:--c={SLOT_COLOR[slot]} aria-pressed={shownSlots.includes(slot)} onclick={() => toggleSlot(slot)}>{SLOT_LABEL[slot]}</button>
+        {/each}
+      </div>
+    {/if}
   </header>
 
   {#if view === 'month'}
@@ -290,6 +345,7 @@
           {/each}
           {#each rest.slice(0, 3) as ev (ev.id)}<span class="cal-chip max-[40rem]:hidden" style:--c={colorOf(ev)}>{ev.title}</span>{/each}
           {#if rest.length > 3}<span class="text-muted py-0 px-1 max-[40rem]:hidden">+{rest.length - 3} more</span>{/if}
+          {#each mealsOn(key) as m (m.id)}<span class="cal-chip max-[40rem]:hidden" style:--c={SLOT_COLOR[m.slot]} title={SLOT_LABEL[m.slot]}>{m.title}</span>{/each}
           {#if evs.length > 0}<span class="hidden max-[40rem]:flex gap-[3px] justify-center" aria-hidden="true">{#each evs.slice(0, 4) as ev (ev.id)}<i class="cal-dot" style:--c={colorOf(ev)}></i>{/each}</span>{/if}
         </button>
       {/each}
@@ -335,6 +391,20 @@
             {/each}
           </div>
         {/if}
+        {#if cols.some((c) => mealsOn(c.day).length > 0)}
+          <div class="grid [grid-template-columns:var(--gutter)_repeat(var(--n),minmax(0,1fr))] min-w-[32rem] [border-top:1px_solid_var(--border)]">
+            <span class="text-[.7rem] text-muted text-right self-center pr-2">meals</span>
+            {#each view === 'day' ? [cols[0]!] : cols as c (c.id)}
+              <div class="grid gap-[2px] p-1 [border-left:1px_solid_var(--border)] content-start min-w-0" style:grid-column={view === 'day' ? '2 / -1' : undefined}>
+                {#each mealsOn(c.day) as m (m.id)}
+                  <button type="button" class="cal-chip-ad" style:--c={SLOT_COLOR[m.slot]} title={`${SLOT_LABEL[m.slot]}: ${m.title}`} aria-haspopup="dialog" onclick={() => openMeal(m.id)}>
+                    <span class="[font-size:.62rem] uppercase tracking-[.05em] opacity-80 mr-[.3rem]">{SLOT_LABEL[m.slot].slice(0, view === 'day' ? undefined : 1)}</span>{m.title}{#if m.prepMinutes}<span class="opacity-75 tabular-nums"> · {m.prepMinutes}m</span>{/if}
+                  </button>
+                {/each}
+              </div>
+            {/each}
+          </div>
+        {/if}
       </div>
       <div class="grid [grid-template-columns:var(--gutter)_repeat(var(--n),minmax(0,1fr))] min-w-[32rem] relative [grid-template-rows:calc(var(--hh)*var(--rows,24))]" style:--rows={hourSpan.count}>
         <div class="text-[.7rem] text-muted text-right pt-[.3rem] pr-2 relative">{#each hours as h, i (h)}<span class="absolute right-2 {i === 0 ? 'mt-[2px]' : '-translate-y-1/2'}" style:top="calc(var(--hh) * {i})">{hourLabel(h)}</span>{/each}</div>
@@ -369,25 +439,51 @@
               {#if roster.length}<span class="inline-flex gap-[3px] ml-auto">{@render dots(ev)}</span>{/if}
             </li>
           {/each}
+          {#each mealsOn(d.key) as m (m.id)}
+            <li class="flex gap-[.85rem] items-baseline py-[.7rem] pr-0 pl-[.8rem] [border-left:4px_solid_var(--c)] [&:not(:first-child)]:[border-top:1px_solid_var(--border)]" style:--c={SLOT_COLOR[m.slot]}>
+              <span class="text-muted min-w-[8.5rem] text-[.9rem] max-[40rem]:min-w-[6.5rem]">{SLOT_LABEL[m.slot]}</span>
+              <button type="button" class="ghost [&&]:m-0 [&&]:p-0 [&&]:w-auto [&&]:text-left [&&]:font-medium min-w-0 [overflow-wrap:anywhere] bg-transparent border-0 shadow-none text-fg" aria-haspopup="dialog" onclick={() => openMeal(m.id)}>{m.title}</button>
+            </li>
+          {/each}
         </ul>
       {/each}
     </section>
   {/if}
 
-  <dialog class="w-[min(32rem,calc(100vw-2rem))] max-h-[min(40rem,85dvh)] overflow-auto p-0 m-auto border border-solid border-line rounded-[var(--radius)] bg-card text-fg shadow-[var(--shadow-md),0_24px_60px_-20px_rgb(0_0_0/.45)] open:animate-[expand_.18s_cubic-bezier(.2,.8,.2,1)] motion-reduce:open:animate-none backdrop:bg-[rgb(20_15_10/.45)] backdrop:backdrop-blur-[3px] open:backdrop:animate-[fade_.18s_ease-out] motion-reduce:open:backdrop:animate-none" bind:this={dlg} aria-labelledby="day-title"
+  {#snippet stepBtn(kind: 'prev' | 'next' | 'close', label: string, onclick: () => void, disabled = false)}
+    <button type="button" class="ghost cal-step flex-none size-[2.4rem] {kind === 'close' ? '[&&]:ml-1' : ''}" {onclick} {disabled} aria-label={label}>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        {#if kind === 'prev'}<polyline points="15 18 9 12 15 6" />{:else if kind === 'next'}<polyline points="9 18 15 12 9 6" />{:else}<line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />{/if}
+      </svg>
+    </button>
+  {/snippet}
+
+  <dialog class="cal-dialog w-[min(32rem,calc(100vw-2rem))] max-h-[min(40rem,85dvh)]" bind:this={dlg} aria-labelledby="day-title"
     onclick={(e) => e.target === dlg && dlg?.close()}>
-    <header class="sticky top-0 z-[1] flex items-center gap-2 py-4 px-[1.1rem] bg-card [border-bottom:1px_solid_var(--border)]">
-      <button type="button" class="ghost cal-step flex-none size-[2.4rem]" onclick={() => (cursor = addDays(cursor, -1))} disabled={!canPrevDay} aria-label="Previous day"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg></button>
+    <header class="cal-dialog-head">
+      {@render stepBtn('prev', 'Previous day', () => (cursor = addDays(cursor, -1)), !canPrevDay)}
       <div class="flex-1 min-w-0">
         <h3 class="[&&]:m-0 text-[1.15rem] tracking-[-.02em]" id="day-title">{fmt({ weekday: 'long' }, cursor)}</h3>
         <p class="m-0 text-[.88rem]">{fmt({ month: 'long', day: 'numeric', year: 'numeric' }, cursor)}{#if cursor === todayKey}{' · Today'}{/if}</p>
       </div>
       {@render wxBadge(cursor)}
-      <button type="button" class="ghost cal-step flex-none size-[2.4rem]" onclick={() => (cursor = addDays(cursor, 1))} disabled={!canNextDay} aria-label="Next day"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg></button>
-      <button type="button" class="ghost cal-step flex-none size-[2.4rem] [&&]:ml-1" onclick={() => dlg?.close()} aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button>
+      {@render stepBtn('next', 'Next day', () => (cursor = addDays(cursor, 1)), !canNextDay)}
+      {@render stepBtn('close', 'Close', () => dlg?.close())}
     </header>
+    {#if dayMeals.length > 0}
+      <ul class="list-none m-0 pt-3 px-5 pb-1 grid gap-2">
+        {#each dayMeals as m (m.id)}
+          <li>
+            <button type="button" class="w-full m-0 text-left flex items-baseline gap-[.6rem] py-[.6rem] px-[.9rem] rounded-[4px] [border-left:4px_solid_var(--c)] bg-[color-mix(in_srgb,var(--c)_8%,transparent)] text-fg shadow-none border-y-0 border-r-0 hover:filter-none hover:bg-[color-mix(in_srgb,var(--c)_16%,transparent)]" style:--c={SLOT_COLOR[m.slot]} aria-haspopup="dialog" onclick={() => openMeal(m.id)}>
+              <span class="text-[.75rem] uppercase tracking-[.06em] font-semibold text-muted min-w-[4.5rem]">{SLOT_LABEL[m.slot]}</span>
+              <span class="font-semibold [overflow-wrap:anywhere]">{m.title}</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
     {#if dayEvents.length === 0}
-      <p class="py-6 px-5 m-0">Nothing scheduled.</p>
+      {#if dayMeals.length === 0}<p class="py-6 px-5 m-0">Nothing scheduled.</p>{/if}
     {:else}
       <ul class="list-none m-0 pt-2 px-5 pb-4">
         {#each dayEvents as ev (ev.id + cursor)}
@@ -405,6 +501,55 @@
           </li>
         {/each}
       </ul>
+    {/if}
+  </dialog>
+
+  <dialog class="cal-dialog w-[min(30rem,calc(100vw-2rem))] max-h-[min(42rem,88dvh)]" bind:this={mealDlg} aria-labelledby="meal-title"
+    onclick={(e) => e.target === mealDlg && mealDlg?.close()}>
+    <header class="cal-dialog-head">
+      {@render stepBtn('prev', 'Previous meal', () => (pickedId = prevMeal!.meal.id), !prevMeal)}
+      <div class="flex-1 min-w-0">
+        {#if picked}<p class="m-0 text-[.75rem] uppercase tracking-[.07em] font-semibold" style:color={SLOT_COLOR[picked.meal.slot]}>{fmt({ weekday: 'long', month: 'short', day: 'numeric' }, picked.key)} · {SLOT_LABEL[picked.meal.slot]}</p>{/if}
+      </div>
+      {@render stepBtn('next', 'Next meal', () => (pickedId = nextMeal!.meal.id), !nextMeal)}
+      {@render stepBtn('close', 'Close', () => mealDlg?.close())}
+    </header>
+    {#if picked}
+      {@const m = picked.meal}
+      <div class="grid gap-4 py-4 px-5 pb-5">
+        <h3 class="[&&]:m-0 text-[1.3rem] tracking-[-.02em] [overflow-wrap:anywhere]" id="meal-title">{m.title}</h3>
+        {#if m.prepMinutes || m.ingredients?.length}
+          <div class="flex flex-wrap gap-[.4rem] text-[.8rem] tabular-nums">
+            {#if m.prepMinutes}<span class="cal-pill">{m.prepMinutes} min prep</span>{/if}
+            {#if m.ingredients?.length}<span class="cal-pill">{m.ingredients.length} ingredients</span>{/if}
+          </div>
+        {/if}
+        {#if m.description}<p class="m-0 text-fg [overflow-wrap:anywhere]">{m.description}</p>{/if}
+        {#if m.note}<p class="m-0 text-muted [overflow-wrap:anywhere]">{m.note}</p>{/if}
+        {#if m.ingredients?.length}
+          <div>
+            <h4 class="cal-label">Ingredients</h4>
+            <ul class="meal-ingredients [&&]:mb-0">
+              {#each m.ingredients as ing, i (ing + i)}
+                {@const also = alsoIn(ing)}
+                <li class="[overflow-wrap:anywhere]">{ing}{#if also.length}<span class="text-muted text-[.8rem]"> · also in {also.join(', ')}</span>{/if}</li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+        {#if m.instructions?.length}
+          <div>
+            <h4 class="cal-label">Instructions</h4>
+            <ol class="list-decimal pl-[1.2rem] m-0 grid gap-[.4rem] text-[.92rem]">
+              {#each m.instructions as step, i (i)}<li class="pl-[.2rem] [overflow-wrap:anywhere]">{step}</li>{/each}
+            </ol>
+          </div>
+        {/if}
+        {#if !m.description && !m.ingredients?.length && !m.instructions?.length}
+          <p class="m-0 text-muted">No details for this meal.</p>
+        {/if}
+        {#if m.recipeUrl}<a class="font-semibold" href={m.recipeUrl} target="_blank" rel="noopener noreferrer">Open recipe</a>{/if}
+      </div>
     {/if}
   </dialog>
 </div>

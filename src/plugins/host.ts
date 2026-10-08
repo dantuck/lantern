@@ -33,6 +33,10 @@ export async function loadPluginData(plugin: EnabledPlugin, deps: HostDeps): Pro
     if (typeof v === 'string' && v !== '') secrets[name] = v;
     else missing.push(name);
   }
+  for (const name of def.optionalSecrets ?? []) {
+    const v = deps.env[name];
+    if (typeof v === 'string' && v !== '') secrets[name] = v;
+  }
   if (missing.length) {
     console.error(`plugin ${def.id}: missing secrets: ${missing.join(', ')}`);
     return { status: 'unconfigured', missing };

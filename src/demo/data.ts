@@ -5,7 +5,9 @@ import { DAY_MS, addDays, dayKey, startOfDayMs } from '../lib/dates';
 import type { CalEvent, CalendarData } from '../plugins/calendar/types';
 import type { WeatherData } from '../plugins/calendar/weatherView';
 import { parsePeople } from '../lib/peopleConfig';
-import type { Meal, MealPlanData, Slot } from '../plugins/mealq/client';
+import type { Meal, MealPlanData } from '../plugins/mealq/client';
+import type { Slot } from '../plugins/mealq/slots';
+import { LOOKBACK_DAYS } from '../plugins/calendar/meals';
 
 export const DEMO_TZ = 'UTC';
 export const DEMO_LOCALE = 'en-US';
@@ -64,7 +66,9 @@ export function demoCalendar(now = Date.now()): CalendarData {
   });
   // Like the live widget, the window starts on the 1st of the month so the month grid has its earlier days.
   const windowStart = startOfDayMs(`${today.slice(0, 8)}01`, DEMO_TZ);
-  return { events, windowStart, windowEnd: now + 60 * DAY_MS, weather: demoWeather(now) };
+  // Meals run a week back and three weeks ahead, like the live calendar.
+  const meals = demoMeals(now, 28, -LOOKBACK_DAYS).days.filter((d) => d.meals.length > 0);
+  return { events, windowStart, windowEnd: now + 60 * DAY_MS, weather: demoWeather(now), meals };
 }
 
 /** The invented household. `match` words pick whose colour an event gets from its title. */
@@ -90,27 +94,44 @@ const DINNERS = ['Banana pancakes', 'Taco night', 'Baked salmon & rice', 'Spaghe
 const LUNCHES = ['Banana & peanut butter sandwiches', 'Turkey wraps', 'Tomato soup & grilled cheese', 'Pasta salad', 'Quesadillas', 'Sandwich boards'];
 
 const DINNER_DETAILS: Array<Partial<Meal> | undefined> = [
-  { ingredients: ['Bananas', 'Flour', 'Eggs', 'Milk', 'Maple syrup'], prepMinutes: 25 },
-  { ingredients: ['Tortillas', 'Ground beef', 'Cheese', 'Lettuce', 'Salsa'], prepMinutes: 30 },
-  { ingredients: ['Salmon fillets', 'Rice', 'Lemon', 'Broccoli'], prepMinutes: 40 },
+  { prepMinutes: 25, ingredients: ['Bananas', 'Flour', 'Eggs', 'Milk', 'Maple syrup'],
+    description: 'Fluffy pancakes with mashed ripe banana folded into the batter. A reliable way to use up the bananas on the counter.',
+    instructions: ['Mash two ripe bananas in a large bowl until smooth.', 'Whisk in the eggs and milk, then fold in the flour until just combined.', 'Cook ¼-cup scoops on a medium, lightly oiled pan for about 2 minutes a side.', 'Serve warm with maple syrup.'] },
+  { prepMinutes: 30, ingredients: ['Tortillas', 'Ground beef', 'Cheese', 'Lettuce', 'Salsa'],
+    description: 'Build-your-own tacos. Everyone picks their own toppings, which keeps the table quiet.',
+    instructions: ['Brown the beef in a wide pan and drain the fat.', 'Stir in taco seasoning and a splash of water, then simmer for 5 minutes.', 'Warm the tortillas in a dry pan.', 'Set out the cheese, lettuce and salsa and let everyone build their own.'] },
+  { prepMinutes: 40, ingredients: ['Salmon fillets', 'Rice', 'Lemon', 'Broccoli'],
+    description: 'Oven-baked salmon with lemon, served over rice with roasted broccoli.',
+    instructions: ['Heat the oven to 400°F and start the rice.', 'Place the salmon and broccoli on a lined tray. Season with salt, pepper and lemon juice.', 'Roast for 12 to 15 minutes, until the salmon flakes easily.', 'Serve over rice with lemon wedges.'] },
+  { prepMinutes: 35, ingredients: ['Spaghetti', 'Tomato sauce', 'Meatballs', 'Parmesan'],
+    description: 'Spaghetti and meatballs, the version that has never been refused.',
+    instructions: ['Bring a large pot of salted water to a boil and cook the spaghetti.', 'Warm the meatballs in the tomato sauce over low heat.', 'Drain the pasta, toss it with a ladle of sauce and top with the meatballs.', 'Finish with grated Parmesan.'] },
+  { prepMinutes: 45, ingredients: ['Pizza dough', 'Tomato sauce', 'Cheese', 'Pepperoni'], recipeUrl: 'https://example.com/pizza',
+    description: 'Homemade pizza on a hot tray. Let the dough rest while the oven heats.',
+    instructions: ['Heat the oven to 475°F with a baking tray inside.', 'Stretch the dough on floured parchment and spread over the tomato sauce.', 'Add cheese and pepperoni.', 'Slide onto the hot tray and bake for 10 to 12 minutes, until the crust is golden.'] },
+  { prepMinutes: 50, ingredients: ['Chicken', 'Carrots', 'Celery', 'Bread'],
+    description: 'A big pot of chicken soup that makes tomorrow’s lunch too.',
+    instructions: ['Simmer the chicken in water with a pinch of salt for 25 minutes.', 'Lift out the chicken, shred it and return it to the pot.', 'Add sliced carrots and celery and cook for 15 minutes.', 'Serve with bread.'] },
 ];
 
-export function demoMeals(now = Date.now(), daysAhead = 7): MealPlanData {
+export function demoMeals(now = Date.now(), daysAhead = 7, startOffset = 0): MealPlanData {
   const today = dayKey(now, DEMO_TZ);
-  const days = Array.from({ length: daysAhead }, (_, i) => {
+  const days = Array.from({ length: daysAhead }, (_, n) => {
+    const i = n + startOffset;
+    const k = ((i % 7) + 7) % 7; // the weekly pattern repeats
     const meals: MealPlanData['days'][number]['meals'] = [];
     const add = (slot: Slot, title: string, note?: string, extra: Partial<Meal> = {}) =>
       meals.push({ id: `${i}-${slot}`, slot, title, ...(note ? { note } : {}), ...extra });
-    if (i !== 3) add('lunch', LUNCHES[i % LUNCHES.length]!);
-    if (i === 5) add('dinner', 'Cake at the unicorn party', 'Eating out');
-    else if (i !== 6) add('dinner', DINNERS[i % DINNERS.length]!, i === 1 ? 'Minions pick toppings' : undefined, DINNER_DETAILS[i % DINNERS.length]);
+    if (k !== 3) add('lunch', LUNCHES[k % LUNCHES.length]!);
+    if (k === 5) add('dinner', 'Cake at the unicorn party', 'Eating out');
+    else if (k !== 6) add('dinner', DINNERS[k % DINNERS.length]!, k === 1 ? 'Minions pick toppings' : undefined, DINNER_DETAILS[k % DINNERS.length]);
     if (i === 0) add('snack', 'Bananas (obviously)');
     return { date: addDays(today, i), meals };
   });
-  return { from: today, to: addDays(today, daysAhead - 1), days };
+  return { from: addDays(today, startOffset), to: addDays(today, startOffset + daysAhead - 1), days };
 }
 
-export const demoCalendarConfig = { timeZone: DEMO_TZ, locale: DEMO_LOCALE, daysAhead: 60, feeds: [] };
+export const demoCalendarConfig = { timeZone: DEMO_TZ, locale: DEMO_LOCALE, daysAhead: 60, feeds: [], meals: { slots: ['dinner' as const] } };
 export const demoMealsConfig = { apiHost: 'demo.invalid', timeZone: DEMO_TZ, locale: DEMO_LOCALE, daysAhead: 7 };
 
 export const demoUsers = [

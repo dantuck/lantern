@@ -1,3 +1,4 @@
+import type { MealDay } from '../mealq/client';
 import type { WeatherData } from './weatherView';
 
 /** Which subscribed feed an event came from. Absent for the Google calendar. */
@@ -12,6 +13,8 @@ export interface CalendarData {
   events: CalEvent[];
   /** Daily forecast, when `weather` is configured and Open-Meteo answered. */
   weather?: WeatherData;
+  /** Meal plan days that have meals, when `meals` is configured and MealQ answered. */
+  meals?: MealDay[];
   /** Range the loader fetched (epoch ms). */
   windowStart: number;
   windowEnd: number;

@@ -20,6 +20,8 @@ export default {
     // Add `weather: { latitude: 40.71, longitude: -74.01 }` to the config for a forecast in the day headers (sent to Open-Meteo, rounded).
     // Extra public calendars go under `feeds`: a preset id from src/plugins/calendar/presets.ts (every NHL team is 'nhl-<code>'),
     // or `{ name, url }` for any public .ics link, e.g. feeds: [{ preset: 'nhl-det' }, { preset: 'us-holidays' }].
+    // To show the MealQ meal plan on the calendar too, add `meals: {}` to its config; it uses the mealq entry's host (see README:
+    // "Meals on the calendar"). It reuses the MEALQ_API_TOKEN secret, so no new setup.
     { id: 'calendar', span: 2, config: { timeZone: 'America/New_York' } },
     // apiHost is MealQ's public API (docs/mealq-api-contract.md). Change it only if you run your own MealQ server.
     { id: 'mealq', config: { apiHost: 'api-mealq.plantolive.app', timeZone: 'America/New_York' } },

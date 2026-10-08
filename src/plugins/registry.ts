@@ -33,7 +33,7 @@ export function buildRegistry(
     if (!ID.test(def.id)) throw new Error(`plugin id "${def.id}" is invalid`);
     if (dir !== def.id) throw new Error(`plugin "${def.id}" must live in folder "${def.id}" (found "${dir}")`);
     if (all.has(def.id)) throw new Error(`duplicate plugin id "${def.id}"`);
-    for (const s of def.secrets) {
+    for (const s of [...def.secrets, ...(def.optionalSecrets ?? [])]) {
       if (!SECRET_NAME.test(s)) throw new Error(`plugin "${def.id}": bad secret name "${s}"`);
       if (RESERVED_SECRETS.has(s)) throw new Error(`plugin "${def.id}" may not request reserved binding "${s}"`);
     }
@@ -48,7 +48,7 @@ export function buildRegistry(
     if (!def) throw new Error(`dashboard.config enables unknown plugin "${entry.id}"`);
     if (seen.has(entry.id)) throw new Error(`dashboard.config enables "${entry.id}" twice`);
     seen.add(entry.id);
-    const parsed = def.configSchema.safeParse(entry.config ?? {});
+    const parsed = def.configSchema.safeParse(def.resolveConfig?.(entry.config ?? {}, config.plugins) ?? entry.config ?? {});
     if (!parsed.success) {
       throw new Error(`invalid config for plugin "${entry.id}": ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`);
     }

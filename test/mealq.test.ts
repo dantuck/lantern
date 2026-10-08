@@ -25,6 +25,20 @@ describe('contract fixture', () => {
   });
 });
 
+describe('meal description and instructions', () => {
+  it('are kept when present and left out when empty or too long', async () => {
+    const plan = await fetchMealPlan(ok({ days: [{ date: '2026-10-03', meals: [
+      { id: 'a', slot: 'dinner', title: 'Soup', description: ' Warm and quick ', instructions: ['Chop', 'Simmer'] },
+      { id: 'b', slot: 'lunch', title: 'Toast', description: '', instructions: [] },
+    ] }] }) as never, REQ);
+    expect(plan.days[0]!.meals[0]).toMatchObject({ slot: 'lunch', title: 'Toast' });
+    expect(plan.days[0]!.meals[0]).not.toHaveProperty('description');
+    expect(plan.days[0]!.meals[0]).not.toHaveProperty('instructions');
+    expect(plan.days[0]!.meals[1]).toMatchObject({ description: 'Warm and quick', instructions: ['Chop', 'Simmer'] });
+    await expect(fetchMealPlan(ok({ days: [{ date: '2026-10-03', meals: [{ id: 'c', slot: 'dinner', title: 'X', instructions: ['y'.repeat(601)] }] }] }) as never, REQ)).rejects.toThrow(/contract/);
+  });
+});
+
 describe('fetchMealPlan', () => {
   it('builds the contract URL with the bearer token', async () => {
     const f = ok({ days: [] });

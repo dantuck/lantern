@@ -11,6 +11,8 @@ import { loadPluginData } from '../src/plugins/host';
 import { buildRegistry } from '../src/plugins/registry';
 import type { CalEvent } from '../src/plugins/calendar/types';
 import { fakeKv } from './kvshim';
+import mealFixture from './fixtures/mealq-meal-plan.json';
+import { mealRange } from '../src/plugins/calendar/meals';
 
 const NY = 'America/New_York';
 const ms = (iso: string) => Date.parse(iso);
@@ -255,5 +257,84 @@ describe('nhl feed and presets', () => {
     const nhl = Object.entries(PRESETS).filter(([id]) => id.startsWith('nhl-'));
     expect(nhl).toHaveLength(32);
     for (const [, p] of Object.entries(PRESETS)) expect(p.color).toMatch(/^#[0-9a-f]{6}$/);
+  });
+});
+
+describe('calendar meals', () => {
+  const MEALQ = 'api.mealq.example';
+  const now = ms('2026-10-03T16:00:00Z');
+  const withMeals = { timeZone: NY, meals: { apiHost: MEALQ } };
+
+  it('is off by default and defaults to dinner when on', () => {
+    expect(configSchema.parse({}).meals).toBeUndefined();
+    expect(configSchema.parse(withMeals).meals).toEqual({ apiHost: MEALQ, slots: ['dinner'] });
+    expect(configSchema.parse({ meals: { apiHost: MEALQ, slots: ['lunch', 'dinner'] } }).meals!.slots).toEqual(['lunch', 'dinner']);
+    expect(() => configSchema.parse({ meals: { apiHost: 'https://x.com/path' } })).toThrow();
+    expect(() => configSchema.parse({ meals: { apiHost: MEALQ, slots: ['brunch'] } })).toThrow();
+  });
+  it('borrows the MealQ plugin\'s host when meals has none of its own', async () => {
+    const mealq = (await import('../src/plugins/mealq/plugin')).default;
+    const modules = { './calendar/plugin.ts': plugin, './mealq/plugin.ts': mealq };
+    const cfg = (calendar: object) => ({ title: 't', plugins: [{ id: 'calendar', config: calendar }, { id: 'mealq', config: { apiHost: MEALQ } }] });
+    const cal = buildRegistry(modules, cfg({ timeZone: NY, meals: {} })).enabled[0]!;
+    expect(cal.fetchPolicy.hosts).toContain(MEALQ);
+    // An explicit host wins, and no MealQ entry means there is nothing to borrow.
+    expect(buildRegistry(modules, cfg({ timeZone: NY, meals: { apiHost: 'other.example' } })).enabled[0]!.fetchPolicy.hosts).toContain('other.example');
+    expect(() => buildRegistry({ './calendar/plugin.ts': plugin }, { title: 't', plugins: [{ id: 'calendar', config: { timeZone: NY, meals: {} } }] })).toThrow(/apiHost/);
+  });
+  it('allows the MealQ host only when meals are configured', () => {
+    expect(resolveFetchPolicy(plugin, configSchema.parse({})).hosts).not.toContain(MEALQ);
+    expect(resolveFetchPolicy(plugin, configSchema.parse(withMeals)).hosts).toContain(MEALQ);
+    expect(plugin.optionalSecrets).toEqual(['MEALQ_API_TOKEN']);
+  });
+  it('asks for a week back to about three weeks ahead, within one MealQ request and the calendar window', () => {
+    // Window is the 1st of the month to 60 days out; today is Oct 3, so a week back is clipped to the 1st.
+    expect(mealRange(now, ms('2026-10-01T04:00:00Z'), now + 60 * 86_400_000, NY)).toEqual({ from: '2026-10-01', to: '2026-10-31' });
+    const late = ms('2026-10-20T16:00:00Z');
+    expect(mealRange(late, ms('2026-10-01T04:00:00Z'), late + 60 * 86_400_000, NY)).toEqual({ from: '2026-10-13', to: '2026-11-12' });
+    expect(mealRange(late, ms('2026-10-01T04:00:00Z'), late + 7 * 86_400_000, NY).to).toBe('2026-10-27'); // never past the window
+  });
+
+  async function run(env: Record<string, string>, config: unknown, mealFetch: (url: string) => Response) {
+    const { sa } = await testServiceAccount();
+    const seen: string[] = [];
+    const fetchImpl = vi.fn(async (url: string) => {
+      seen.push(url);
+      const host = new URL(url).host;
+      if (host === 'oauth2.googleapis.com') return new Response(JSON.stringify({ access_token: 'tok' }));
+      if (host === 'www.googleapis.com') return new Response(JSON.stringify({ items: [{ id: 'e1', summary: 'Soccer', start: { dateTime: '2026-10-05T22:00:00Z' }, end: { dateTime: '2026-10-05T23:00:00Z' } }] }));
+      return mealFetch(url);
+    });
+    const enabled = buildRegistry({ './calendar/plugin.ts': plugin }, { title: 't', plugins: [{ id: 'calendar', config }] }).enabled[0]!;
+    const r = await loadPluginData(enabled, { env: { GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify(sa), GOOGLE_CALENDAR_ID: 'c@x', ...env }, kv: fakeKv(), now, fetchImpl: fetchImpl as never });
+    return { r, seen, fetchImpl };
+  }
+
+  it('adds the meal plan, keeping only days that have meals, using the shared token', async () => {
+    const { r, seen, fetchImpl } = await run({ MEALQ_API_TOKEN: 'secret' }, withMeals, () => new Response(JSON.stringify(mealFixture)));
+    expect(r).toMatchObject({ status: 'ok', data: { events: [{ title: 'Soccer' }] } });
+    const data = (r as { data: { meals: { date: string; meals: { title: string }[] }[] } }).data;
+    expect(data.meals.map((d) => d.date)).toEqual(['2026-10-03', '2026-10-04', '2026-10-06']); // Oct 5 and 7 are empty
+    expect(data.meals[0]!.meals.map((m) => m.title)).toEqual(['Oatmeal with berries', 'Leftover pasta', 'Chicken tacos']);
+    const mealCall = fetchImpl.mock.calls.find(([u]) => new URL(u).host === MEALQ)!;
+    expect(seen.find((u) => u.includes(MEALQ))).toContain('/v1/meal-plan?from=2026-10-01&to=2026-10-31');
+    expect(((mealCall as unknown as [string, RequestInit])[1].headers as Headers).get('authorization')).toBe('Bearer secret');
+  });
+  it('still shows the calendar when the token is missing, without calling MealQ', async () => {
+    const { r, seen } = await run({}, withMeals, () => new Response('{}'));
+    expect(r).toMatchObject({ status: 'ok', data: { events: [{ title: 'Soccer' }] } });
+    expect((r as { data: object }).data).not.toHaveProperty('meals');
+    expect(seen.some((u) => u.includes(MEALQ))).toBe(false);
+  });
+  it('still shows the calendar when MealQ fails or answers with the wrong shape', async () => {
+    for (const bad of [() => new Response('nope', { status: 500 }), () => new Response(JSON.stringify({ days: 'x' }))]) {
+      const { r } = await run({ MEALQ_API_TOKEN: 'secret' }, withMeals, bad);
+      expect(r).toMatchObject({ status: 'ok', data: { events: [{ title: 'Soccer' }] } });
+      expect((r as { data: object }).data).not.toHaveProperty('meals');
+    }
+  });
+  it('never calls MealQ when meals are not configured, even with the token set', async () => {
+    const { seen } = await run({ MEALQ_API_TOKEN: 'secret' }, { timeZone: NY }, () => new Response('{}'));
+    expect(seen.some((u) => u.includes(MEALQ))).toBe(false);
   });
 });
