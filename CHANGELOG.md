@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.6.0](https://github.com/dantuck/lantern/compare/v0.5.0...v0.6.0) (2026-10-08)
+
+
+### Added
+
+* **calendar:** overlay public ics and NHL calendars ([143aa77](https://github.com/dantuck/lantern/commit/143aa772316f658c12b1811e7ac48e7ab3059af6))
+
 ## [0.5.0](https://github.com/dantuck/lantern/compare/v0.4.3...v0.5.0) (2026-10-07)
 
 
