@@ -9,7 +9,7 @@ import { join } from 'node:path';
  */
 
 /** Hosts the deployed Worker may contact. MealQ's host is configured by the household and is checked by fetchPolicy. */
-const RUNTIME_HOSTS = ['api.resend.com', 'oauth2.googleapis.com', 'www.googleapis.com', 'api.open-meteo.com'];
+const RUNTIME_HOSTS = ['api.resend.com', 'oauth2.googleapis.com', 'www.googleapis.com', 'api.open-meteo.com', 'api-web.nhle.com', 'calendar.google.com'];
 /** Appear in files but are never contacted: XML namespaces, documentation placeholders, and the repository link shown on the welcome page. */
 const NOT_CONTACTED = (h: string) => h === 'www.w3.org' || h === 'github.com' || h === 'localhost' || h === 'example.com' || h.endsWith('.example.com') || h.endsWith('.example');
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { addDays } from '../../lib/dates';
+import { clip } from './events';
 import type { CalEvent } from './types';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -67,8 +68,6 @@ interface GoogleEvent {
   id?: string; status?: string; summary?: string; location?: string;
   start?: { date?: string; dateTime?: string }; end?: { date?: string; dateTime?: string };
 }
-
-const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
 /** Maps a Google event to our minimal shape. Descriptions and attendees are intentionally dropped. */
 export function normalizeEvent(g: GoogleEvent): CalEvent | null {

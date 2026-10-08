@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { addDays, dayKey, dayLabel, formatTime, isValidTimeZone, startOfDayMs, weekdayOf } from '../src/lib/dates';
 import { groupByDay, monthGrid } from '../src/plugins/calendar/agenda';
 import { getAccessToken, listEvents, normalizeEvent, parseServiceAccount, signJwt } from '../src/plugins/calendar/google';
+import { parseNhlSchedule } from '../src/plugins/calendar/nhl';
+import { PRESETS } from '../src/plugins/calendar/presets';
+import { parseIcs } from '../src/plugins/calendar/ics';
 import plugin, { configSchema } from '../src/plugins/calendar/plugin';
 import { resolveFetchPolicy } from '../src/plugins/types';
 import { loadPluginData } from '../src/plugins/host';
@@ -178,7 +181,7 @@ describe('listEvents', () => {
 
 describe('calendar plugin', () => {
   it('validates config and applies defaults', () => {
-    expect(configSchema.parse({})).toEqual({ timeZone: 'UTC', locale: 'en-US', daysAhead: 60 });
+    expect(configSchema.parse({})).toEqual({ timeZone: 'UTC', locale: 'en-US', daysAhead: 60, feeds: [] });
     expect(() => configSchema.parse({ timeZone: 'Nowhere/Land' })).toThrow();
     expect(() => configSchema.parse({ daysAhead: 500 })).toThrow();
   });
@@ -200,5 +203,57 @@ describe('calendar plugin', () => {
     const r = await loadPluginData(enabled, { env: { GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify(sa), GOOGLE_CALENDAR_ID: 'cal@group.calendar.google.com' }, kv, now, fetchImpl: google as never });
     expect(r).toMatchObject({ status: 'ok', data: { events: [{ title: 'Soccer' }], windowStart: ms('2026-10-01T04:00:00Z') } });
     expect(seen).toEqual(['oauth2.googleapis.com', 'www.googleapis.com']);
+  });
+});
+
+describe('ics feeds', () => {
+  const ics = [
+    'BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:g1', 'DTSTART:20261010T230000Z', 'DTEND:20261011T020000Z',
+    'SUMMARY:Red Wings at Bruins', 'LOCATION:TD Garden\\, Boston', 'DESCRIPTION:secret', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:g2', 'DTSTART;TZID=America/Detroit:20261012T190000', 'SUMMARY:Bruins at Red', '  Wings', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:h1', 'DTSTART;VALUE=DATE:20261010', 'DTEND;VALUE=DATE:20261012', 'SUMMARY:Trip', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:x', 'STATUS:CANCELLED', 'DTSTART:20261013T000000Z', 'SUMMARY:Gone', 'END:VEVENT', 'END:VCALENDAR',
+  ].join('\r\n');
+  it('parses UTC, TZID, all-day, folded lines and escapes; drops cancelled and descriptions', () => {
+    const evs = parseIcs(ics, 'f0', NY);
+    expect(evs).toEqual([
+      { id: 'f0:g1', title: 'Red Wings at Bruins', location: 'TD Garden, Boston', allDay: false, start: ms('2026-10-10T23:00:00Z'), end: ms('2026-10-11T02:00:00Z') },
+      { id: 'f0:g2', title: 'Bruins at Red Wings', allDay: false, start: ms('2026-10-12T23:00:00Z'), end: ms('2026-10-12T23:00:00Z') },
+      { id: 'f0:h1', title: 'Trip', allDay: true, startDate: '2026-10-10', endDate: '2026-10-11' },
+    ]);
+    expect(JSON.stringify(evs)).not.toContain('secret');
+  });
+  it('accepts webcal:// and limits the host allowlist to the feed hosts', () => {
+    const cfg = configSchema.parse({ timeZone: NY, feeds: [{ name: 'Wings', url: 'webcal://example.com/wings.ics', color: '#ce1126' }] });
+    expect(resolveFetchPolicy(plugin, cfg).hosts).toContain('example.com');
+    expect(() => configSchema.parse({ feeds: [{ name: 'x', url: 'http://example.com/a.ics' }] })).toThrow();
+  });
+});
+
+describe('nhl feed and presets', () => {
+  const game = (id: number, away: string, home: string, extra = {}) => ({
+    id, gameType: 2, startTimeUTC: '2026-10-02T22:30:00Z', venue: { default: 'Little Caesars Arena' },
+    awayTeam: { abbrev: away, commonName: { default: away } }, homeTeam: { abbrev: home, commonName: { default: home } }, ...extra,
+  });
+  it('maps games to events from the chosen team\'s point of view, skipping cancelled and malformed ones', () => {
+    const evs = parseNhlSchedule({ games: [
+      game(1, 'NYR', 'DET'), game(2, 'DET', 'BOS', { gameType: 1 }), game(3, 'DET', 'TOR', { gameScheduleState: 'CNCL' }), { id: 4 },
+    ] }, 'f0', 'DET');
+    expect(evs.map((e) => e.title)).toEqual(['DET vs NYR', 'DET at BOS (Preseason)']);
+    expect(evs[0]).toEqual({ id: 'f0:1', title: 'DET vs NYR', location: 'Little Caesars Arena', allDay: false, start: ms('2026-10-02T22:30:00Z'), end: ms('2026-10-03T01:30:00Z') });
+    expect(() => parseNhlSchedule({}, 'f0', 'DET')).toThrow();
+  });
+  it('resolves presets and nhl feeds in config and allows only the NHL host for them', () => {
+    const cfg = configSchema.parse({ feeds: [{ preset: 'nhl-det' }, { nhl: 'BOS', name: 'Bruins', color: '#fcb514' }, { preset: 'nhl-det', name: 'Wings', color: '#000000' }] });
+    expect(cfg.feeds[0]).toEqual({ name: 'Red Wings', color: '#ce1126', source: { kind: 'nhl', team: 'DET' } });
+    expect(cfg.feeds[2]).toMatchObject({ name: 'Wings', color: '#000000' });
+    expect(resolveFetchPolicy(plugin, cfg).hosts).toContain('api-web.nhle.com');
+    expect(() => configSchema.parse({ feeds: [{ preset: 'nope' }] })).toThrow(/unknown preset/);
+    expect(() => configSchema.parse({ feeds: [{ nhl: 'detroit', name: 'x' }] })).toThrow();
+  });
+  it('has 32 NHL presets with valid colours', () => {
+    const nhl = Object.entries(PRESETS).filter(([id]) => id.startsWith('nhl-'));
+    expect(nhl).toHaveLength(32);
+    for (const [, p] of Object.entries(PRESETS)) expect(p.color).toMatch(/^#[0-9a-f]{6}$/);
   });
 });

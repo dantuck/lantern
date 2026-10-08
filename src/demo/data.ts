@@ -110,7 +110,7 @@ export function demoMeals(now = Date.now(), daysAhead = 7): MealPlanData {
   return { from: today, to: addDays(today, daysAhead - 1), days };
 }
 
-export const demoCalendarConfig = { timeZone: DEMO_TZ, locale: DEMO_LOCALE, daysAhead: 60 };
+export const demoCalendarConfig = { timeZone: DEMO_TZ, locale: DEMO_LOCALE, daysAhead: 60, feeds: [] };
 export const demoMealsConfig = { apiHost: 'demo.invalid', timeZone: DEMO_TZ, locale: DEMO_LOCALE, daysAhead: 7 };
 
 export const demoUsers = [

@@ -14,6 +14,9 @@ here.
 | `api.resend.com` | Sign-in and invite emails, from your Resend account | Recipient address and the message |
 | `oauth2.googleapis.com`, `www.googleapis.com` | Calendar widget, with your service account | A signed token request, then a read-only calendar query |
 | `api.open-meteo.com` | Forecast in the calendar's day headers, only if you set `weather` for the calendar | Your latitude and longitude, rounded to two decimals (about 1 km), and your time zone. Nothing that identifies you or the household |
+| `api-web.nhle.com` | An NHL team's schedule, only if you add an NHL calendar under the calendar's `feeds` | A plain GET for the team's season schedule. Nothing about you or the household |
+| `calendar.google.com` | The US holidays calendar, only if you add the `us-holidays` preset | A plain GET of Google's public holiday feed. Nothing about you or the household |
+| Any `.ics` host you list under the calendar's `feeds` | Extra public calendars | A plain GET of the URL you chose. Only public links belong here |
 | The MealQ host you configure (default: MealQ's public API, `api-mealq.plantolive.app`) | Meal plan widget | Your MealQ access token and a date range |
 
 The browser only ever talks to your own domain: the Content Security Policy is `default-src 'none'` with

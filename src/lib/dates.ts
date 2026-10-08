@@ -46,16 +46,19 @@ export const weekdayOf = (key: string): number => {
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 };
 
-/** The instant at which `key` begins in `tz` (handles DST shifts). */
-export function startOfDayMs(key: string, tz: string): number {
+/** The instant at which wall-clock time `h:mi:s` on calendar day `key` occurs in `tz` (DST-aware). */
+export function zonedTimeMs(key: string, h: number, mi: number, s: number, tz: string): number {
   const { y, m, d } = parseKey(key);
-  const guess = Date.UTC(y, m - 1, d);
+  const guess = Date.UTC(y, m - 1, d, h, mi, s);
   const off1 = offsetMs(tz, guess);
   let t = guess - off1;
   const off2 = offsetMs(tz, t);
   if (off2 !== off1) t = guess - off2;
   return t;
 }
+
+/** The instant at which `key` begins in `tz` (handles DST shifts). */
+export const startOfDayMs = (key: string, tz: string): number => zonedTimeMs(key, 0, 0, 0, tz);
 
 export function formatTime(ms: number, tz: string, locale = 'en-US'): string {
   return new Intl.DateTimeFormat(locale, { timeZone: tz, hour: 'numeric', minute: '2-digit' }).format(ms);

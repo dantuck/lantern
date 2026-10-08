@@ -61,9 +61,16 @@
   const firstOfMonth = $derived(keyOf(cur.y, cur.m, 1));
 
   // --- People: each event takes the colour of whoever its title names; the chips filter the calendar ---
-  const roster = $derived(people.length ? [...people, FAMILY] : []);
+  // Subscribed feeds (e.g. a sports schedule) get a chip and colour of their own and skip the name matching.
+  const feedPeople = $derived.by(() => {
+    const seen = new Map<string, Person>();
+    for (const ev of events) if (ev.source && !seen.has(ev.source.name)) seen.set(ev.source.name, { id: `feed:${ev.source.name}`, name: ev.source.name, color: ev.source.color, match: [] });
+    return seen;
+  });
+  const roster = $derived(people.length || feedPeople.size ? [...people, ...(people.length ? [FAMILY] : []), ...feedPeople.values()] : []);
   const whoCache = new Map<string, Person[]>();
   function whoOf(ev: CalEvent): Person[] {
+    if (ev.source) return [feedPeople.get(ev.source.name)!];
     if (!people.length) return [];
     let who = whoCache.get(ev.id);
     if (!who) { const named = peopleOf(ev.title, people); who = named.length ? named : [FAMILY]; whoCache.set(ev.id, who); }
@@ -174,7 +181,7 @@
   const cols = $derived<Col[]>(
     view === 'week' ? days.map((d) => ({ id: d.key, day: d.key }))
     : view === 'day'
-      ? (people.length
+      ? (chips.length
           ? chips.filter((p) => !only.length || only.includes(p.id)).map((p) => ({ id: p.id, day: cursor, person: p }))
           : [{ id: cursor, day: cursor }])
       : [],
@@ -359,7 +366,7 @@
             <li class="flex gap-[.85rem] items-baseline py-[.7rem] pr-0 pl-[.8rem] [border-left:4px_solid_var(--c,var(--accent))] [&:not(:first-child)]:[border-top:1px_solid_var(--border)]" style:--c={colorOf(ev)}>
               <span class="text-muted min-w-[8.5rem] text-[.9rem] tabular-nums max-[40rem]:min-w-[6.5rem]">{ev.allDay ? 'All day' : isBanner(ev) ? agendaWhen(ev, d.key) : `${formatTime(ev.start, timeZone, locale)}–${formatTime(ev.end, timeZone, locale)}`}</span>
               <span class="font-medium min-w-0 [overflow-wrap:anywhere]">{ev.title}{#if ev.location}{' '}<span class="text-muted font-normal">· {ev.location}</span>{/if}</span>
-              {#if people.length}<span class="inline-flex gap-[3px] ml-auto">{@render dots(ev)}</span>{/if}
+              {#if roster.length}<span class="inline-flex gap-[3px] ml-auto">{@render dots(ev)}</span>{/if}
             </li>
           {/each}
         </ul>
@@ -389,7 +396,7 @@
               <span class="text-accent font-semibold">{detailWhen(ev)}</span>
               {#if duration(ev)}<span>{duration(ev)}</span>{/if}
               {#if position(ev, cursor)}<span class="cal-pill">{position(ev, cursor)}</span>{/if}
-              {#each people.length ? whoOf(ev) : [] as p (p.id)}<span class="cal-pill-who" style:--c={p.color}>{p.name}</span>{/each}
+              {#each roster.length ? whoOf(ev) : [] as p (p.id)}<span class="cal-pill-who" style:--c={p.color}>{p.name}</span>{/each}
             </div>
             <div class="mt-[.15rem] text-[1.05rem] font-semibold tracking-[-.01em] [overflow-wrap:anywhere]">{ev.title}</div>
             {#if ev.location}
