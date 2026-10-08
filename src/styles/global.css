@@ -290,6 +290,12 @@ main:focus { outline: none; }
   @view-transition { navigation: none; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+/* Confetti burst when someone finishes every chore. Hidden entirely for reduced motion. */
+.confetti { position: fixed; inset: 0; z-index: 60; overflow: hidden; pointer-events: none; }
+.confetti-bit { position: absolute; top: -1rem; width: .55rem; height: .9rem; opacity: 0; animation: confetti-fall var(--d) var(--delay) cubic-bezier(.3, .6, .5, 1) forwards; }
+.confetti-bit.round { width: .6rem; height: .6rem; border-radius: 50%; }
+@keyframes confetti-fall { 0% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0); } 85% { opacity: 1; } 100% { opacity: 0; transform: translate3d(var(--x), 105vh, 0) rotate(var(--r)); } }
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }
 /* Display menu (rail): theme and full screen live in one popover beside the rail, like the phone's More sheet. */
 .display-menu, .use-menu { background: var(--card); color: var(--fg); border: 1px solid var(--border); box-shadow: var(--shadow-md); }
 .display-menu { margin: 0; inset: auto auto max(1rem, env(safe-area-inset-bottom)) 6.5rem; width: 16rem; padding: .85rem; border-radius: var(--radius); }

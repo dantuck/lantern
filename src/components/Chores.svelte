@@ -2,6 +2,9 @@
   import { allowanceLeft, canAsk, timeAvailable, PERIOD_LABEL, PERIODS, sections, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
   import { runChores } from '../lib/choreClient';
   import { onMount } from 'svelte';
+  import { celebrate } from '../lib/celebrate.svelte';
+  import { celebrationKeys } from '../lib/completion';
+  import Confetti from './Confetti.svelte';
   import type { Person } from '../lib/people';
 
   let { initial, people, intro = '', demo = false, manageHref = '/chores/manage', personBase = '/chores' }: { initial: ChoreState; people: Person[]; intro?: string; demo?: boolean; manageHref?: string; personBase?: string } = $props();
@@ -26,6 +29,9 @@
     return cols;
   });
   const tally = (items: ChoreItem[]) => ({ total: items.length, done: items.filter((i) => i.done).length });
+  // Confetti the moment someone's last chore gets ticked: big for the day, small for a time of day with a bonus.
+  const party = celebrate(() => columns.flatMap((c) => celebrationKeys(c.id, c.items, c.routine?.bonuses)));
+  const partyColor = $derived(columns.find((c) => party.key.startsWith(`${c.id}:`))?.person?.color ?? 'var(--accent)');
   const pendingFor = (id: string | null) => choreState.pending.filter((r) => r.person === id);
   const rewardsFor = (id: string) => choreState.rewards.filter((r) => !r.hidden && canAsk(r, id));
   const available = (id: string) => (choreState.balances[id] ?? 0) - pendingFor(id).reduce((n, r) => n + r.cost, 0);
@@ -87,6 +93,8 @@
   const mins = (n: number) => `${n} min`;
   const pts = (n: number) => `${n} ${n === 1 ? 'point' : 'points'}`;
 </script>
+
+{#key party.burst}{#if party.burst > 0}<Confetti color={partyColor} size={party.size} />{/if}{/key}
 
 {#if error}<p class="notice error" role="alert">{error}</p>{/if}
 

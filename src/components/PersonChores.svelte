@@ -1,7 +1,10 @@
 <script lang="ts">
+  import Confetti from './Confetti.svelte';
   import RoutineEditor from './RoutineEditor.svelte';
   import Stepper from './Stepper.svelte';
   import { allowanceLeft, canAsk, formatWhen, LEDGER_LABEL, PERIOD_LABEL, periodRecord, sections, timeAvailable, type ChoreState } from '../lib/choreTypes';
+  import { celebrate } from '../lib/celebrate.svelte';
+  import { celebrationKeys } from '../lib/completion';
   import { chorePipe } from '../lib/chorePipe.svelte';
   import type { Person } from '../lib/people';
 
@@ -31,6 +34,9 @@
   const total = $derived(chores.length);
 
   const send = pipe.send;
+
+  // Confetti the moment the last chore gets ticked: big for the day, small for a time of day with a bonus.
+  const party = celebrate(() => celebrationKeys(who, chores, routine?.bonuses));
 
   let menu = $state<HTMLElement>();
   let picked = $state<number | null>(null); // minutes awaiting confirmation
@@ -94,6 +100,7 @@
 </script>
 
 <div class="max-w-[72rem] mx-auto" style:--c={me.color}>
+  {#key party.burst}{#if party.burst > 0}<Confetti color={me.color} size={party.size} />{/if}{/key}
   <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
   <nav class="flex flex-wrap items-center gap-[.3rem]" aria-label="Whose page">
     {#each people as p (p.id)}
