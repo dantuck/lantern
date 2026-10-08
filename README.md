@@ -73,6 +73,8 @@ plugins: [
 ]
 ```
 
+**Extra calendars:** overlay public calendars under the calendar's `feeds`, each with its own colour and filter chip. Three spellings: `{ preset: 'nhl-det' }` (a known calendar from `src/plugins/calendar/presets.ts`: every NHL team plus US holidays; `name` and `color` can be overridden), `{ nhl: 'DET', name: 'Red Wings' }` (an NHL team, read live from the NHL's public schedule API), or `{ name, url, color }` for any public `.ics` / `webcal://` link. Feed hosts are added to the plugin's outbound allowlist. A feed that is down is skipped; the rest still load. Feed URLs live in `dashboard.config.ts`, so only use public ones. Recurrence rules in `.ics` feeds are not expanded.
+
 An event goes on a person's calendar when their name (or a `match` word) appears in its title, such as "Ballet: Agnes"; events that name nobody are "Family". Colours, the filter chips and the **Day** view's per-person columns come from this list, and so do the columns on the **Chores** page. Only the event *title* is looked at, in the browser; nothing else about an event is read. `weather` is optional: it adds a forecast to the calendar and sends your coordinates (rounded to about 1 km) to Open-Meteo, a free service that needs no key.
 
 Chores, rewards and lists are stored in your D1 database, so run the new migrations (`npm run update`, or `npm run db:migrate:remote`). Any signed-in member can tick chores off, ask for a reward and use the lists; only **managers** create and change chores and rewards.
