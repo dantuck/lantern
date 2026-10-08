@@ -8,6 +8,7 @@
   onMount(() => { const t = setTimeout(() => (gone = true), 3600); return () => clearTimeout(t); });
 
   const PALETTE = ['#f59e0b', '#ec4899', '#22c55e', '#3b82f6', '#a855f7'];
+  // svelte-ignore state_referenced_locally
   const pieces = Array.from({ length: size === 'big' ? 48 : 18 }, (_, i) => ({
     x: Math.round((Math.random() - 0.5) * 100), // vw drift from centre
     r: Math.round(360 + Math.random() * 720), // total spin, degrees
