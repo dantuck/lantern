@@ -7,6 +7,14 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.7.0](https://github.com/dantuck/lantern/compare/v0.6.0...v0.7.0) (2026-10-08)
+
+
+### Added
+
+* **calendar:** show the MealQ meal plan on the calendar ([ab4771f](https://github.com/dantuck/lantern/commit/ab4771f7deab4ab35d7af0482d048c2da269c662))
+* **chores:** add screen-time picker and phone-friendly routine editing ([4d1c4db](https://github.com/dantuck/lantern/commit/4d1c4db78813c75a211180625b7a6482e5e3a149))
+
 ## [0.6.0](https://github.com/dantuck/lantern/compare/v0.5.0...v0.6.0) (2026-10-08)
 
 
