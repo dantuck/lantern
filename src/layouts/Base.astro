@@ -87,8 +87,8 @@ const hasRail = demo || !!user;
           {!demo && <button class="rail-btn" data-install-app type="button" hidden>Install app</button>}
           <button class="rail-btn" type="button" popovertarget="display-menu" aria-label="Display options"><Icon name="sliders" /><span>Display</span></button>
           {demo
-            ? <a class="rail-act" href={user ? '/' : '/welcome'}>{user ? 'Exit demo' : 'Back to site'}</a>
-            : <form class="m-0 flex" method="post" action="/auth/logout"><button class="rail-btn" type="submit">Sign out</button></form>}
+            ? <form class="m-0 flex" method="get" action={user ? '/' : '/welcome'}><button class="rail-btn" type="submit" data-confirm="Exit the demo?" data-confirm-label="Exit demo">Exit demo</button></form>
+            : <form class="m-0 flex" method="post" action="/auth/logout"><button class="rail-btn" type="submit" data-confirm="Sign out of Lantern on this device?">Sign out</button></form>}
         </nav>
 
         <div id="display-menu" class="display-menu" popover>
@@ -112,8 +112,8 @@ const hasRail = demo || !!user;
             <div class="util grid justify-items-center gap-[.15rem] text-[.7rem] font-semibold text-muted"><WallToggle /><span>Full screen</span></div>
             {!demo && <button class="sheet-act" data-install-app type="button" hidden>Install app</button>}
             {demo
-              ? <a class="sheet-act ml-auto" href={user ? '/' : '/welcome'}>{user ? 'Exit demo' : 'Back to site'}</a>
-              : <form class="[margin:0_0_0_auto] flex" method="post" action="/auth/logout"><button class="sheet-act" type="submit">Sign out</button></form>}
+              ? <form class="[margin:0_0_0_auto] flex" method="get" action={user ? '/' : '/welcome'}><button class="sheet-act" type="submit" data-confirm="Exit the demo?" data-confirm-label="Exit demo">Exit demo</button></form>
+              : <form class="[margin:0_0_0_auto] flex" method="post" action="/auth/logout"><button class="sheet-act" type="submit" data-confirm="Sign out of Lantern on this device?">Sign out</button></form>}
           </div>
         </div>
       </>
