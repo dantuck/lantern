@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.10.1](https://github.com/dantuck/lantern/compare/v0.10.0...v0.10.1) (2026-10-13)
+
+
+### Fixed
+
+* **login:** wrap sign-in notice text in a span ([71717a7](https://github.com/dantuck/lantern/commit/71717a743b68f947223c78358eb505c6f929b78a))
+
 ## [0.10.0](https://github.com/dantuck/lantern/compare/v0.9.0...v0.10.0) (2026-10-13)
 
 
