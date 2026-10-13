@@ -8,7 +8,7 @@ const bad = Astro.url.searchParams.get('bad') === '1';
     <h1>Lantern</h1>
     {sent ? (
       <div class="notice">
-        If that address is invited, a sign-in link is on its way. Open the <strong>newest</strong> link in <strong>this same browser</strong>. It expires in 10 minutes.
+        <span>If that address is invited, a sign-in link is on its way. Open the <strong>newest</strong> link in <strong>this same browser</strong>. It expires in 10 minutes.</span>
       </div>
     ) : <p>Enter your email and we'll send you a sign-in link.</p>}
     {sent && (
