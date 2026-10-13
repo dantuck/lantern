@@ -5,21 +5,25 @@ import { rewardState } from './rewards';
 export const MAX_ITEMS_PER_ROUTINE = 60;
 /** Ticks older than this are dropped; nothing shows past days. */
 const KEEP_CHECK_DAYS = 60;
+/** Skips only matter for the day they were made, so a short history is plenty. */
+const KEEP_SKIP_DAYS = 7;
 
 interface RoutineRow { id: string; person: string | null }
 interface ItemRow { id: string; list_id: string; title: string; points: number; period: Period; days: number | null; once_date: string | null }
 
 export async function choreState(db: D1Database, day: string, manager: boolean): Promise<ChoreState> {
   // Independent reads, so they go out together rather than one round-trip after another.
-  const [routineRows, itemRows, checkRows, paidRows, bonusRows, rewards] = await Promise.all([
+  const [routineRows, itemRows, checkRows, skipRows, paidRows, bonusRows, rewards] = await Promise.all([
     db.prepare('SELECT id, person FROM chore_lists ORDER BY created_at, id').all<RoutineRow>(),
     db.prepare('SELECT id, list_id, title, points, period, days, once_date FROM chore_items ORDER BY created_at, id').all<ItemRow>(),
     db.prepare('SELECT item_id FROM chore_checks WHERE day = ?').bind(day).all<{ item_id: string }>(),
+    db.prepare('SELECT item_id FROM chore_skips WHERE day = ?').bind(day).all<{ item_id: string }>(),
     db.prepare("SELECT ref FROM reward_ledger WHERE kind = 'bonus' AND ref LIKE ?").bind(`%:${day}`).all<{ ref: string }>(),
     db.prepare('SELECT person, period, bonus FROM chore_bonus').all<{ person: string; period: Period; bonus: number }>(),
     rewardState(db, day),
   ]);
   const done = new Set(checkRows.results.map((r) => r.item_id));
+  const skipped = new Set(skipRows.results.map((r) => r.item_id));
   const paid = new Set(paidRows.results.map((r) => r.ref));
   const bonusOf = new Map<string, Record<Period, number>>();
   for (const b of bonusRows.results) {
@@ -39,7 +43,7 @@ export async function choreState(db: D1Database, day: string, manager: boolean):
       bonusEarned: Object.fromEntries(PERIODS.map((p) => [p, r.person !== null && paid.has(`${r.person}:${p}:${day}`)])) as Record<Period, boolean>,
       items: (itemsByList.get(r.id) ?? []).map((i) => ({
         id: i.id, title: i.title, points: i.points, done: done.has(i.id), period: i.period, days: i.days, onceDate: i.once_date,
-        due: itemDue({ days: i.days, onceDate: i.once_date }, day),
+        due: itemDue({ days: i.days, onceDate: i.once_date }, day), skipped: skipped.has(i.id),
       })),
     };
   });
@@ -110,11 +114,13 @@ export async function setBonus(db: D1Database, person: string, period: Period, b
  */
 export async function setCheck(db: D1Database, id: string, day: string, done: boolean, now = Date.now()): Promise<'ok' | 'not_found' | 'not_due'> {
   const row = await db
-    .prepare('SELECT i.title, i.points, i.period, i.days, i.once_date, l.person FROM chore_items i JOIN chore_lists l ON l.id = i.list_id WHERE i.id = ?')
-    .bind(id)
-    .first<{ title: string; points: number; period: Period; days: number | null; once_date: string | null; person: string | null }>();
+    .prepare(`SELECT i.title, i.points, i.period, i.days, i.once_date, l.person,
+        EXISTS (SELECT 1 FROM chore_skips s WHERE s.item_id = i.id AND s.day = ?) AS skipped
+      FROM chore_items i JOIN chore_lists l ON l.id = i.list_id WHERE i.id = ?`)
+    .bind(day, id)
+    .first<{ title: string; points: number; period: Period; days: number | null; once_date: string | null; person: string | null; skipped: number }>();
   if (!row) return 'not_found';
-  if (done && !itemDue({ days: row.days, onceDate: row.once_date }, day)) return 'not_due';
+  if (done && (!itemDue({ days: row.days, onceDate: row.once_date }, day) || row.skipped === 1)) return 'not_due';
   const ref = `${id}:${day}`;
   if (done) {
     await db.prepare('INSERT INTO chore_checks (item_id, day, done_at) VALUES (?, ?, ?) ON CONFLICT (item_id, day) DO NOTHING').bind(id, day, now).run();
@@ -133,6 +139,29 @@ export async function setCheck(db: D1Database, id: string, day: string, done: bo
   return 'ok';
 }
 
+/**
+ * Skips a chore for `day`, or brings it back. A skipped chore leaves the day's list, so any tick on it is undone along with its
+ * points, and a bonus that was waiting on it can now be paid. Skipping twice is harmless. Only a scheduled chore can be skipped.
+ */
+export async function setSkip(db: D1Database, id: string, day: string, skipped: boolean, now = Date.now()): Promise<'ok' | 'not_found' | 'not_due'> {
+  const row = await db
+    .prepare('SELECT i.days, i.once_date, i.period, l.person FROM chore_items i JOIN chore_lists l ON l.id = i.list_id WHERE i.id = ?')
+    .bind(id)
+    .first<{ days: number | null; once_date: string | null; period: Period; person: string | null }>();
+  if (!row) return 'not_found';
+  if (skipped) {
+    if (!itemDue({ days: row.days, onceDate: row.once_date }, day)) return 'not_due';
+    await db.prepare('INSERT INTO chore_skips (item_id, day, skipped_at) VALUES (?, ?, ?) ON CONFLICT (item_id, day) DO NOTHING').bind(id, day, now).run();
+    await db.prepare('DELETE FROM chore_skips WHERE day < ?').bind(addDays(day, -KEEP_SKIP_DAYS)).run();
+    await db.prepare('DELETE FROM chore_checks WHERE item_id = ? AND day = ?').bind(id, day).run();
+    await db.prepare("DELETE FROM reward_ledger WHERE kind = 'chore' AND ref = ?").bind(`${id}:${day}`).run();
+  } else {
+    await db.prepare('DELETE FROM chore_skips WHERE item_id = ? AND day = ?').bind(id, day).run();
+  }
+  await syncBonus(db, row.person, row.period, day, now);
+  return 'ok';
+}
+
 /** Pays a person's bonus for a time of day when every chore due then is ticked for `day`, and takes it back if one is un-ticked. */
 async function syncBonus(db: D1Database, person: string | null, period: Period, day: string, now: number) {
   if (!person) return;
@@ -143,8 +172,9 @@ async function syncBonus(db: D1Database, person: string | null, period: Period, 
     .prepare(`SELECT COUNT(*) AS total, COUNT(c.item_id) AS ticked
       FROM chore_items i JOIN chore_lists l ON l.id = i.list_id LEFT JOIN chore_checks c ON c.item_id = i.id AND c.day = ?
       WHERE l.person = ? AND i.period = ?
+        AND NOT EXISTS (SELECT 1 FROM chore_skips s WHERE s.item_id = i.id AND s.day = ?)
         AND CASE WHEN i.once_date IS NOT NULL THEN i.once_date = ? ELSE (i.days IS NULL OR ((i.days >> ?) & 1) = 1) END`)
-    .bind(day, person, period, day, weekdayOf(day))
+    .bind(day, person, period, day, day, weekdayOf(day))
     .first<{ total: number; ticked: number }>();
   if (t && t.total > 0 && t.ticked === t.total) {
     await db

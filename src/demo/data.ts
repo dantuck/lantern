@@ -170,7 +170,7 @@ const ROUTINES: [string | null, Partial<Record<Period, number>>, [string, number
 export function demoChores(now = Date.now()): import('../lib/choreTypes').ChoreState {
   const day = dayKey(now, DEMO_TZ);
   const routines = ROUTINES.map(([person, bonus, chores], ri) => {
-    const items = chores.map(([title, points, period, done], i) => ({ id: `c${ri}-${i}`, title, points, done, period, days: null, onceDate: null, due: true }));
+    const items = chores.map(([title, points, period, done], i) => ({ id: `c${ri}-${i}`, title, points, done, period, days: null, onceDate: null, due: true, skipped: false }));
     const bonuses = { ...periodRecord(0), ...bonus };
     const earned = (p: Period) => bonuses[p] > 0 && items.some((i) => i.period === p) && items.filter((i) => i.period === p).every((i) => i.done);
     return { id: `r${ri}`, person, bonuses, bonusEarned: { morning: earned('morning'), afternoon: earned('afternoon'), evening: earned('evening'), any: earned('any') }, items };

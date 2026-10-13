@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { z } from 'zod';
-import { addItem, choreState, removeItem, setBonus, setCheck, updateItem } from '../../lib/chores';
+import { addItem, choreState, removeItem, setBonus, setCheck, setSkip, updateItem } from '../../lib/chores';
 import { PERIODS, type Period } from '../../lib/choreTypes';
 import { adjustMinutes, adjustPoints, approveAffordable, claimGoal, decideRedemption, removeGoal, removeReward, requestRedemption, saveGoal, saveReward, setAllowance, useMinutes } from '../../lib/rewards';
 import { householdZone } from '../../lib/household';
@@ -31,6 +31,7 @@ const managerBody = z.discriminatedUnion('action', [
   z.object({ action: z.literal('item_add'), person: person.nullable(), title, points, period, days: itemDays, onceDate: date.nullable().optional() }),
   z.object({ action: z.literal('item_update'), id, title: title.optional(), points: points.optional(), period: period.optional(), days: itemDays, onceDate: date.nullable().optional() }),
   z.object({ action: z.literal('item_remove'), id }),
+  z.object({ action: z.literal('item_skip'), id, skipped: z.boolean() }),
   z.object({ action: z.literal('bonus_set'), person, period, bonus: z.number().int().min(0).max(1000) }),
   z.object({ action: z.literal('reward_save'), id: id.optional(), name: z.string().trim().min(1).max(60), cost: z.number().int().min(1).max(100_000), minutes: z.number().int().min(0).max(1440).optional(), people: z.array(person).max(40).nullable().optional(), hidden: z.boolean().optional() }),
   z.object({ action: z.literal('reward_remove'), id }),
@@ -89,6 +90,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         break;
       }
       case 'item_remove': if (!(await removeItem(db, b.id))) result = 'not_found'; break;
+      case 'item_skip': result = await setSkip(db, b.id, today(), b.skipped); break;
       case 'bonus_set': await setBonus(db, b.person, b.period as Period, b.bonus); break;
       case 'reward_save': result = await saveReward(db, { name: b.name, cost: b.cost, ...(b.minutes !== undefined ? { minutes: b.minutes } : {}), ...(b.people !== undefined ? { people: b.people } : {}), ...(b.hidden !== undefined ? { hidden: b.hidden } : {}) }, b.id); break;
       case 'reward_remove': if (!(await removeReward(db, b.id))) result = 'not_found'; break;

@@ -2,7 +2,7 @@
   import Confetti from './Confetti.svelte';
   import RoutineEditor from './RoutineEditor.svelte';
   import Stepper from './Stepper.svelte';
-  import { allowanceLeft, canAsk, formatWhen, LEDGER_LABEL, PERIOD_LABEL, periodRecord, sections, timeAvailable, type ChoreState } from '../lib/choreTypes';
+  import { allowanceLeft, canAsk, formatWhen, LEDGER_LABEL, onToday, PERIOD_LABEL, periodRecord, sections, timeAvailable, type ChoreState } from '../lib/choreTypes';
   import { celebrate } from '../lib/celebrate.svelte';
   import { celebrationKeys } from '../lib/completion';
   import { chorePipe } from '../lib/chorePipe.svelte';
@@ -19,7 +19,8 @@
 
   const me = $derived(people.find((p) => p.id === who)!);
   const routine = $derived(choreState.routines.find((r) => r.person === who));
-  const chores = $derived(routine?.items.filter((i) => i.due) ?? []);
+  const chores = $derived(routine?.items.filter(onToday) ?? []);
+  const skipped = $derived(routine?.items.filter((i) => i.due && i.skipped) ?? []); // only a manager is shown these, to bring them back
   const groups = $derived(sections(chores));
   const points = $derived(choreState.balances[who] ?? 0);
   const banked = $derived(choreState.minutes[who] ?? 0);
@@ -185,6 +186,7 @@
               </button>
               <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.1rem] font-medium {c.done ? 'text-muted line-through' : ''}">{c.title}</span>
               {#if c.points > 0}<span class="text-[.9rem] [font-weight:650] text-[color:var(--c)] tabular-nums">+{c.points}</span>{/if}
+              {#if choreState.manager}<button type="button" class="ghost small w-auto m-0" disabled={busy} aria-label={`Skip ${c.title} today`} onclick={() => send({ action: 'item_skip', id: c.id, skipped: true })}>Skip today</button>{/if}
             </li>
           {/each}
         </ul>
@@ -195,6 +197,19 @@
     {:else}
       <p class="note">Nothing today.</p>
     {/each}
+    {#if choreState.manager && skipped.length > 0}
+      <div class="mt-4">
+        <h3 class="m-0 text-[1rem]">Skipped today <span class="note">{skipped.length}</span></h3>
+        <ul class="list-none m-0 p-0">
+          {#each skipped as c (c.id)}
+            <li class="list-row">
+              <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.1rem] font-medium text-muted">{c.title}</span>
+              <button type="button" class="ghost small w-auto m-0" disabled={busy} aria-label={`Put ${c.title} back on today's list`} onclick={() => send({ action: 'item_skip', id: c.id, skipped: false })}>Undo skip</button>
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
   </section>
   {/if}
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { allowanceLeft, canAsk, timeAvailable, PERIOD_LABEL, PERIODS, sections, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
+  import { allowanceLeft, canAsk, timeAvailable, PERIOD_LABEL, PERIODS, onToday, sections, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
   import { runChores } from '../lib/choreClient';
   import { onMount } from 'svelte';
   import { celebrate } from '../lib/celebrate.svelte';
@@ -62,7 +62,7 @@
   const toggle = (id: string) => { only = only.includes(id) ? only.filter((x) => x !== id) : [...only, id]; };
   /** The time-of-day choices that exist today, so the filter never offers an empty option. */
   const periodChoices = $derived.by(() => {
-    const today = PERIODS.filter((p) => choreState.routines.some((r) => r.items.some((i) => i.due && i.period === p)));
+    const today = PERIODS.filter((p) => choreState.routines.some((r) => r.items.some((i) => onToday(i) && i.period === p)));
     return today.length > 1 ? today : [];
   });
   /** What a column shows after filtering: the chosen time of day, and only the chores in the chosen state. */

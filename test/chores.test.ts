@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { readdirSync, readFileSync } from 'node:fs';
 import { createTestDb } from './d1shim';
-import { addItem, choreState, MAX_ITEMS_PER_ROUTINE, removeItem, setBonus, setCheck, updateItem, type ChoreInput } from '../src/lib/chores';
+import { addItem, choreState, MAX_ITEMS_PER_ROUTINE, removeItem, setBonus, setCheck, setSkip, updateItem, type ChoreInput } from '../src/lib/chores';
 import { adjustPoints, approveAffordable, adjustMinutes, balanceOf, claimGoal, decideRedemption, MAX_GOALS, MAX_PENDING, removeGoal, removeReward, requestRedemption, saveGoal, saveReward, setAllowance, useMinutes } from '../src/lib/rewards';
 import { canAsk, describeSchedule, itemDue, sections, toggleDay, WEEKDAYS_MASK } from '../src/lib/choreTypes';
 import { requiredRole } from '../src/lib/http';
@@ -494,5 +494,57 @@ describe('screen time bank', () => {
       expect(await allowance()).toBeUndefined();
       expect(await useMinutes(db, 'margo', 5, WED, T)).toBe('insufficient'); // nobody gets time without an allowance or a bank
     });
+  });
+});
+
+describe('skipping a chore for a day', () => {
+  let db: D1Database;
+  beforeEach(() => { db = createTestDb(); });
+  const items = async (day = WED) => (await choreState(db, day, true)).routines.find((r) => r.person === 'agnes')!.items;
+
+  it('skips one day only, and can be undone', async () => {
+    await give(db, 'agnes', chore('Brush teeth', 1), chore('Bins', 1));
+    const [teeth] = await items();
+    expect(await setSkip(db, teeth!.id, WED, true, T)).toBe('ok');
+    expect(await setSkip(db, teeth!.id, WED, true, T)).toBe('ok'); // harmless twice
+    expect((await items(WED)).map((i) => [i.title, i.skipped])).toEqual([['Brush teeth', true], ['Bins', false]]);
+    expect((await items(THU)).every((i) => !i.skipped)).toBe(true);
+    expect(await setCheck(db, teeth!.id, WED, true)).toBe('not_due');
+    expect(await setSkip(db, teeth!.id, WED, false)).toBe('ok');
+    expect((await items(WED))[0]!.skipped).toBe(false);
+    expect(await setCheck(db, teeth!.id, WED, true, T)).toBe('ok');
+    expect(await setSkip(db, 'nope', WED, true)).toBe('not_found');
+  });
+  it('cannot skip a chore that is not scheduled', async () => {
+    await give(db, 'agnes', chore('Bins', 0, { days: 1 << 3 }));
+    expect(await setSkip(db, (await items())[0]!.id, THU, true)).toBe('not_due');
+  });
+  it('takes back points for a ticked chore that is skipped', async () => {
+    await give(db, 'agnes', chore('Brush teeth', 5));
+    const id = (await items())[0]!.id;
+    await setCheck(db, id, WED, true, T);
+    expect(await balanceOf(db, 'agnes')).toBe(5);
+    await setSkip(db, id, WED, true, T);
+    expect(await balanceOf(db, 'agnes')).toBe(0);
+    expect((await items())[0]!.done).toBe(false);
+  });
+  it('pays the bonus once the remaining chores are done, and withdraws it when the skip is undone', async () => {
+    await setBonus(db, 'agnes', 'morning', 10);
+    await give(db, 'agnes', chore('Brush teeth', 0), chore('Bins', 0));
+    const [teeth, bins] = await items();
+    await setCheck(db, teeth!.id, WED, true, T);
+    expect(await balanceOf(db, 'agnes')).toBe(0);
+    await setSkip(db, bins!.id, WED, true, T);
+    expect(await balanceOf(db, 'agnes')).toBe(10);
+    await setSkip(db, bins!.id, WED, false, T);
+    expect(await balanceOf(db, 'agnes')).toBe(0);
+  });
+  it('is gone when the chore is removed', async () => {
+    await give(db, 'agnes', chore('Bins'));
+    const id = (await items())[0]!.id;
+    await setSkip(db, id, WED, true);
+    await removeItem(db, id);
+    await give(db, 'agnes', chore('Bins'));
+    expect((await items())[0]!.skipped).toBe(false);
   });
 });

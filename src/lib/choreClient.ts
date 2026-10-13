@@ -6,7 +6,7 @@ const MESSAGES: Record<string, string> = {
   limit: 'That is the most the dashboard keeps. Remove something first.',
   insufficient: 'Not enough points for that yet.',
   not_eligible: 'That reward is not available to them.',
-  not_due: 'That is not on the schedule today.',
+  not_due: 'That is not on the schedule today, or it was skipped.',
   not_found: 'That no longer exists. Reload the page.',
   forbidden: 'Only a manager can do that.',
 };

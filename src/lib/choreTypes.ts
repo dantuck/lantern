@@ -22,6 +22,8 @@ export interface ChoreItem {
   onceDate: string | null;
   /** Whether it is on the schedule for `ChoreState.day`. */
   due: boolean;
+  /** Whether a manager skipped it for `ChoreState.day`. It is then left out of the day's list, points and bonus. */
+  skipped: boolean;
 }
 /** Everything one person (or "Anyone") has to do: a single routine, split by time of day. */
 export interface Routine {
@@ -102,9 +104,12 @@ export function describeSchedule(s: { days: number | null; onceDate: string | nu
   return picked.length > 0 ? picked.join(', ') : 'Never';
 }
 
-/** The routines with only today's chores; one with nothing due today is left out. */
+/** Whether a chore is there to do today: on the schedule and not skipped. */
+export const onToday = (i: Pick<ChoreItem, 'due' | 'skipped'>): boolean => i.due && !i.skipped;
+
+/** The routines with only today's chores; one with nothing to do today is left out. */
 export const todaysRoutines = (routines: readonly Routine[]): Routine[] =>
-  routines.map((r) => ({ ...r, items: r.items.filter((i) => i.due) })).filter((r) => r.items.length > 0);
+  routines.map((r) => ({ ...r, items: r.items.filter(onToday) })).filter((r) => r.items.length > 0);
 
 /** Chores grouped by time of day, in the order of the day. Times of day with no chores are left out. */
 export const sections = <T extends { period: Period }>(items: readonly T[]): { period: Period; items: T[] }[] =>

@@ -1,5 +1,5 @@
 // Browser-safe. The demo has no database, so this applies the same actions as /api/chores to a copy of the state held in the page.
-import { allowanceFor, allowanceLeft, itemDue, periodRecord, PERIODS, type ChoreItem, type ChoreState, type Period } from './choreTypes';
+import { allowanceFor, allowanceLeft, itemDue, onToday, periodRecord, PERIODS, type ChoreItem, type ChoreState, type Period } from './choreTypes';
 
 let seq = 0;
 const uid = (p: string) => `${p}-${++seq}`;
@@ -18,7 +18,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
   const syncBonus = (person: string | null, period: Period) => {
     const r = s.routines.find((x) => x.person === person);
     if (!r || !person || r.bonuses[period] <= 0) return;
-    const due = r.items.filter((i) => i.period === period && i.due);
+    const due = r.items.filter((i) => i.period === period && onToday(i));
     const all = due.length > 0 && due.every((i) => i.done);
     if (all !== r.bonusEarned[period]) { r.bonusEarned[period] = all; log(person, all ? r.bonuses[period] : -r.bonuses[period], 'bonus', 'All done'); }
   };
@@ -39,6 +39,18 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
         if (i.id !== p.id || i.done === p.done) continue;
         i.done = p.done;
         if (r.person && i.points > 0) log(r.person, p.done ? i.points : -i.points, 'chore', i.title);
+        syncBonus(r.person, i.period);
+      }
+      break;
+    }
+    case 'item_skip': {
+      for (const r of s.routines) for (const i of r.items) {
+        if (i.id !== p.id || i.skipped === p.skipped || (p.skipped && !i.due)) continue;
+        i.skipped = p.skipped;
+        if (p.skipped && i.done) {
+          i.done = false;
+          if (r.person && i.points > 0) log(r.person, -i.points, 'chore', i.title);
+        }
         syncBonus(r.person, i.period);
       }
       break;
@@ -83,7 +95,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
     case 'adjust': log(p.person, p.delta, 'adjust', p.note ?? ''); break;
     case 'item_add': {
       const r = routineOf(p.person ?? null);
-      const item: ChoreItem = { id: uid('c'), title: p.title, points: p.points, done: false, period: p.period, days: p.onceDate ? null : p.days ?? null, onceDate: p.onceDate ?? null, due: false };
+      const item: ChoreItem = { id: uid('c'), title: p.title, points: p.points, done: false, period: p.period, days: p.onceDate ? null : p.days ?? null, onceDate: p.onceDate ?? null, due: false, skipped: false };
       r.items.push(item);
       refresh();
       break;
