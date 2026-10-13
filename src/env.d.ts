@@ -6,6 +6,8 @@ declare namespace Cloudflare {
     CACHE: KVNamespace;
     APP_ORIGIN: string;
     MAIL_FROM: string;
+    /** Comma-separated old hostnames that 308-redirect to APP_ORIGIN (optional). */
+    REDIRECT_HOSTS?: string;
     RESEND_API_KEY?: string;
     BOOTSTRAP_MANAGER_EMAIL?: string;
     GOOGLE_SERVICE_ACCOUNT_JSON?: string;

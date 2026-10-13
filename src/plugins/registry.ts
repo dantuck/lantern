@@ -11,7 +11,7 @@ export interface EnabledPlugin {
 
 /** Worker bindings and platform secrets that no plugin may ask for. */
 const RESERVED_SECRETS = new Set([
-  'DB', 'CACHE', 'ASSETS', 'SESSION', 'IMAGES', 'APP_ORIGIN', 'MAIL_FROM', 'RESEND_API_KEY', 'BOOTSTRAP_MANAGER_EMAIL',
+  'DB', 'CACHE', 'ASSETS', 'SESSION', 'IMAGES', 'APP_ORIGIN', 'REDIRECT_HOSTS', 'MAIL_FROM', 'RESEND_API_KEY', 'BOOTSTRAP_MANAGER_EMAIL',
 ]);
 const ID = /^[a-z][a-z0-9-]{0,31}$/;
 function validateFetchPolicy(id: string, policy: FetchPolicy) {

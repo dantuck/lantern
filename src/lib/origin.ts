@@ -12,3 +12,13 @@ export function safeAppOrigin(raw: string | undefined, dev: boolean): string | n
   if (dev) return u.protocol === 'https:' || (u.protocol === 'http:' && local) ? u.origin : null;
   return u.protocol === 'https:' && !local ? u.origin : null;
 }
+
+/** Where a request on a retired hostname (listed in REDIRECT_HOSTS) should go: the same path on APP_ORIGIN. */
+export function redirectTarget(url: URL, appOrigin: string | undefined, redirectHosts: string | undefined): string | null {
+  if (!appOrigin || !redirectHosts) return null;
+  const hosts = redirectHosts.split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
+  if (!hosts.includes(url.hostname.toLowerCase())) return null;
+  const target = safeAppOrigin(appOrigin, false);
+  if (!target || new URL(target).hostname === url.hostname) return null;
+  return target + url.pathname + url.search;
+}

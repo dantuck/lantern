@@ -4,6 +4,7 @@ import { validateSession } from './lib/auth/sessions';
 import { SESSION_COOKIE } from './lib/auth/policy';
 import { clearCookie } from './lib/auth/cookies';
 import { disabledFeatures } from './lib/features';
+import { redirectTarget } from './lib/origin';
 import { SAFE_METHODS, isPublicPath, isSameOrigin, json, requiredRole, withSecurityHeaders } from './lib/http';
 
 const enforceCsp = import.meta.env.PROD;
@@ -11,6 +12,9 @@ const enforceCsp = import.meta.env.PROD;
 export const onRequest = defineMiddleware(async (ctx, next) => {
   const { request, url, cookies, locals } = ctx;
   const finish = (res: Response) => withSecurityHeaders(res, enforceCsp);
+
+  const moved = redirectTarget(url, env.APP_ORIGIN, env.REDIRECT_HOSTS);
+  if (moved) return finish(Response.redirect(moved, 308));
 
   if (!SAFE_METHODS.has(request.method) && !isSameOrigin(request, url)) {
     return finish(new Response('Forbidden', { status: 403 }));
