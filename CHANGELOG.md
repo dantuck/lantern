@@ -7,6 +7,15 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.9.0](https://github.com/dantuck/lantern/compare/v0.8.0...v0.9.0) (2026-10-13)
+
+
+### Added
+
+* **auth:** confirm before signing out or exiting the demo ([fe8e568](https://github.com/dantuck/lantern/commit/fe8e5684475b9988e58e00fd38542590c3c08a89))
+* **chores:** add skip and undo to the all-chores board ([26ff032](https://github.com/dantuck/lantern/commit/26ff032b26f8c55946371499cfc4d18ebb0dbe50))
+* **chores:** let managers skip a chore for a day ([780922a](https://github.com/dantuck/lantern/commit/780922a2888a8a5600e941f251031bdc3bd3b3f1))
+
 ## [0.8.0](https://github.com/dantuck/lantern/compare/v0.7.0...v0.8.0) (2026-10-08)
 
 
