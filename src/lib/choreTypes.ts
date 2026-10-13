@@ -107,6 +107,9 @@ export function describeSchedule(s: { days: number | null; onceDate: string | nu
 /** Whether a chore is there to do today: on the schedule and not skipped. */
 export const onToday = (i: Pick<ChoreItem, 'due' | 'skipped'>): boolean => i.due && !i.skipped;
 
+/** The chores a manager skipped for today, which they can bring back. */
+export const skippedToday = (items: readonly ChoreItem[]): ChoreItem[] => items.filter((i) => i.due && i.skipped);
+
 /** The routines with only today's chores; one with nothing to do today is left out. */
 export const todaysRoutines = (routines: readonly Routine[]): Routine[] =>
   routines.map((r) => ({ ...r, items: r.items.filter(onToday) })).filter((r) => r.items.length > 0);

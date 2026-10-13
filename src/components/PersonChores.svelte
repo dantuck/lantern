@@ -2,7 +2,7 @@
   import Confetti from './Confetti.svelte';
   import RoutineEditor from './RoutineEditor.svelte';
   import Stepper from './Stepper.svelte';
-  import { allowanceLeft, canAsk, formatWhen, LEDGER_LABEL, onToday, PERIOD_LABEL, periodRecord, sections, timeAvailable, type ChoreState } from '../lib/choreTypes';
+  import { allowanceLeft, canAsk, formatWhen, LEDGER_LABEL, onToday, PERIOD_LABEL, periodRecord, sections, skippedToday, timeAvailable, type ChoreState } from '../lib/choreTypes';
   import { celebrate } from '../lib/celebrate.svelte';
   import { celebrationKeys } from '../lib/completion';
   import { chorePipe } from '../lib/chorePipe.svelte';
@@ -20,7 +20,7 @@
   const me = $derived(people.find((p) => p.id === who)!);
   const routine = $derived(choreState.routines.find((r) => r.person === who));
   const chores = $derived(routine?.items.filter(onToday) ?? []);
-  const skipped = $derived(routine?.items.filter((i) => i.due && i.skipped) ?? []); // only a manager is shown these, to bring them back
+  const skipped = $derived(skippedToday(routine?.items ?? [])); // only a manager is shown these, to bring them back
   const groups = $derived(sections(chores));
   const points = $derived(choreState.balances[who] ?? 0);
   const banked = $derived(choreState.minutes[who] ?? 0);

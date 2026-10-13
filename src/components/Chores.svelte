@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { allowanceLeft, canAsk, timeAvailable, PERIOD_LABEL, PERIODS, onToday, sections, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
+  import { allowanceLeft, canAsk, timeAvailable, PERIOD_LABEL, PERIODS, onToday, sections, skippedToday, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
   import { runChores } from '../lib/choreClient';
   import { onMount } from 'svelte';
   import { celebrate } from '../lib/celebrate.svelte';
@@ -20,12 +20,15 @@
   /** One column per person, plus "Anyone" for chores nobody owns (and for households with no people set up). */
   const columns = $derived.by(() => {
     const today = todaysRoutines(choreState.routines);
-    const cols: { id: string | null; name: string; person?: Person; routine?: Routine; items: ChoreItem[] }[] = people.map((p) => {
+    const skippedIn = (rs: readonly Routine[]) => skippedToday(rs.flatMap((r) => r.items));
+    const cols: { id: string | null; name: string; person?: Person; routine?: Routine; items: ChoreItem[]; skipped: ChoreItem[] }[] = people.map((p) => {
       const routine = today.find((r) => r.person === p.id);
-      return { id: p.id, name: p.name, person: p, ...(routine ? { routine } : {}), items: routine?.items ?? [] };
+      return { id: p.id, name: p.name, person: p, ...(routine ? { routine } : {}), items: routine?.items ?? [], skipped: skippedIn(choreState.routines.filter((r) => r.person === p.id)) };
     });
-    const anyone = today.filter((r) => !r.person || !people.some((p) => p.id === r.person)).flatMap((r) => r.items);
-    if (anyone.length > 0 || people.length === 0) cols.push({ id: null, name: 'Anyone', items: anyone });
+    const isAnyone = (r: Routine) => !r.person || !people.some((p) => p.id === r.person);
+    const anyone = today.filter(isAnyone).flatMap((r) => r.items);
+    const anyoneSkipped = skippedIn(choreState.routines.filter(isAnyone));
+    if (anyone.length > 0 || anyoneSkipped.length > 0 || people.length === 0) cols.push({ id: null, name: 'Anyone', items: anyone, skipped: anyoneSkipped });
     return cols;
   });
   const tally = (items: ChoreItem[]) => ({ total: items.length, done: items.filter((i) => i.done).length });
@@ -213,6 +216,7 @@
                 </button>
                 <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.05rem] font-medium {c.done ? 'text-muted line-through' : ''}">{c.title}</span>
                 {#if earns && c.points > 0}<span class="text-[.85rem] [font-weight:650] text-[color:var(--c)] tabular-nums">+{c.points}</span>{/if}
+                {#if choreState.manager}<button type="button" class="ghost small w-auto m-0" disabled={busy} aria-label={`Skip ${c.title} today`} onclick={() => send({ action: 'item_skip', id: c.id, skipped: true })}>Skip</button>{/if}
               </li>
             {/each}
           </ul>
@@ -221,6 +225,20 @@
           {/if}
         </div>
       {/each}
+
+      {#if choreState.manager && col.skipped.length > 0}
+        <div class="mt-4">
+          <h4 class="m-0 text-[.95rem] tracking-[.01em]">Skipped today</h4>
+          <ul class="list-none m-0 p-0">
+            {#each col.skipped as c (c.id)}
+              <li class="list-row">
+                <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.05rem] font-medium text-muted">{c.title}</span>
+                <button type="button" class="ghost small w-auto m-0" disabled={busy} aria-label={`Put ${c.title} back on today's list`} onclick={() => send({ action: 'item_skip', id: c.id, skipped: false })}>Undo</button>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
 
       {#if col.person && (rewardsFor(col.person.id).length > 0 || pendingFor(col.person.id).length > 0)}
         {@const who = col.person}
