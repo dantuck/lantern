@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.10.0](https://github.com/dantuck/lantern/compare/v0.9.0...v0.10.0) (2026-10-13)
+
+
+### Added
+
+* **auth:** redirect retired hostnames to APP_ORIGIN ([222c3ec](https://github.com/dantuck/lantern/commit/222c3ec9d68cdd0bdb80f88120639ce1e42b8576))
+
 ## [0.9.0](https://github.com/dantuck/lantern/compare/v0.8.0...v0.9.0) (2026-10-13)
 
 
