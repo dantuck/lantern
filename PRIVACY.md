@@ -16,7 +16,7 @@ project page for it) is hosted on GitHub, which has its own privacy practices wh
 When you deploy Lantern, **you** are the operator and the data controller for your household. Everything is stored in
 your own Cloudflare account (D1 database and KV): member email addresses and roles, invites, hashed sign-in tokens
 and sessions, rate-limit counters, a 400-day audit log, chore lists and when chores were ticked off (kept 60 days),
-points and reward requests, shared lists, and a short cache of widget data. Nothing is copied anywhere else.
+points and reward requests, running screen time timers and each person's chosen timer sound, the browser addresses of devices that turned on "time is up" alerts (optional), shared lists, and a short cache of widget data. Nothing is copied anywhere else.
 
 ## Who your Lantern talks to
 
@@ -29,6 +29,7 @@ list, and a test fails if the code gains a new destination without it being adde
 | Google (Calendar API) | Calendar widget | A signed service-account token request and a read-only calendar query |
 | Open-Meteo (optional) | Forecast in the calendar | Your coordinates, rounded to about 1 km, and your time zone |
 | MealQ (the host you configure) | Meal plan widget | Your MealQ access token and a date range |
+| The push service of a member's browser (Apple, Google, Mozilla or Microsoft), optional | "Time is up" alert for a screen time timer, only if you set the VAPID keys and a member turns alerts on for a device | An encrypted message only that device can read. The push service learns that your Lantern sent a message to that device |
 
 Each of those services has its own privacy policy, which applies to data sent to it. Your own Cloudflare account is
 also subject to Cloudflare's privacy policy.

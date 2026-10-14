@@ -199,6 +199,32 @@ problem and run it again: it picks up where it left off and offers your earlier 
 6. On a phone, install it: in Chrome use the install button, on iPhone use Safari, Share, **Add to Home Screen**.
    [`pwa-manual-check.md`](pwa-manual-check.md) is a short checklist to confirm offline and sign-out behaviour.
 
+## 8. Optional: "time is up" alerts on a locked iPad or phone
+
+Screen time timers work without this: the person's page counts down and rings while it is open. This adds an alert that
+arrives even when the page is closed or the screen is locked. It uses the browser's own push service (Apple, Google,
+Mozilla or Microsoft), so it is **off until you set it up**, and nothing about it runs until you do.
+
+1. Make a key pair on your machine: `npm run push:keys`. It prints two values and sends nothing anywhere.
+2. Set both on your Worker, pasting each value when asked:
+   ```bash
+   npx wrangler secret put VAPID_PUBLIC_KEY
+   npx wrangler secret put VAPID_PRIVATE_KEY
+   ```
+3. Make sure your `wrangler.jsonc` has the schedule that checks for finished timers once a minute. New installs get it
+   from the template; if yours was created earlier, add these two settings (the entry file and the schedule) and redeploy:
+   ```jsonc
+   "main": "./src/worker.ts",
+   "triggers": { "crons": ["* * * * *"] },
+   ```
+4. Deploy (`npm run update`, or `npx wrangler deploy`). On a person's page, **Alert this device when time is up** now
+   appears under *Timer sound*.
+
+On an iPhone or iPad the page must first be added to the Home Screen (Safari, Share, **Add to Home Screen**) and opened
+from there; Apple only allows alerts for installed apps (iOS 16.4 or later). Alerts arrive within about a minute of
+the timer ending. Keep the private key secret like any other secret; if it leaks, make a new pair and set both again
+(devices then turn alerts on again).
+
 ## When something is wrong
 
 | What you see | Likely cause and fix |
@@ -209,6 +235,7 @@ problem and run it again: it picks up where it left off and offers your earlier 
 | You are not sure what is wrong | Run `npm run doctor`. It lists what is set up correctly and what is not, with a fix for each. |
 | Setup stopped halfway | Run `npm run setup` again; completed steps are reused. |
 | A widget says it is not set up or unavailable | Its secrets are missing or wrong, or the upstream (Google, MealQ) refused the request. Re-run setup, or set the secret again with `npx wrangler secret put NAME`. |
+| The screen time timer does not make a sound | Browsers only allow sound after a tap, so tap the page once after it opens. On an iPad the side switch (or Control Centre mute) also silences web sound. For a locked screen, set up alerts (step 8). |
 | You locked yourself out as the only manager | The recovery command is in the README under "Operating it". |
 
 ## Next

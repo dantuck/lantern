@@ -18,6 +18,7 @@ here.
 | `calendar.google.com` | The US holidays calendar, only if you add the `us-holidays` preset | A plain GET of Google's public holiday feed. Nothing about you or the household |
 | Any `.ics` host you list under the calendar's `feeds` | Extra public calendars | A plain GET of the URL you chose. Only public links belong here |
 | The MealQ host you configure (default: MealQ's public API, `api-mealq.plantolive.app`) | Meal plan widget | Your MealQ access token and a date range |
+| A browser's push service: `fcm.googleapis.com` (Chrome, Edge, Android), `web.push.apple.com` (Safari, iPhone, iPad), `updates.push.services.mozilla.com` (Firefox) or `*.notify.windows.com` (Windows) | The optional "time is up" alert for a screen time timer, **only if you set the `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` secrets** and a member turns alerts on for a device | An encrypted message (only that device can read it) with a signed token proving it came from your Worker. The address is the one the member's own browser handed over, and it is refused unless it is on one of these services (`PUSH_HOSTS` in `src/lib/push.ts`). The push service sees that your Worker sent a message to that device, not what it says |
 
 The browser only ever talks to your own domain: the Content Security Policy is `default-src 'none'` with
 `connect-src 'self'`, and the build fails if any client file references an external host
@@ -26,7 +27,7 @@ The browser only ever talks to your own domain: the Content Security Policy is `
 ## What is stored, and where
 
 All in **your** Cloudflare account: users, invites, hashed sessions and sign-in tokens (only SHA-256 digests are
-stored), rate-limit counters, a 400-day audit log, the household's chore lists and rewards (only managers can change them; any signed-in member can tick chores off and ask for a reward), when each chore was ticked off (kept 60 days), each person's points history and reward requests, and shared lists (any signed-in member can read and change them), which widgets a manager has switched off, and a short cache of widget data in KV. Secrets are Worker
+stored), rate-limit counters, a 400-day audit log, the household's chore lists and rewards (only managers can change them; any signed-in member can tick chores off and ask for a reward), when each chore was ticked off (kept 60 days), each person's points history and reward requests, each person's running screen time timers and chosen timer sound, the addresses of devices that asked for "time is up" alerts (only if you turned those on), and shared lists (any signed-in member can read and change them), which widgets a manager has switched off, and a short cache of widget data in KV. Secrets are Worker
 secrets. Nothing is copied anywhere else. Request logging (`observability`) is **off** by default; if you turn it on
 for debugging, logs live in your account and can include sign-in addresses.
 
