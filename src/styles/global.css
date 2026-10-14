@@ -377,3 +377,8 @@ html[data-wall] .install { display: none; }
 /* Day dialog (calendar) */
 @keyframes expand { from { opacity: 0; transform: scale(.94) translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes fade { from { opacity: 0; } }
+/* Screen time timer (person page): a card under the header that counts down, then pulses gently once time is up. It follows the person's colour (--c). */
+.timer-card { margin: 0 0 1.25rem; padding: 1rem 1.25rem; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--c) 40%, var(--border)); background: color-mix(in srgb, var(--c) 10%, var(--card)); box-shadow: var(--shadow-sm); }
+.timer-card.is-done { border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 18%, var(--card)); }
+@media (prefers-reduced-motion: no-preference) { .timer-card.is-done { animation: timer-pulse 1.1s ease-in-out infinite alternate; } }
+@keyframes timer-pulse { from { box-shadow: var(--shadow-sm), 0 0 0 0 color-mix(in srgb, var(--c) 45%, transparent); } to { box-shadow: var(--shadow-sm), 0 0 0 .6rem color-mix(in srgb, var(--c) 0%, transparent); } }

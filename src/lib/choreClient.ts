@@ -25,6 +25,26 @@ export async function postChores(payload: Record<string, unknown>): Promise<Sent
   }
 }
 
+/** Reads the whole state again (devices do this when another device started or stopped a timer). */
+export async function getChores(): Promise<Sent> {
+  try {
+    const res = await fetch('/api/chores', { cache: 'no-store' });
+    return res.ok ? { ok: true, state: (await res.json()) as ChoreState } : { ok: false, error: 'That did not load. Try again.' };
+  } catch {
+    return { ok: false, error: 'Could not reach the dashboard. Check your connection.' };
+  }
+}
+
+/** Just the timers and the server's clock; much lighter than the whole state. Null when the dashboard cannot be reached. */
+export async function getTimers(): Promise<{ now: number; timers: ChoreState['timers'] } | null> {
+  try {
+    const res = await fetch('/api/chores?timers=1', { cache: 'no-store' });
+    return res.ok ? ((await res.json()) as { now: number; timers: ChoreState['timers'] }) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Runs an action against the server, or, in the demo, against a copy of the page's own state (nothing is saved). */
 export async function runChores(state: ChoreState, payload: Record<string, unknown>, demo: boolean): Promise<Sent> {
   return demo ? { ok: true, state: applyDemo(state, payload) } : postChores(payload);

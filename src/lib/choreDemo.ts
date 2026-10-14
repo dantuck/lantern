@@ -1,12 +1,15 @@
 // Browser-safe. The demo has no database, so this applies the same actions as /api/chores to a copy of the state held in the page.
-import { allowanceFor, allowanceLeft, itemDue, onToday, periodRecord, PERIODS, type ChoreItem, type ChoreState, type Period } from './choreTypes';
+import { allowanceFor, allowanceLeft, isSound, itemDue, onToday, periodRecord, PERIODS, type ChoreItem, type ChoreState, type Period } from './choreTypes';
 
 let seq = 0;
+/** Where each demo timer's minutes came from, so stopping one early can give them back the way the server does. */
+const demoSource: Record<string, { bank: number; allowance: number }> = {};
 const uid = (p: string) => `${p}-${++seq}`;
 
 /** Returns the state after one API action. Unknown actions and missing ids change nothing. */
 export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.now()): ChoreState {
   const s: ChoreState = JSON.parse(JSON.stringify(prev)); // the state is plain data; this also accepts a Svelte $state proxy
+  s.now = now;
   const log = (person: string, delta: number, kind: ChoreState['recent'][number]['kind'], note: string) => {
     s.balances[person] = (s.balances[person] ?? 0) + delta;
     if (kind === 'chore' || kind === 'bonus' || (kind === 'adjust' && delta > 0)) earn(delta);
@@ -67,8 +70,26 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
       if (fromBank > (s.minutes[p.person] ?? 0)) break;
       if (a) a.used += fromAllowance;
       s.minutes[p.person] = (s.minutes[p.person] ?? 0) - fromBank;
+      // Like the server: a running timer is extended, otherwise a new one starts. What each part came from is kept to give back.
+      const t = s.timers[p.person];
+      if (t && t.endsAt > now) { t.endsAt += p.minutes * 60_000; t.minutes += p.minutes; demoSource[p.person] = { bank: (demoSource[p.person]?.bank ?? 0) + fromBank, allowance: (demoSource[p.person]?.allowance ?? 0) + fromAllowance }; }
+      else { s.timers[p.person] = { startedAt: now, endsAt: now + p.minutes * 60_000, minutes: p.minutes }; demoSource[p.person] = { bank: fromBank, allowance: fromAllowance }; }
       break;
     }
+    case 'timer_stop': {
+      const t = s.timers[p.person];
+      if (!t) break;
+      delete s.timers[p.person];
+      const src = demoSource[p.person] ?? { bank: 0, allowance: 0 };
+      const unused = Math.min(t.minutes, Math.floor(Math.max(0, t.endsAt - now) / 60_000));
+      const toBank = Math.min(unused, src.bank);
+      const toAllowance = Math.min(unused - toBank, src.allowance);
+      s.minutes[p.person] = (s.minutes[p.person] ?? 0) + toBank;
+      const a = s.allowance[p.person];
+      if (a) a.used = Math.max(0, a.used - toAllowance);
+      break;
+    }
+    case 'sound_set': if (isSound(p.sound)) s.sounds[p.person] = p.sound; break;
     case 'allowance_set':
       if (p.weekday <= 0 && (p.weekend === null || p.weekend <= 0)) delete s.allowance[p.person];
       else s.allowance[p.person] = { weekday: p.weekday, weekend: p.weekend, today: allowanceFor(s.day, p.weekday, p.weekend), used: s.allowance[p.person]?.used ?? 0 };

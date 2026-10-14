@@ -12,5 +12,6 @@
   "0011_screen_time.sql": "d275850f539ddb7d6c86e34ddc6da35e8e4516265dfef72950edebc6deb61c12",
   "0012_one_routine_per_person.sql": "79738648b42e0ad817bec98162f94b68d9eba4b0c51cdaeabc68a16f45d6b15b",
   "0013_daily_screen_time.sql": "53cffec63c411312c3274a98b37e97f9b9fd7c22d7d53311caaca5944aad2e97",
-  "0014_chore_skips.sql": "67b39c263d908c14a452a78680909a566bc16f868f9a956cda462694744cc197"
+  "0014_chore_skips.sql": "67b39c263d908c14a452a78680909a566bc16f868f9a956cda462694744cc197",
+  "0015_screentime_timers.sql": "dcd2c53e672143ed91b0e12087c985b3c97bce19741a921e98b40df44c08ba4c"
 }

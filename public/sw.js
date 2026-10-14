@@ -6,6 +6,7 @@
  *   - Precaches the offline page.
  *   - Caches hashed build assets (/_astro/*) cache-first. They are public and immutable.
  *   - Optionally keeps a copy of the dashboard (/ and /p/<id>) so the family can glance at it offline.
+ *   - Shows the optional "time is up" alert when the server pushes one, and opens that person's page when it is tapped.
  *
  * What it never does
  *   - Touch /admin, /devices, /api/*, /auth/* or /login, or anything that is not a GET (except noticing a logout).
@@ -45,6 +46,32 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'purge') event.waitUntil(purgePages());
+});
+
+// Push alerts. The server sends an encrypted { title, body, url, tag } that only this browser can read. Every push must show a
+// notification (Safari drops subscriptions that do not), and a tap only ever opens a path on this site.
+self.addEventListener('push', (event) => {
+  let msg = {};
+  try { msg = event.data ? event.data.json() : {}; } catch { /* not JSON: fall back to the plain text below */ }
+  const title = typeof msg.title === 'string' && msg.title ? msg.title : "Time's up!";
+  const options = {
+    body: typeof msg.body === 'string' ? msg.body : 'Screen time is finished.',
+    tag: typeof msg.tag === 'string' ? msg.tag : 'timer',
+    icon: '/icons/icon-192.png',
+    data: { url: typeof msg.url === 'string' && msg.url.startsWith('/') && !msg.url.startsWith('//') ? msg.url : '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+      const open = wins.find((w) => w.url === target) || wins[0];
+      return open && open.focus ? open.focus().then(() => (open.url === target || !open.navigate ? open : open.navigate(target))) : self.clients.openWindow(target);
+    }),
+  );
 });
 
 self.addEventListener('fetch', (event) => {

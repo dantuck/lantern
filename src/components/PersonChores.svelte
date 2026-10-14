@@ -2,7 +2,11 @@
   import Confetti from './Confetti.svelte';
   import RoutineEditor from './RoutineEditor.svelte';
   import Stepper from './Stepper.svelte';
-  import { allowanceLeft, canAsk, formatWhen, LEDGER_LABEL, onToday, PERIOD_LABEL, periodRecord, sections, skippedToday, timeAvailable, type ChoreState } from '../lib/choreTypes';
+  import TimerCard from './TimerCard.svelte';
+  import AlarmSettings from './AlarmSettings.svelte';
+  import { allowanceLeft, canAsk, DEFAULT_SOUND, formatWhen, LEDGER_LABEL, onToday, PERIOD_LABEL, periodRecord, sections, skippedToday, timeAvailable, timerRunning, type ChoreState, type Sound } from '../lib/choreTypes';
+  import { unlockAudio } from '../lib/chime';
+  import { liveTimers } from '../lib/timerClient.svelte';
   import { celebrate } from '../lib/celebrate.svelte';
   import { celebrationKeys } from '../lib/completion';
   import { chorePipe } from '../lib/chorePipe.svelte';
@@ -36,6 +40,20 @@
 
   const send = pipe.send;
 
+  // The screen time countdown, shared by every device (see timers.ts). `clock.now` is the server's time, ticking.
+  const clock = liveTimers(() => choreState, (s) => (choreState = s), { demo, busy: () => pipe.busy, hold: () => editing });
+  const timer = $derived(choreState.timers[who]);
+  const sound = $derived<Sound>(choreState.sounds[who] ?? DEFAULT_SOUND);
+  const usesTime = $derived(allowance !== undefined || banked > 0 || timer !== undefined || choreState.rewards.some((r) => r.minutes > 0));
+  const MUTE_KEY = 'lantern:timer-muted';
+  let muted = $state(false); // this device does not ring; remembered in this browser only
+  let mutedLoaded = false;
+  $effect(() => { try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch { /* private window: rings by default */ } mutedLoaded = true; });
+  $effect(() => { const m = muted; if (!mutedLoaded) return; try { m ? localStorage.setItem(MUTE_KEY, '1') : localStorage.removeItem(MUTE_KEY); } catch { /* not saved; nothing breaks */ } });
+  const stopTimer = () => send({ action: 'timer_stop', person: who });
+  const addMore = (m: number) => { unlockAudio(); return send({ action: 'use_time', person: who, minutes: m }); };
+  const setSound = (s: Sound) => send({ action: 'sound_set', person: who, sound: s });
+
   // Confetti the moment the last chore gets ticked: big for the day, small for a time of day with a bonus.
   const party = celebrate(() => celebrationKeys(who, chores, routine?.bonuses));
 
@@ -43,10 +61,13 @@
   let picked = $state<number | null>(null); // minutes awaiting confirmation
   const fromAllowance = $derived(Math.min(picked ?? 0, allowance ? left : 0));
   let used = $state(false); // spent: the thank-you shows for a moment before the menu closes
+  let extended = $state(false); // the minutes were added to a timer that was already running
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
   async function confirmUse() {
     if (picked === null) return;
     const m = picked;
+    unlockAudio(); // a tap is the only time a browser lets a page get ready to play sound, and time's up rings later
+    extended = timerRunning(timer, clock.now);
     if (!(await send({ action: 'use_time', person: who, minutes: m }))) return;
     used = true;
     closeTimer = setTimeout(() => menu?.hidePopover(), 1800);
@@ -58,6 +79,7 @@
     clearTimeout(closeTimer);
     picked = null;
     used = false;
+    extended = false;
   }
 
   // Spending screen time: a popover (like the Display menu) of 5 minute blocks, plus the exact remainder when it is not a multiple of 5.
@@ -130,7 +152,7 @@
             <button type="button" class="small use-btn" disabled={busy} popovertarget="use-menu">Use</button>
             <div id="use-menu" class="use-menu" popover bind:this={menu} ontoggle={menuToggled}>
               {#if used}
-                <div class="use-hooray" role="status"><span class="use-big" aria-hidden="true">🎉</span><p class="m-0 text-[1.2rem] font-bold">Enjoy your screen time, {me.name}!</p><p class="note m-0">{picked} minutes of screen time, starting now.</p></div>
+                <div class="use-hooray" role="status"><span class="use-big" aria-hidden="true">🎉</span><p class="m-0 text-[1.2rem] font-bold">Enjoy your screen time, {me.name}!</p><p class="note m-0">{picked} minutes of screen time, {extended ? 'added to your timer' : 'starting now'}.</p></div>
               {:else if picked === null}
                 <p class="use-title">How much screen time do you want to use?</p>
                 <p class="use-big-n">{chosen}<span> min</span></p>
@@ -161,6 +183,8 @@
       </div>
     </div>
   </header>
+
+  <TimerCard {who} name={me.name} {timer} now={clock.now} {sound} canAddMore={minutes >= 5} {busy} stop={stopTimer} addMore={addMore} bind:muted />
 
   <div class="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] max-[52rem]:grid-cols-[minmax(0,1fr)] gap-x-6 items-start">
     <div>
@@ -249,6 +273,10 @@
       {/if}
     </div>
     <aside>
+  {#if usesTime}
+    <AlarmSettings {who} name={me.name} {sound} {busy} {setSound} bind:muted {demo} />
+  {/if}
+
   {#if choreState.goals.length > 0}
     <section class="card" aria-label="Household goals">
       <h2 class="card-h">Together</h2>

@@ -1,0 +1,47 @@
+import type { APIRoute } from 'astro';
+import { env } from 'cloudflare:workers';
+import { z } from 'zod';
+import { loadPeople } from '../../lib/peopleStore';
+import { isOn } from '../../lib/features';
+import { json, readJson } from '../../lib/http';
+import { pushKeys, removeSubscription, saveSubscription, subscribedPeople } from '../../lib/push';
+
+const person = z.string().min(1).max(64);
+const endpoint = z.string().min(1).max(1024);
+const body = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('status'), endpoint }),
+  z.object({ action: z.literal('subscribe'), person, subscription: z.object({ endpoint, keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) }) }) }),
+  z.object({ action: z.literal('unsubscribe'), endpoint, person: person.optional() }),
+]);
+
+const off = (locals: App.Locals) => !isOn(locals.disabled, 'chores');
+
+/** Whether "time is up" alerts are set up on this Worker, and the public key a browser needs to subscribe. Any signed-in member may ask. */
+export const GET: APIRoute = ({ locals }) => {
+  const keys = pushKeys(env);
+  if (off(locals) || !keys) return json({ enabled: false });
+  return json({ enabled: true, publicKey: keys.publicKey });
+};
+
+/** Middleware has already required a session and a same-origin Origin. Any member may sign a device up for alerts, as they may start a timer. */
+export const POST: APIRoute = async ({ request, locals }) => {
+  if (off(locals) || !pushKeys(env)) return json({ error: 'not_found' }, 404);
+  const raw = await readJson(request, 4096);
+  if (raw === null) return json({ error: 'too_large' }, 413);
+  const parsed = body.safeParse(raw);
+  if (!parsed.success) return json({ error: 'bad_request' }, 400);
+  const b = parsed.data;
+  const db = env.DB;
+  if (b.action === 'status') return json({ people: await subscribedPeople(db, b.endpoint) });
+  if (b.action === 'unsubscribe') {
+    await removeSubscription(db, b.endpoint, b.person);
+    return json({ people: await subscribedPeople(db, b.endpoint) }); // what is left, so the device knows whether to drop its subscription
+  }
+  if (!(await loadPeople(db)).some((p) => p.id === b.person)) return json({ error: 'bad_request' }, 400);
+  const { endpoint: address, keys } = b.subscription;
+  const result = await saveSubscription(db, b.person, { endpoint: address, ...keys });
+  if (result !== 'ok') return json({ error: result }, result === 'limit' ? 409 : 400);
+  return json({ ok: true });
+};
+
+export const ALL: APIRoute = () => new Response(null, { status: 405, headers: { Allow: 'GET, POST' } });

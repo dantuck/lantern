@@ -11,7 +11,7 @@ const KEEP_SKIP_DAYS = 7;
 interface RoutineRow { id: string; person: string | null }
 interface ItemRow { id: string; list_id: string; title: string; points: number; period: Period; days: number | null; once_date: string | null }
 
-export async function choreState(db: D1Database, day: string, manager: boolean): Promise<ChoreState> {
+export async function choreState(db: D1Database, day: string, manager: boolean, now = Date.now()): Promise<ChoreState> {
   // Independent reads, so they go out together rather than one round-trip after another.
   const [routineRows, itemRows, checkRows, skipRows, paidRows, bonusRows, rewards] = await Promise.all([
     db.prepare('SELECT id, person FROM chore_lists ORDER BY created_at, id').all<RoutineRow>(),
@@ -20,7 +20,7 @@ export async function choreState(db: D1Database, day: string, manager: boolean):
     db.prepare('SELECT item_id FROM chore_skips WHERE day = ?').bind(day).all<{ item_id: string }>(),
     db.prepare("SELECT ref FROM reward_ledger WHERE kind = 'bonus' AND ref LIKE ?").bind(`%:${day}`).all<{ ref: string }>(),
     db.prepare('SELECT person, period, bonus FROM chore_bonus').all<{ person: string; period: Period; bonus: number }>(),
-    rewardState(db, day),
+    rewardState(db, day, now),
   ]);
   const done = new Set(checkRows.results.map((r) => r.item_id));
   const skipped = new Set(skipRows.results.map((r) => r.item_id));

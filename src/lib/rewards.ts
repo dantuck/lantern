@@ -1,5 +1,5 @@
 import { audit, type User } from './auth/users';
-import { allowanceFor, type Allowance, type ChoreState, type Goal, type LedgerEntry, type Redemption, type Reward } from './choreTypes';
+import { allowanceFor, isSound, type Allowance, type ChoreState, type Goal, type LedgerEntry, type Redemption, type Reward, type Sound, type Timer } from './choreTypes';
 
 export const MAX_REWARDS = 40;
 export const MAX_GOALS = 20;
@@ -19,8 +19,8 @@ async function sumFor(db: D1Database, table: 'reward_ledger' | 'screentime_ledge
 
 export const balanceOf = (db: D1Database, person: string): Promise<number> => sumFor(db, 'reward_ledger', person);
 
-export async function rewardState(db: D1Database, day: string): Promise<Pick<ChoreState, 'rewards' | 'goals' | 'balances' | 'minutes' | 'allowance' | 'pending' | 'recent'>> {
-  const [rows, links, ledger, pendingRows, recentRows, goalRows, bankRows, allowanceRows, usedRows] = await Promise.all([
+export async function rewardState(db: D1Database, day: string, now = Date.now()): Promise<Pick<ChoreState, 'rewards' | 'goals' | 'balances' | 'minutes' | 'allowance' | 'now' | 'timers' | 'sounds' | 'pending' | 'recent'>> {
+  const [rows, links, ledger, pendingRows, recentRows, goalRows, bankRows, allowanceRows, usedRows, timerRows, soundRows] = await Promise.all([
     db.prepare('SELECT id, name, cost, minutes, scoped, hidden FROM rewards ORDER BY cost, created_at, id').all<{ id: string; name: string; cost: number; minutes: number; scoped: number; hidden: number }>(),
     db.prepare('SELECT reward_id, person FROM reward_people').all<{ reward_id: string; person: string }>(),
     db.prepare('SELECT person, SUM(delta) AS n FROM reward_ledger GROUP BY person').all<{ person: string; n: number }>(),
@@ -30,6 +30,8 @@ export async function rewardState(db: D1Database, day: string): Promise<Pick<Cho
     db.prepare('SELECT person, SUM(delta) AS n FROM screentime_ledger GROUP BY person').all<{ person: string; n: number }>(),
     db.prepare('SELECT person, weekday_minutes AS weekday, weekend_minutes AS weekend FROM screentime_allowance').all<{ person: string; weekday: number; weekend: number | null }>(),
     db.prepare("SELECT person, SUM(allowance_used) AS n FROM screentime_ledger WHERE kind = 'use' AND day = ? GROUP BY person").bind(day).all<{ person: string; n: number }>(),
+    db.prepare('SELECT person, started_at AS startedAt, ends_at AS endsAt, minutes FROM screentime_timers').all<Timer & { person: string }>(),
+    db.prepare('SELECT person, sound FROM screentime_sound').all<{ person: string; sound: string }>(),
   ]);
   const peopleOf = new Map<string, string[]>();
   for (const l of links.results) peopleOf.set(l.reward_id, [...(peopleOf.get(l.reward_id) ?? []), l.person]);
@@ -44,9 +46,13 @@ export async function rewardState(db: D1Database, day: string): Promise<Pick<Cho
   for (const a of allowanceRows.results) {
     allowance[a.person] = { weekday: a.weekday, weekend: a.weekend, today: allowanceFor(day, a.weekday, a.weekend), used: usedToday.get(a.person) ?? 0 };
   }
+  const timers: Record<string, Timer> = {};
+  for (const t of timerRows.results) timers[t.person] = { startedAt: t.startedAt, endsAt: t.endsAt, minutes: t.minutes };
+  const sounds: Record<string, Sound> = {};
+  for (const r of soundRows.results) if (isSound(r.sound)) sounds[r.person] = r.sound;
   const pending = pendingRows.results;
   const recent = recentRows.results;
-  return { rewards, goals, balances, minutes, allowance, pending, recent };
+  return { rewards, goals, balances, minutes, allowance, now, timers, sounds, pending, recent };
 }
 
 /**
@@ -188,17 +194,25 @@ async function allowanceLeftOn(db: D1Database, person: string, day: string): Pro
   return a ? Math.max(0, allowanceFor(day, a.weekday, a.weekend) - (used?.n ?? 0)) : 0;
 }
 
-/** Spends screen time on `day`: the day's allowance first, then banked minutes. Never takes the bank below zero. */
-export async function useMinutes(db: D1Database, person: string, minutes: number, day: string, now = Date.now()): Promise<'ok' | 'insufficient'> {
+/** Where spent minutes came from: the day's allowance first, then the bank. */
+export interface Spent { fromAllowance: number; fromBank: number }
+
+/** Spends screen time on `day`: the day's allowance first, then banked minutes. Never takes the bank below zero. Null when there is not enough. */
+export async function spendMinutes(db: D1Database, person: string, minutes: number, day: string, now = Date.now()): Promise<Spent | null> {
   const [left, banked] = await Promise.all([allowanceLeftOn(db, person, day), minutesOf(db, person)]);
   const fromAllowance = Math.min(minutes, left);
   const fromBank = minutes - fromAllowance;
-  if (fromBank > banked) return 'insufficient';
+  if (fromBank > banked) return null;
   await db
     .prepare("INSERT INTO screentime_ledger (id, person, delta, kind, ref, note, at, day, allowance_used) VALUES (?, ?, ?, 'use', NULL, '', ?, ?, ?)")
     .bind(crypto.randomUUID(), person, -fromBank, now, day, fromAllowance)
     .run();
-  return 'ok';
+  return { fromAllowance, fromBank };
+}
+
+/** Like `spendMinutes`, for callers that only need to know whether it worked. */
+export async function useMinutes(db: D1Database, person: string, minutes: number, day: string, now = Date.now()): Promise<'ok' | 'insufficient'> {
+  return (await spendMinutes(db, person, minutes, day, now)) ? 'ok' : 'insufficient';
 }
 
 /** A manager sets a person's daily allowance. `weekend` of null means weekends are the same as other days; zero for both removes it. */

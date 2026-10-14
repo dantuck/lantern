@@ -178,7 +178,7 @@ export function demoChores(now = Date.now()): import('../lib/choreTypes').ChoreS
   const balances: Record<string, number> = { agnes: 14, margo: 31, edith: 8, gru: 3, minions: 22 };
   for (const r of routines) if (r.person) for (const i of r.items) if (i.done) balances[r.person] = (balances[r.person] ?? 0) + i.points;
   return {
-    day, manager: true, routines, balances, minutes: { agnes: 45, margo: 20, minions: 15 },
+    day, manager: true, routines, balances, minutes: { agnes: 45, margo: 20, minions: 15 }, now, timers: {}, sounds: { agnes: 'bubbles' },
     allowance: {
       agnes: { weekday: 60, weekend: 90, today: allowanceFor(day, 60, 90), used: 20 },
       margo: { weekday: 45, weekend: null, today: 45, used: 0 },

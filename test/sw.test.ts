@@ -38,7 +38,14 @@ function boot() {
     if (res instanceof Response) Object.defineProperty(res, 'type', { value: 'basic' });
     return res;
   };
-  const self = { addEventListener: (t: string, h: (e: unknown) => void) => (handlers[t] = h), location: { origin: ORIGIN }, skipWaiting: async () => {}, clients: { claim: async () => {} } };
+  const shown: { title: string; options: Record<string, unknown> }[] = [];
+  const windows: { url: string; focused: boolean; navigatedTo?: string; focus: () => Promise<unknown>; navigate: (u: string) => Promise<unknown> }[] = [];
+  const opened: string[] = [];
+  const self = {
+    addEventListener: (t: string, h: (e: unknown) => void) => (handlers[t] = h), location: { origin: ORIGIN }, skipWaiting: async () => {},
+    registration: { showNotification: async (title: string, options: Record<string, unknown>) => void shown.push({ title, options }) },
+    clients: { claim: async () => {}, matchAll: async () => windows, openWindow: async (u: string) => void opened.push(u) },
+  };
   // In a worker, relative URLs resolve against the scope; Node's Request needs them absolute.
   class SwRequest extends Request { constructor(i: string, init?: RequestInit) { super(new URL(i, ORIGIN).href, init); } }
   vm.runInNewContext(SOURCE, { self, caches, fetch: fetchFn, Request: SwRequest, Response, Headers, URL, Promise, Date, Number, Set, Object, Array, Math, Intl, console });
@@ -62,7 +69,7 @@ function boot() {
   }
   const pages = () => store.get('pages-v2');
   const offline = () => { net.impl = () => { throw new TypeError('Failed to fetch'); }; };
-  return { handlers, store, net, fetchEvent, lifecycle, pages, offline, cacheFor };
+  return { handlers, store, net, fetchEvent, lifecycle, pages, offline, cacheFor, shown, windows, opened };
 }
 
 const html = (body: string, headers: Record<string, string> = {}) =>
@@ -274,5 +281,48 @@ describe('static config', () => {
   });
   it('the service worker file is served uncached', () => {
     expect(readFileSync('public/_headers', 'utf8')).toMatch(/\/sw\.js\n\s+Cache-Control: no-cache/);
+  });
+});
+
+describe('push alerts', () => {
+  async function push(sw: ReturnType<typeof boot>, data: unknown) {
+    const waits: Promise<unknown>[] = [];
+    sw.handlers.push!({ data: data === undefined ? null : { json: () => (typeof data === 'string' ? JSON.parse(data) : data) }, waitUntil: (p: Promise<unknown>) => waits.push(Promise.resolve(p)) });
+    await Promise.all(waits);
+  }
+  async function click(sw: ReturnType<typeof boot>, url?: string) {
+    const waits: Promise<unknown>[] = [];
+    let closed = false;
+    sw.handlers.notificationclick!({ notification: { data: url === undefined ? undefined : { url }, close: () => (closed = true) }, waitUntil: (p: Promise<unknown>) => waits.push(Promise.resolve(p)) });
+    await Promise.all(waits);
+    return closed;
+  }
+
+  it('shows the message it was sent', async () => {
+    const sw = boot();
+    await push(sw, { title: "Time's up, Agnes!", body: 'Screen time is finished.', url: '/chores/agnes', tag: 'timer-agnes' });
+    expect(sw.shown).toEqual([{ title: "Time's up, Agnes!", options: { body: 'Screen time is finished.', tag: 'timer-agnes', icon: '/icons/icon-192.png', data: { url: '/chores/agnes' } } }]);
+  });
+  it('always shows something, even for an empty or unreadable message (browsers drop subscriptions that stay silent)', async () => {
+    const sw = boot();
+    await push(sw, undefined);
+    await push(sw, '{"title":');
+    expect(sw.shown.map((n) => n.title)).toEqual(["Time's up!", "Time's up!"]);
+  });
+  it('only ever opens a path on this site', async () => {
+    const sw = boot();
+    for (const url of ['https://evil.example/', '//evil.example/x', 'javascript:alert(1)', 42]) await push(sw, { title: 'x', url });
+    expect(sw.shown.map((n) => (n.options.data as { url: string }).url)).toEqual(['/', '/', '/', '/']);
+  });
+  it('opens the person page when tapped, reusing a window that is already open', async () => {
+    const sw = boot();
+    expect(await click(sw, '/chores/agnes')).toBe(true);
+    expect(sw.opened).toEqual([`${ORIGIN}/chores/agnes`]);
+    const win = { url: `${ORIGIN}/`, focused: false, focus: async () => { win.focused = true; }, navigate: async (u: string) => { win.navigatedTo = u; } } as (typeof sw.windows)[number];
+    sw.windows.push(win);
+    await click(sw, '/chores/agnes');
+    expect(win.focused).toBe(true);
+    expect(win.navigatedTo).toBe(`${ORIGIN}/chores/agnes`);
+    expect(sw.opened).toHaveLength(1);
   });
 });

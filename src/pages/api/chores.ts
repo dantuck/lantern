@@ -2,8 +2,9 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { z } from 'zod';
 import { addItem, choreState, removeItem, setBonus, setCheck, setSkip, updateItem } from '../../lib/chores';
-import { PERIODS, type Period } from '../../lib/choreTypes';
-import { adjustMinutes, adjustPoints, approveAffordable, claimGoal, decideRedemption, removeGoal, removeReward, requestRedemption, saveGoal, saveReward, setAllowance, useMinutes } from '../../lib/rewards';
+import { PERIODS, SOUNDS, type Period } from '../../lib/choreTypes';
+import { adjustMinutes, adjustPoints, approveAffordable, claimGoal, decideRedemption, removeGoal, removeReward, requestRedemption, saveGoal, saveReward, setAllowance } from '../../lib/rewards';
+import { setSound, startTimer, stopTimer, timersNow } from '../../lib/timers';
 import { householdZone } from '../../lib/household';
 import { loadPeople } from '../../lib/peopleStore';
 import { dayKey } from '../../lib/dates';
@@ -24,6 +25,8 @@ const memberBody = z.discriminatedUnion('action', [
   z.object({ action: z.literal('check'), id, done: z.boolean() }),
   z.object({ action: z.literal('redeem'), person, rewardId: id }),
   z.object({ action: z.literal('use_time'), person, minutes: z.number().int().min(1).max(1440) }),
+  z.object({ action: z.literal('timer_stop'), person }),
+  z.object({ action: z.literal('sound_set'), person, sound: z.enum(SOUNDS) }),
 ]);
 
 /** What only a manager may do: everything that shapes the routines and the rewards. */
@@ -59,7 +62,11 @@ const view = async (locals: App.Locals) => json(await choreState(env.DB, today()
 
 const STATUS: Record<string, number> = { not_found: 404, not_due: 409, limit: 409, insufficient: 409, not_eligible: 409, bad_request: 400 };
 
-export const GET: APIRoute = async ({ locals }) => (off(locals) ? json({ error: 'not_found' }, 404) : view(locals));
+export const GET: APIRoute = async ({ locals, url }) => {
+  if (off(locals)) return json({ error: 'not_found' }, 404);
+  // Devices showing a countdown ask this every few seconds, so it reads only the timers, not the whole household.
+  return url.searchParams.has('timers') ? json(await timersNow(env.DB)) : view(locals);
+};
 
 export const POST: APIRoute = async ({ request, locals }) => {
   if (off(locals)) return json({ error: 'not_found' }, 404);
@@ -73,7 +80,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const b = asMember.data;
     if (!(await knows(b))) return json({ error: 'bad_request' }, 400);
     result = b.action === 'check' ? await setCheck(db, b.id, today(), b.done)
-      : b.action === 'use_time' ? await useMinutes(db, b.person, b.minutes, today())
+      : b.action === 'use_time' ? await startTimer(db, b.person, b.minutes, today())
+      : b.action === 'timer_stop' ? (await stopTimer(db, b.person), 'ok')
+      : b.action === 'sound_set' ? await setSound(db, b.person, b.sound)
       : await requestRedemption(db, b.person, b.rewardId);
   } else {
     const parsed = managerBody.safeParse(raw);

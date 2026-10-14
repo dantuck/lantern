@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { allowanceLeft, canAsk, timeAvailable, PERIOD_LABEL, PERIODS, onToday, sections, skippedToday, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
+  import { allowanceLeft, canAsk, formatCountdown, timeAvailable, timeLeftMs, PERIOD_LABEL, PERIODS, onToday, sections, skippedToday, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
   import { runChores } from '../lib/choreClient';
+  import { liveTimers } from '../lib/timerClient.svelte';
   import { onMount } from 'svelte';
   import { celebrate } from '../lib/celebrate.svelte';
   import { celebrationKeys } from '../lib/completion';
@@ -90,6 +91,9 @@
     busy = false;
     if (r.ok) choreState = r.state; else error = r.error;
   }
+
+  // Countdowns started on the person's page or on any other device. The page with the person's name is the one that rings.
+  const clock = liveTimers(() => choreState, (s) => (choreState = s), { demo, busy: () => busy });
 
   const timeTitle = (id: string) => (choreState.allowance[id] ? `${allowanceLeft(choreState.allowance[id])} left of today's allowance + ${choreState.minutes[id] ?? 0} banked` : 'Screen time to use');
   const usesTime = $derived(choreState.rewards.some((r) => r.minutes > 0) || Object.keys(choreState.allowance).length > 0 || Object.values(choreState.minutes).some((n) => n > 0));
@@ -181,6 +185,14 @@
       {#if col.person && usesTime}
         {@const who = col.person}
         {@const avail = timeAvailable(choreState, who.id)}
+        {@const t = choreState.timers[who.id]}
+        {#if t}
+          {@const left = timeLeftMs(t, clock.now)}
+          <div class="flex items-center gap-2 mt-[.6rem]" role="status">
+            <span class="mr-auto text-[1.15rem] font-bold tabular-nums"><span aria-hidden="true">{left > 0 ? '⏳' : '⏰'}</span> {left > 0 ? formatCountdown(left) : "Time's up!"}<span class="sr-only">{left > 0 ? ' left' : ''}</span></span>
+            <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'timer_stop', person: who.id })}>{left > 0 ? 'Stop' : 'Done'}</button>
+          </div>
+        {/if}
         <div class="flex flex-wrap items-center gap-x-2 gap-y-[.35rem] mt-[.6rem]">
           <span class="mr-auto [font-weight:650] tabular-nums" title={timeTitle(who.id)}><span aria-hidden="true">⏱</span> {mins(avail)}<span class="sr-only"> of screen time</span></span>
           {#each [15, 30] as m (m)}

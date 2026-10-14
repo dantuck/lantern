@@ -60,6 +60,14 @@ export interface Allowance {
   /** Minutes of today's allowance already used. */
   used: number;
 }
+/** A running (or just finished) screen time countdown. Times are milliseconds on the server's clock; see `ChoreState.now`. */
+export interface Timer { startedAt: number; endsAt: number; minutes: number }
+/** The sounds a device can play when time is up. They are synthesized in the browser (see chime.ts), so there are no audio files. */
+export const SOUNDS = ['chime', 'bell', 'bubbles', 'fanfare', 'gentle'] as const;
+export type Sound = (typeof SOUNDS)[number];
+export const DEFAULT_SOUND: Sound = 'chime';
+export const SOUND_LABEL: Record<Sound, string> = { chime: 'Chime', bell: 'Bell', bubbles: 'Bubbles', fanfare: 'Fanfare', gentle: 'Gentle' };
+export const isSound = (s: unknown): s is Sound => (SOUNDS as readonly unknown[]).includes(s);
 export interface Redemption { id: string; person: string; rewardName: string; cost: number; minutes: number; requestedAt: number }
 export interface LedgerEntry { id: string; person: string; delta: number; kind: 'chore' | 'bonus' | 'redeem' | 'adjust'; note: string; at: number }
 
@@ -77,6 +85,12 @@ export interface ChoreState {
   minutes: Record<string, number>;
   /** Daily screen time allowance per person id, for the people who have one. */
   allowance: Record<string, Allowance>;
+  /** The server's clock when this state was read, so a device with a slightly wrong clock still counts down correctly. */
+  now: number;
+  /** The countdown each person has running (or has just finished and not yet cleared), by person id. */
+  timers: Record<string, Timer>;
+  /** The sound each person chose for time's up, by person id. People who never chose use the default. */
+  sounds: Record<string, Sound>;
   /** Requests waiting for a manager. */
   pending: Redemption[];
   /** The latest point changes, newest first. */
@@ -142,3 +156,17 @@ export const normalizeDays = (mask: number): number | null => (mask === EVERY_DA
 /** "Oct 7, 8:02 AM", for the point history. */
 export const formatWhen = (ms: number): string => new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 export const LEDGER_LABEL: Record<LedgerEntry['kind'], string> = { chore: 'Chore', bonus: 'Bonus', redeem: 'Reward', adjust: 'Adjustment' };
+
+/** Whole milliseconds left on a timer at `now` (never below zero). */
+export const timeLeftMs = (t: Pick<Timer, 'endsAt'>, now: number): number => Math.max(0, t.endsAt - now);
+
+/** "12:05" for 12 minutes 5 seconds, or "1:02:05" past an hour. Rounds up so it never shows 0:00 while time remains. */
+export function formatCountdown(ms: number): string {
+  const total = Math.ceil(Math.max(0, ms) / 1000);
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = total % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+}
+
+/** Whether a person's timer is still counting down at `now`. */
+export const timerRunning = (t: Timer | undefined, now: number): t is Timer => t !== undefined && t.endsAt > now;

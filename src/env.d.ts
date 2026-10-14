@@ -12,6 +12,9 @@ declare namespace Cloudflare {
     BOOTSTRAP_MANAGER_EMAIL?: string;
     GOOGLE_SERVICE_ACCOUNT_JSON?: string;
     MEALQ_API_TOKEN?: string;
+    /** Both set turns on the optional "time is up" push alerts (npm run push:keys makes them). */
+    VAPID_PUBLIC_KEY?: string;
+    VAPID_PRIVATE_KEY?: string;
   }
 }
 
