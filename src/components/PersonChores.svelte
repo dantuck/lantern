@@ -41,6 +41,7 @@
   const send = pipe.send;
 
   // The screen time countdown, shared by every device (see timers.ts). `clock.now` is the server's time, ticking.
+  // svelte-ignore state_referenced_locally
   const clock = liveTimers(() => choreState, (s) => (choreState = s), { demo, busy: () => pipe.busy, hold: () => editing });
   const timer = $derived(choreState.timers[who]);
   const sound = $derived<Sound>(choreState.sounds[who] ?? DEFAULT_SOUND);
