@@ -7,6 +7,21 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.12.0](https://github.com/dantuck/lantern/compare/v0.11.0...v0.12.0) (2026-10-17)
+
+
+### Added
+
+* **admin:** resend invites, warn when mail is off, edit people inline ([b7d056a](https://github.com/dantuck/lantern/commit/b7d056a367456832bc9ee08665a3792af1101792))
+* **auth:** add one-click sign-in link to member invites ([f35c1ff](https://github.com/dantuck/lantern/commit/f35c1ff5cfe1802329bb1c643a00da079147df0a))
+* **chores:** collapse routines and add find and expand all ([e6f7e72](https://github.com/dantuck/lantern/commit/e6f7e7293fc4872cfeb8b4da13c8fc7ef12ee210))
+* **nav:** show waiting reward requests as a badge for managers ([5bb2049](https://github.com/dantuck/lantern/commit/5bb204931ebc64cc24ed44d091e9bf58d2e5feb1))
+
+
+### Fixed
+
+* **ui:** shrink segmented control buttons ([96cf55d](https://github.com/dantuck/lantern/commit/96cf55d6ad98a7400224173fa41d79cadfdbff35))
+
 ## [0.11.0](https://github.com/dantuck/lantern/compare/v0.10.1...v0.11.0) (2026-10-14)
 
 
