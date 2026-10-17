@@ -1,28 +1,39 @@
 ---
 import Base from '../../layouts/Base.astro';
 import DemoFeatures from '../../components/DemoFeatures.svelte';
-import { demoAudit, demoUsers } from '../../demo/data';
+import { demoAudit, demoChores, demoPeople, demoUsers } from '../../demo/data';
+
+const waiting = demoChores().pending.length;
 ---
 <Base title="Admin · Demo" wide demo>
   <h1>Household admin</h1>
 
-  <section class="card">
+  <p class="hint-lead"><a href="/demo/chores/manage">Manage chores, rewards and points &rarr;</a> {waiting > 0 && <a class="jump-count" href="/demo/chores/manage#pending-h">{waiting} to approve</a>}</p>
+  <nav class="jump" aria-label="Admin sections">
+    <a class="jump-link" href="#features">Features</a>
+    <a class="jump-link" href="#invite">Invite</a>
+    <a class="jump-link" href="#members">Members<span class="jump-count">{demoUsers.length}</span></a>
+    <a class="jump-link" href="#people">People<span class="jump-count">{demoPeople.length}</span></a>
+    <a class="jump-link" href="#activity">Activity</a>
+  </nav>
+
+  <section class="card" id="features">
     <h2>Widgets and features</h2>
     <DemoFeatures client:load />
   </section>
 
-  <section class="card">
+  <section class="card" id="invite">
     <h2>Invite someone</h2>
     <div class="row">
       <div><label for="inv-email">Email</label><input id="inv-email" type="email" placeholder="name@example.com" disabled /></div>
       <div class="role"><label for="inv-role">Role</label>
-        <select id="inv-role" disabled><option>Member (view only)</option><option>Manager (can invite)</option></select></div>
+        <select id="inv-role" disabled><option>Member</option><option>Manager</option></select></div>
       <button class="demo-off" type="button" disabled title="Not available in the demo">Send invite</button>
     </div>
-    <p class="text-muted hint">Invitations expire after 7 days. The person signs in with a one-time link sent to that address.</p>
+    <p class="text-muted hint"><strong>Members</strong> use the dashboard, tick chores and ask for rewards. <strong>Managers</strong> also invite people, approve rewards and edit everything. Invitations expire after 7 days. The person signs in with a one-time link sent to that address.</p>
   </section>
 
-  <section class="card">
+  <section class="card" id="members">
     <h2>Members</h2>
     <table class="stack">
       <thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Since</th><th></th></tr></thead>
@@ -43,7 +54,17 @@ import { demoAudit, demoUsers } from '../../demo/data';
     </table>
   </section>
 
-  <section class="card">
+  <section class="card" id="people">
+    <div class="card-head"><h2>People</h2><span class="text-muted text-[.85rem]">{demoPeople.length} of 12</span></div>
+    <p class="text-muted hint-lead">The kids and adults who get a colour on the calendar and a column on the Chores page. A person is just a name; they do not need a login. Each person's chores are set under <a href="/demo/chores/manage">Manage chores</a>.</p>
+    <ul class="list-none m-0 p-0 grid gap-2">
+      {demoPeople.map((p) => (
+        <li class="person-box flex flex-wrap items-center gap-3"><span class="size-4 rounded-full" style={`background:${p.color}`}></span><strong>{p.name}</strong><span class="note flex-1">Calendar words: {p.match.length ? p.match.join(', ') : 'none'}</span><button class="ghost demo-off" type="button" disabled title="Not available in the demo">Edit</button></li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="card" id="activity">
     <h2>Recent activity</h2>
     <table class="stack">
       <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Detail</th></tr></thead>
