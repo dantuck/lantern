@@ -26,6 +26,15 @@
     { id: null as string | null, name: 'Anyone', color: 'var(--accent)' },
     ...choreState.routines.filter((r) => r.person && !people.some((p) => p.id === r.person)).map((r) => ({ id: r.person, name: nameOf(r.person), color: 'var(--muted)' })),
   ]);
+  /** Filters the people by name, or by a chore title (a match opens that person so the chore is in view). */
+  let query = $state('');
+  const q = $derived(query.trim().toLowerCase());
+  const matches = (o: { id: string | null; name: string }) => !q || o.name.toLowerCase().includes(q) || itemsOf(o.id).some((c) => c.title.toLowerCase().includes(q));
+  const shown = $derived(owners.filter(matches));
+  /** Which people are expanded, by id ("anyone" for no one). Kept here so "Expand all" and the filter can drive it. */
+  let opened = $state<Record<string, boolean>>({});
+  const keyOf = (id: string | null) => id ?? 'anyone';
+  const setAll = (open: boolean) => { for (const o of owners) opened[keyOf(o.id)] = open; };
   const itemsOf = (id: string | null): ChoreItem[] => choreState.routines.find((r) => r.person === id)?.items ?? [];
   const bonusesOf = (id: string | null) => choreState.routines.find((r) => r.person === id)?.bonuses ?? periodRecord(0);
 
@@ -56,15 +65,17 @@
   let adjPerson = $state('');
   let adjDelta = $state(5);
   let adjNote = $state('');
-  async function adjust(e: SubmitEvent) {
-    e.preventDefault();
-    if (adjPerson && (await send({ action: 'adjust', person: adjPerson, delta: adjDelta, note: adjNote.trim() }))) adjNote = '';
-  }
+  const adjName = $derived(people.find((p) => p.id === adjPerson)?.name ?? '');
+
   let timeDelta = $state(15);
-  async function adjustTime(e: SubmitEvent) {
+  /** Gives or takes points or screen-time minutes for the chosen person; the reason is cleared once it saves. */
+  const adjuster = (action: 'adjust' | 'adjust_time', delta: () => number) => async (e: SubmitEvent) => {
     e.preventDefault();
-    if (adjPerson) await send({ action: 'adjust_time', person: adjPerson, delta: timeDelta, note: adjNote.trim() });
-  }
+    if (adjPerson && (await send({ action, person: adjPerson, delta: delta(), note: adjNote.trim() }))) adjNote = '';
+  };
+  const adjust = adjuster('adjust', () => adjDelta);
+  const adjustTime = adjuster('adjust_time', () => timeDelta);
+  const giveLabel = (n: number, unit: string) => (n < 0 ? `Take ${-n} ${unit} from ${adjName}` : `Give ${n} ${unit} to ${adjName}`);
   $effect(() => { if (!adjPerson && people[0]) adjPerson = people[0].id; });
 
 </script>
@@ -95,7 +106,7 @@
       {/each}
     </ul>
     {#if choreState.pending.length > 1}
-      <p><button type="button" class="small" disabled={busy} onclick={() => send({ action: 'decide_all' })}>Approve all they can afford</button></p>
+      <p><button type="button" class="small" disabled={busy} onclick={() => send({ action: 'decide_all' })}>Approve all that can be afforded</button></p>
     {/if}
   </section>
 {/if}
@@ -129,16 +140,23 @@
   <h2 class="mt-0">Chores</h2>
   <p class="note">One routine for each person, split by time of day. Each chore has its own days, or can be a one-off. Chores are ticked off on the Chores page and start fresh every day they are scheduled. The all-done bonus is paid when every chore due in that time of day is ticked.</p>
 
-  {#each owners as o (o.id ?? 'anyone')}
+  <div class="flex flex-wrap items-end gap-2 mb-2">
+    <label class="cap-field flex-[1_1_12rem] m-0">Find a person or chore <input class="m-0" type="search" bind:value={query} maxlength="80" autocomplete="off" placeholder="Name or chore" /></label>
+    <button type="button" class="ghost small w-auto m-0" onclick={() => setAll(true)}>Expand all</button>
+    <button type="button" class="ghost small w-auto m-0" onclick={() => setAll(false)}>Collapse all</button>
+  </div>
+  {#each shown as o (o.id ?? 'anyone')}
     {@const items = itemsOf(o.id)}
-    <details class="py-3 [border-top:1px_solid_var(--border)]" open={false}>
+    <details class="py-3 [border-top:1px_solid_var(--border)]" open={q ? true : !!opened[keyOf(o.id)]} ontoggle={(e) => { if (!q) opened[keyOf(o.id)] = e.currentTarget.open; }}>
       <summary class="cursor-pointer flex flex-wrap gap-x-3 gap-y-[.1rem] items-baseline pointer-coarse:min-h-11">
         <strong style:color={o.color}>{o.name}</strong>
         <span class="note">{items.length} {items.length === 1 ? 'chore' : 'chores'}{o.id === null ? ' · no points' : ''}</span>
       </summary>
 
-      <RoutineEditor person={o.id} name={o.name} {items} bonuses={bonusesOf(o.id)} day={choreState.day} {busy} {send} />
+      <RoutineEditor person={o.id} name={o.name} {items} bonuses={bonusesOf(o.id)} day={choreState.day} {busy} {send} collapsible />
     </details>
+  {:else}
+    <p class="note">Nobody or no chore matches "{query.trim()}".</p>
   {/each}
 </section>
 
@@ -192,7 +210,7 @@
 <section class="card" id="points">
   <h2 class="mt-0">Points</h2>
   {#if people.length === 0}
-    <p class="note">Add your household under <code>people</code> in <code>dashboard.config.ts</code> to hand out points.</p>
+    <p class="note">Add the people in your household first, then you can hand out points. <a href={demo ? '/demo/admin#people' : '/admin#people'}>Add people</a>.</p>
   {:else}
     <ul class="list-none flex flex-wrap gap-[.6rem] mt-0 mx-0 mb-4 p-0">
       {#each people as p (p.id)}<li class="flex gap-[.6rem] items-baseline py-[.35rem] px-[.8rem] rounded-full border-[1.5px] border-solid border-[var(--c)]" style:--c={p.color}><span>{p.name}</span> <strong class="text-[color:var(--c)] tabular-nums">★ {choreState.balances[p.id] ?? 0}</strong>{#if choreState.minutes[p.id]}<span class="note">⏱ {choreState.minutes[p.id]} min</span>{/if}</li>{/each}
@@ -202,12 +220,12 @@
     <form class="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-2 mb-3" onsubmit={adjust}>
       <Stepper caption="Points" class="w-[9.75rem]" bind:value={adjDelta} min={-1000} max={1000} label="Points to add (negative to take away)" />
       <label class="cap-field">Reason <input class="m-0" bind:value={adjNote} maxlength="60" placeholder="Optional" aria-label="Reason" autocomplete="off" /></label>
-      <button type="submit" class="small col-span-2 [&&&]:w-full" disabled={busy || !adjPerson || !adjDelta}>Add points</button>
+      <button type="submit" class="small col-span-2 [&&&]:w-full" disabled={busy || !adjPerson || !adjDelta}>{giveLabel(adjDelta, 'points')}</button>
     </form>
     <form class="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-2" onsubmit={adjustTime}>
       <Stepper caption="Minutes" class="w-[9.75rem]" bind:value={timeDelta} min={-1440} max={1440} step={5} label="Minutes of screen time to add (negative to take away)" />
-      <span class="note pb-3">of screen time for the person above</span>
-      <button type="submit" class="small col-span-2 [&&&]:w-full" disabled={busy || !adjPerson || !timeDelta}>Add minutes</button>
+      <span class="note pb-3">of screen time for {adjName}. The reason above is saved with it.</span>
+      <button type="submit" class="small col-span-2 [&&&]:w-full" disabled={busy || !adjPerson || !timeDelta}>{giveLabel(timeDelta, 'min')}</button>
     </form>
   {/if}
   {#if choreState.recent.length > 0}
