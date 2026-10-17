@@ -5,6 +5,9 @@ import Icon from '../components/Icon.astro';
 import WallToggle from '../components/WallToggle.astro';
 import { registry } from '../plugins/registry';
 import { isOn } from '../lib/features';
+import { env } from 'cloudflare:workers';
+import { pendingCount } from '../lib/rewards';
+import NavBadge from '../components/NavBadge.astro';
 // `full` lets a page (the calendar) use the whole width of a wall display instead of the usual reading width.
 interface Props { title?: string; wide?: boolean; full?: boolean; bare?: boolean; description?: string; demo?: boolean; feature?: string }
 // `wide` / `narrow-center` stay as marker classes: wall mode and the large-screen width in global.css select on them.
@@ -27,13 +30,15 @@ const demoLinks = [
   { href: '/demo/admin', label: 'Admin', icon: 'shield' },
 ];
 // Every destination, in order. The rail (tablet and up) shows them all; the phone's bottom bar shows the first few and puts the rest, plus the utilities, in a "More" sheet.
-const items: { href: string; label: string; icon: string; feature?: string }[] = demo
+// Reward requests waiting for approval show as a badge on Chores, for managers only.
+const waiting = !demo && user?.role === 'manager' && isOn(off, 'chores') ? await pendingCount(env.DB, Astro.locals) : 0;
+const items: { href: string; label: string; icon: string; feature?: string; badge?: number }[] = demo
   ? demoLinks
   : user
     ? [
         { href: '/', label: 'Dashboard', icon: 'home' },
         ...pluginLinks,
-        ...(isOn(off, 'chores') ? [{ href: '/chores', label: 'Chores', icon: 'check-circle' }] : []),
+        ...(isOn(off, 'chores') ? [{ href: '/chores', label: 'Chores', icon: 'check-circle', badge: waiting }] : []),
         ...(isOn(off, 'lists') ? [{ href: '/lists', label: 'Lists', icon: 'list' }] : []),
         { href: '/devices', label: 'Devices', icon: 'smartphone' },
         ...(user.role === 'manager' ? [{ href: '/admin', label: 'Admin', icon: 'shield' }] : []),
@@ -82,7 +87,7 @@ const hasRail = demo || !!user;
       <>
         <nav class="nav rail" aria-label={demo ? 'Demo' : 'Main'}>
           <a class="flex items-center justify-center mb-3" href={demo ? '/demo' : '/'} aria-label={demo ? 'Demo home' : 'Lantern home'}><img class="block size-[2.4rem]" src="/favicon.svg" alt="" width="28" height="28" /></a>
-          {items.map((l) => <a class="rail-link" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}
+          {items.map((l) => <a class="rail-link" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span><NavBadge count={l.badge} /></a>)}
           <span class="flex-[1_0_1rem]"></span>
           {!demo && <button class="rail-btn" data-install-app type="button" hidden>Install app</button>}
           <button class="rail-btn" type="button" popovertarget="display-menu" aria-label="Display options"><Icon name="sliders" /><span>Display</span></button>
@@ -102,11 +107,11 @@ const hasRail = demo || !!user;
         </div>
 
         <nav class="tabbar" aria-label={demo ? 'Demo' : 'Main'}>
-          {tabs.map((l) => <a class="tab-item" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}
+          {tabs.map((l) => <a class="tab-item" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span><NavBadge count={l.badge} /></a>)}
           <button class="tab-item" type="button" popovertarget="more" aria-label="More options" aria-current={moreCurrent ? 'page' : undefined}><Icon name="more" /><span>More</span></button>
         </nav>
         <div id="more" class="sheet sheet-pop" popover>
-          {more.length > 0 && <div class="sheet-links grid gap-[.15rem]">{more.map((l) => <a class="sheet-link" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span></a>)}</div>}
+          {more.length > 0 && <div class="sheet-links grid gap-[.15rem]">{more.map((l) => <a class="sheet-link" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span><NavBadge count={l.badge} /></a>)}</div>}
           <div class="sheet-utils">
             <div class="util grid justify-items-center gap-[.15rem] text-[.7rem] font-semibold text-muted"><ThemeToggle /><span>Theme</span></div>
             <div class="util grid justify-items-center gap-[.15rem] text-[.7rem] font-semibold text-muted"><WallToggle /><span>Full screen</span></div>

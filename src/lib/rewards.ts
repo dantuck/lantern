@@ -238,3 +238,15 @@ export async function adjustMinutes(db: D1Database, manager: User, person: strin
   }
   await audit(db, manager.id, 'screentime.adjusted', { person, delta: applied, note }, now);
 }
+
+const pendingMemo = new WeakMap<object, Promise<number>>();
+
+/** How many reward requests wait for a manager. Asked once per request (`scope` is the request's `Astro.locals`), so the layout's badge and a page share one query. */
+export function pendingCount(db: D1Database, scope: object): Promise<number> {
+  let n = pendingMemo.get(scope);
+  if (!n) {
+    n = db.prepare("SELECT COUNT(*) AS n FROM redemptions WHERE status = 'pending'").first<{ n: number }>().then((r) => r?.n ?? 0, () => 0);
+    pendingMemo.set(scope, n);
+  }
+  return n;
+}
