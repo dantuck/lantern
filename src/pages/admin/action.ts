@@ -32,7 +32,8 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
         const mailer = selectMailer(env, import.meta.env.DEV);
         const origin = safeAppOrigin(env.APP_ORIGIN, import.meta.env.DEV);
         if (mailer && origin) {
-          const mail = { to: r.email, ...inviteEmail(me.email, `${origin}/login`) };
+          const joinUrl = r.linkToken ? `${origin}/auth/invite#token=${r.linkToken}` : undefined;
+          const mail = { to: r.email, ...inviteEmail(me.email, `${origin}/login`, joinUrl) };
           locals.cfContext.waitUntil(mailer.send(mail).catch((e) => console.error('invite mail failed', String(e))));
         }
       }

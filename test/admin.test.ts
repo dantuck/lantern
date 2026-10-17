@@ -50,4 +50,12 @@ describe('role guard and invite mail', () => {
     expect(m.text).not.toContain('token');
     expect(m.html).not.toContain('<b>');
   });
+  it('a member invite carries the join link in both parts and still escapes the inviter', () => {
+    const join = 'https://fam.example/auth/invite#token=abc';
+    const m = inviteEmail('<b>x</b>@example.com', 'https://fam.example/login', join);
+    expect(m.text).toContain(join);
+    expect(m.html).toContain(join);
+    expect(m.text).toContain('https://fam.example/login');
+    expect(m.html).not.toContain('<b>');
+  });
 });

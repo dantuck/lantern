@@ -10,7 +10,7 @@ export async function startSession(
   cookies: AstroCookies,
   request: Request,
   userId: string,
-  method: 'link' | 'code',
+  method: 'link' | 'code' | 'invite',
 ) {
   const device = deviceLabel(request.headers.get('user-agent'));
   const { id, maxAgeSeconds } = await createSession(db, userId, device);

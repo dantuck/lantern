@@ -5,6 +5,8 @@ export const LOGIN_TOKEN_TTL = 10 * MINUTE;
 /** Wrong guesses allowed against one emailed code before it is burned. */
 export const LOGIN_CODE_MAX_ATTEMPTS = 5;
 export const INVITE_TTL = 7 * DAY;
+/** The one-click sign-in link in a member invite. Shorter than the invitation: after it lapses, /login still works. */
+export const INVITE_LINK_TTL = 2 * DAY;
 export const SESSION_IDLE_TTL = 30 * DAY; // sliding
 export const SESSION_ABSOLUTE_TTL = 90 * DAY; // hard cap
 /** Only write last_seen/expiry back when it has moved this much, to limit D1 writes. */

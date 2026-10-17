@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createTestDb } from './d1shim';
-import { createInvite, resolveLoginUser, updateUser, listUsers, revokeInvite, listPendingInvites } from '../src/lib/auth/users';
+import { createInvite, redeemInviteLink, resolveLoginUser, updateUser, listUsers, revokeInvite, listPendingInvites } from '../src/lib/auth/users';
 import { consumeLoginCode, consumeLoginToken, issueLoginToken } from '../src/lib/auth/loginTokens';
 import { createSession, validateSession, revokeSession, revokeAllForUser, listSessions } from '../src/lib/auth/sessions';
-import { DAY, INVITE_TTL, LOGIN_TOKEN_TTL, SESSION_ABSOLUTE_TTL, SESSION_IDLE_TTL } from '../src/lib/auth/policy';
+import { DAY, INVITE_LINK_TTL, INVITE_TTL, LOGIN_TOKEN_TTL, SESSION_ABSOLUTE_TTL, SESSION_IDLE_TTL } from '../src/lib/auth/policy';
 
 let db: D1Database;
 const T0 = 1_700_000_000_000;
@@ -28,7 +28,7 @@ describe('user resolution', () => {
   });
   it('creates a member from a valid invite and consumes it', async () => {
     const m = await manager();
-    expect(await createInvite(db, m, 'Kid@example.com', 'member', T0)).toEqual({ ok: true, email: 'kid@example.com' });
+    expect(await createInvite(db, m, 'Kid@example.com', 'member', T0)).toMatchObject({ ok: true, email: 'kid@example.com' });
     const kid = await resolveLoginUser(db, 'kid@example.com', { now: T0 + 1000 });
     expect(kid?.role).toBe('member');
     expect(await listPendingInvites(db, T0 + 1000)).toHaveLength(0);
@@ -165,5 +165,56 @@ describe('sessions', () => {
     await revokeAllForUser(db, m.id, keep, T0 + 2);
     expect(await validateSession(db, a.id, T0 + 3)).not.toBeNull();
     expect(await validateSession(db, b.id, T0 + 3)).toBeNull();
+  });
+});
+
+describe('member invite link', () => {
+  async function memberLink(email = 'kid@example.com') {
+    const m = await manager();
+    const r = await createInvite(db, m, email, 'member', T0);
+    if (!r.ok || !r.linkToken) throw new Error('no link');
+    return { m, token: r.linkToken };
+  }
+  it('creates the member once and burns the invite', async () => {
+    const { token } = await memberLink();
+    const kid = await redeemInviteLink(db, token, T0 + 1000);
+    expect(kid).toMatchObject({ email: 'kid@example.com', role: 'member' });
+    expect(await redeemInviteLink(db, token, T0 + 2000)).toBeNull();
+    expect(await listPendingInvites(db, T0 + 2000)).toHaveLength(0);
+    expect(await listUsers(db)).toHaveLength(2);
+  });
+  it('stores only a hash of the token', async () => {
+    const { token } = await memberLink();
+    const row = await db.prepare('SELECT link_hash FROM invites').first<{ link_hash: string }>();
+    expect(row?.link_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(row?.link_hash).not.toBe(token);
+  });
+  it('expires sooner than the invitation, which still works through /login', async () => {
+    const { token } = await memberLink();
+    expect(await redeemInviteLink(db, token, T0 + INVITE_LINK_TTL + 1)).toBeNull();
+    expect((await resolveLoginUser(db, 'kid@example.com', { now: T0 + INVITE_LINK_TTL + 1 }))?.role).toBe('member');
+  });
+  it('is dead once revoked, or once the invite was used through /login', async () => {
+    const a = await memberLink();
+    const [inv] = await listPendingInvites(db, T0);
+    await revokeInvite(db, a.m, inv!.id, T0 + 5);
+    expect(await redeemInviteLink(db, a.token, T0 + 10)).toBeNull();
+    const b = await createInvite(db, a.m, 'sib@example.com', 'member', T0);
+    await resolveLoginUser(db, 'sib@example.com', { now: T0 + 10 });
+    expect(await redeemInviteLink(db, b.ok ? b.linkToken! : '', T0 + 20)).toBeNull();
+  });
+  it('is never issued for a manager invite, and unknown or oversized tokens fail', async () => {
+    const m = await manager();
+    const r = await createInvite(db, m, 'co@example.com', 'manager', T0);
+    expect(r.ok && r.linkToken).toBeFalsy();
+    expect(await redeemInviteLink(db, 'a'.repeat(64), T0)).toBeNull();
+    expect(await redeemInviteLink(db, 'a'.repeat(500), T0)).toBeNull();
+    expect(await redeemInviteLink(db, '', T0)).toBeNull();
+  });
+  it('records the redemption in the audit log', async () => {
+    const { token } = await memberLink();
+    await redeemInviteLink(db, token, T0 + 1000);
+    const row = await db.prepare("SELECT detail FROM audit_log WHERE event = 'invite.redeemed'").first<{ detail: string }>();
+    expect(JSON.parse(row!.detail)).toEqual({ email: 'kid@example.com', via: 'link' });
   });
 });

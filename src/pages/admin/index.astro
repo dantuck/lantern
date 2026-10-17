@@ -45,7 +45,7 @@ const features = [
         <select id="inv-role" name="role"><option value="member">Member (view only)</option><option value="manager">Manager (can invite)</option></select></div>
       <button type="submit">Send invite</button>
     </form>
-    <p class="text-muted hint">Invitations expire after 7 days. The person signs in with a one-time link sent to that address.</p>
+    <p class="text-muted hint">Invitations expire after 7 days. A member's email has a one-time Join link that works for 2 days; after that, or for a manager, they sign in with a link emailed to their address.</p>
     {invites.length > 0 && (
       <>
         <h2 class="mt-4">Pending invitations</h2>

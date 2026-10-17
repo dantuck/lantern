@@ -60,12 +60,13 @@ describe('network destinations in shipped code', () => {
       expect(read(f), f).not.toMatch(/\b(sendBeacon|WebSocket|EventSource|XMLHttpRequest|importScripts)\b/);
       expect(read(f), f).not.toMatch(/\b(gtag|ga\(|dataLayer|analytics|sentry|datadog|posthog|mixpanel|segment)\b/i);
     }
-    // The only client-side fetch() calls: the sign-in confirmation (same-origin path) and the service worker's own requests.
+    // The only client-side fetch() calls: the sign-in and invite confirmations (same-origin paths) and the service worker's own requests.
     const fetches = client.flatMap((f) => [...read(f).matchAll(/\bfetch\(\s*([^,)]*)/g)].map((m) => `${f}: ${m[1]!.trim()}`));
     expect(fetches).toEqual([
       "public/sw.js: req",
       "public/sw.js: req",
       "public/sw.js: abs",
+      "src/pages/auth/invite.astro: '/auth/invite/confirm'",
       "src/pages/auth/verify.astro: '/auth/confirm'",
     ]);
   });

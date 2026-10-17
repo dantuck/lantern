@@ -88,18 +88,36 @@ ${button(link, 'Sign in')}
   return { subject: 'Your Lantern sign-in link', text, html };
 }
 
-/** Invitation notice. Deliberately contains no token: the invitee signs in through the normal magic-link flow. */
-export function inviteEmail(inviterEmail: string, loginUrl: string): Omit<Mail, 'to'> {
-  const text = [
-    `${inviterEmail} invited you to Lantern.`,
-    '',
-    `Go to ${loginUrl}, enter this email address, and we'll send you a sign-in link.`,
-    'The invitation expires in 7 days.',
-  ].join('\n');
+/**
+ * Invitation notice. Without `joinUrl` it contains no token: the invitee signs in through the normal magic-link flow.
+ * With one (members only), the link signs them in on a click, so it is single-use and short-lived.
+ */
+export function inviteEmail(inviterEmail: string, loginUrl: string, joinUrl?: string): Omit<Mail, 'to'> {
+  const text = (joinUrl
+    ? [
+        `${inviterEmail} invited you to Lantern.`,
+        '',
+        `Open ${joinUrl} and choose Join Lantern to sign in. The link works once and expires in 2 days.`,
+        '',
+        `If it has expired, go to ${loginUrl}, enter this email address, and we'll send you a sign-in link.`,
+        'The invitation itself expires in 7 days.',
+      ]
+    : [
+        `${inviterEmail} invited you to Lantern.`,
+        '',
+        `Go to ${loginUrl}, enter this email address, and we'll send you a sign-in link.`,
+        'The invitation expires in 7 days.',
+      ]
+  ).join('\n');
+  const body = joinUrl
+    ? `<p class="fg" style="margin:12px 0 0;color:#1d1813">Choose Join Lantern to sign in. The link works once and expires in 2 days. After that, <a href="${esc(loginUrl)}">enter this email address on the sign-in page</a> and we'll send you a sign-in link.</p>
+${button(joinUrl, 'Join Lantern')}
+<p class="muted" style="margin:0;font-size:13px;color:#6b6258">The invitation itself expires in 7 days.</p>`
+    : `<p class="fg" style="margin:12px 0 0;color:#1d1813">Open the dashboard, enter this email address, and we'll send you a sign-in link.</p>
+${button(loginUrl, 'Open the dashboard')}
+<p class="muted" style="margin:0;font-size:13px;color:#6b6258">The invitation expires in 7 days.</p>`;
   const html = shell(`${inviterEmail} invited you to Lantern`, `<h1 class="fg" style="margin:0 0 8px;font-size:22px;line-height:1.3;color:#1d1813">You're invited</h1>
 <p class="fg" style="margin:0;color:#1d1813"><strong>${esc(inviterEmail)}</strong> invited you to Lantern.</p>
-<p class="fg" style="margin:12px 0 0;color:#1d1813">Open the dashboard, enter this email address, and we'll send you a sign-in link.</p>
-${button(loginUrl, 'Open the dashboard')}
-<p class="muted" style="margin:0;font-size:13px;color:#6b6258">The invitation expires in 7 days.</p>`);
+${body}`);
   return { subject: "You're invited to Lantern", text, html };
 }

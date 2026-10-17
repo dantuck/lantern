@@ -12,6 +12,7 @@ export const LIMITS = {
   invite: { max: 20, windowMs: DAY },
   codeIp: { max: 20, windowMs: 15 * MINUTE },
   confirmIp: { max: 20, windowMs: 15 * MINUTE },
+  inviteLinkIp: { max: 20, windowMs: 15 * MINUTE },
 } satisfies Record<string, Limit>;
 
 /**

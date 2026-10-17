@@ -1,0 +1,44 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Join Lantern">
+  <div class="card">
+    <h1>Join Lantern</h1>
+    <p id="status">You've been invited. Continue to open the dashboard on this device.</p>
+    <button id="join" type="button" hidden>Join Lantern</button>
+    <noscript><p>JavaScript is required to accept this invitation. You can also <a href="/login">sign in with your email</a>.</p></noscript>
+  </div>
+  <script>
+    // The token lives in the URL fragment so it never reaches servers, logs or Referer headers.
+    // It is only redeemed by the button, so a mail scanner that opens the link cannot use it up.
+    const token = new URLSearchParams(location.hash.slice(1)).get('token');
+    history.replaceState(null, '', location.pathname);
+    const status = document.getElementById('status')!;
+    const join = document.getElementById('join') as HTMLButtonElement;
+    const fail = () => {
+      join.hidden = true;
+      const link = document.createElement('a');
+      link.href = '/login';
+      link.textContent = 'sign in with your email';
+      status.textContent = 'This invitation link is invalid, expired or already used. If you were invited, you can ';
+      status.appendChild(link);
+      status.appendChild(document.createTextNode('.'));
+    };
+    if (!token) fail();
+    else {
+      join.hidden = false;
+      join.addEventListener('click', () => {
+        join.disabled = true;
+        status.textContent = 'Signing you in…';
+        fetch('/auth/invite/confirm', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ token }),
+        })
+          .then((r) => (r.ok ? location.replace('/') : fail()))
+          .catch(fail);
+      });
+    }
+  </script>
+</Base>

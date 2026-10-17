@@ -1,5 +1,5 @@
-import { isPlausibleEmail, normalizeEmail } from './crypto';
-import { INVITE_TTL } from './policy';
+import { isPlausibleEmail, normalizeEmail, randomToken, sha256Hex } from './crypto';
+import { INVITE_LINK_TTL, INVITE_TTL } from './policy';
 
 export type Role = 'manager' | 'member';
 export interface User {
@@ -66,16 +66,43 @@ export async function resolveLoginUser(
     if (n === 0) role = 'manager';
   }
   if (!role) return null;
-
-  const id = crypto.randomUUID();
-  await db
-    .prepare('INSERT OR IGNORE INTO users (id, email, role, created_at) VALUES (?, ?, ?, ?)')
-    .bind(id, email, role, now)
-    .run();
-  const created = await db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first<UserRow>();
+  const created = await insertUser(db, email, role, now);
   if (!created) return null;
   await audit(db, created.id, invite ? 'user.created_from_invite' : 'user.bootstrapped', { email }, now);
-  return toUser(created);
+  return created;
+}
+
+async function insertUser(db: D1Database, email: string, role: Role, now: number): Promise<User | null> {
+  await db
+    .prepare('INSERT OR IGNORE INTO users (id, email, role, created_at) VALUES (?, ?, ?, ?)')
+    .bind(crypto.randomUUID(), email, role, now)
+    .run();
+  const row = await db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first<UserRow>();
+  return row ? toUser(row) : null;
+}
+
+/**
+ * Redeems the one-time link from a member invite: burns the invite and creates the member. Returns null for an
+ * unknown, used, revoked or expired link, for a manager invite (those never carry a link), and for a disabled user.
+ * Callers start the session; a failure reveals nothing about which of those it was.
+ */
+export async function redeemInviteLink(db: D1Database, token: string, now = Date.now()): Promise<User | null> {
+  if (!token || token.length > 128) return null;
+  const invite = await db
+    .prepare(
+      `UPDATE invites SET used_at = ?1
+       WHERE link_hash = ?2 AND role = 'member' AND used_at IS NULL AND revoked_at IS NULL
+         AND expires_at > ?1 AND link_expires_at > ?1
+       RETURNING email`,
+    )
+    .bind(now, await sha256Hex(token))
+    .first<{ email: string }>();
+  if (!invite) return null;
+  const email = normalizeEmail(invite.email);
+  const user = (await insertUser(db, email, 'member', now));
+  if (!user || user.disabledAt !== null) return null;
+  await audit(db, user.id, 'invite.redeemed', { email, via: 'link' }, now);
+  return user;
 }
 
 export async function createInvite(
@@ -84,18 +111,23 @@ export async function createInvite(
   rawEmail: string,
   role: Role = 'member',
   now = Date.now(),
-): Promise<{ ok: true; email: string } | { ok: false; error: 'forbidden' | 'invalid_email' | 'already_a_user' }> {
+): Promise<{ ok: true; email: string; linkToken?: string } | { ok: false; error: 'forbidden' | 'invalid_email' | 'already_a_user' }> {
   if (manager.role !== 'manager' || manager.disabledAt !== null) return { ok: false, error: 'forbidden' };
   const email = normalizeEmail(rawEmail);
   if (!isPlausibleEmail(email)) return { ok: false, error: 'invalid_email' };
   const exists = await db.prepare('SELECT 1 AS x FROM users WHERE email = ?').bind(email).first();
   if (exists) return { ok: false, error: 'already_a_user' };
+  // Only members get a one-click link. A leaked manager link would hand over admin, so managers sign in by emailed link.
+  const linkToken = role === 'member' ? randomToken() : undefined;
   await db
-    .prepare('INSERT INTO invites (id, email, role, invited_by, expires_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(crypto.randomUUID(), email, role, manager.id, now + INVITE_TTL)
+    .prepare('INSERT INTO invites (id, email, role, invited_by, expires_at, link_hash, link_expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(
+      crypto.randomUUID(), email, role, manager.id, now + INVITE_TTL,
+      linkToken ? await sha256Hex(linkToken) : null, linkToken ? now + INVITE_LINK_TTL : null,
+    )
     .run();
   await audit(db, manager.id, 'invite.created', { email, role }, now);
-  return { ok: true, email };
+  return linkToken ? { ok: true, email, linkToken } : { ok: true, email };
 }
 
 export async function revokeInvite(db: D1Database, manager: User, inviteId: string, now = Date.now()) {
