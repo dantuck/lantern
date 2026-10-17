@@ -93,6 +93,7 @@
   }
 
   // Countdowns started on the person's page or on any other device. The page with the person's name is the one that rings.
+  // svelte-ignore state_referenced_locally
   const clock = liveTimers(() => choreState, (s) => (choreState = s), { demo, busy: () => busy });
 
   const timeTitle = (id: string) => (choreState.allowance[id] ? `${allowanceLeft(choreState.allowance[id])} left of today's allowance + ${choreState.minutes[id] ?? 0} banked` : 'Screen time to use');
