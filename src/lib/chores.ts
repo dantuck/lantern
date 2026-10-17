@@ -185,3 +185,9 @@ async function syncBonus(db: D1Database, person: string | null, period: Period, 
     await db.prepare("DELETE FROM reward_ledger WHERE kind = 'bonus' AND ref = ?").bind(ref).run();
   }
 }
+
+/** How many chores each person has, keyed by person id ("" for Anyone). */
+export async function choreCounts(db: D1Database): Promise<Map<string, number>> {
+  const { results } = await db.prepare('SELECT COALESCE(l.person, \'\') AS person, COUNT(*) AS n FROM chore_items i JOIN chore_lists l ON l.id = i.list_id GROUP BY l.person').all<{ person: string; n: number }>();
+  return new Map(results.map((r) => [r.person, r.n]));
+}

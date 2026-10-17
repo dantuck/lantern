@@ -1,6 +1,8 @@
 /** Flash messages are looked up by code, so query-string text can never be reflected into the page. */
 export const MESSAGES = {
   invite_sent: { text: 'Invitation created and emailed.', ok: true },
+  invite_saved_no_mail: { text: 'Invitation created, but no email could be sent because email is not set up. Ask them to open the login page and sign in with that address.', ok: false },
+  invite_resent: { text: 'Invitation sent again. The old link no longer works.', ok: true },
   invite_revoked: { text: 'Invitation revoked.', ok: true },
   role_changed: { text: 'Role updated.', ok: true },
   user_disabled: { text: 'User disabled and signed out everywhere.', ok: true },

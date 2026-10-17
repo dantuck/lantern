@@ -5,17 +5,21 @@ import { env } from 'cloudflare:workers';
 import { listUsers, listPendingInvites } from '../../lib/auth/users';
 import { listAllSessions, listAudit } from '../../lib/auth/admin';
 import { flashFor } from '../../lib/messages';
-import { BUILT_IN_FEATURES } from '../../lib/features';
+import { BUILT_IN_FEATURES, isOn } from '../../lib/features';
 import { loadPeople, MAX_PEOPLE } from '../../lib/peopleStore';
 import { registry } from '../../plugins/registry';
+import { choreCounts } from '../../lib/chores';
+import { pendingCount } from '../../lib/rewards';
 
 const me = Astro.locals.user!;
-const [users, invites, devices, audit, household] = await Promise.all([
+const off = Astro.locals.disabled ?? new Set<string>();
+const choresOn = isOn(off, 'chores');
+const [users, invites, devices, audit, household, counts, waiting] = await Promise.all([
   listUsers(env.DB), listPendingInvites(env.DB), listAllSessions(env.DB), listAudit(env.DB, 50), loadPeople(env.DB),
+  choresOn ? choreCounts(env.DB) : new Map<string, number>(), choresOn ? pendingCount(env.DB, Astro.locals) : 0,
 ]);
 const flash = flashFor(Astro.url.searchParams.get('msg'));
 const currentHash = Astro.locals.session!.idHash;
-const off = Astro.locals.disabled ?? new Set<string>();
 // Plugins come from dashboard.config.ts (what is installed); managers choose which of them, and which built-ins, are shown.
 const features = [
   ...registry.enabled.map((p) => ({ id: p.def.id, name: p.def.name, kind: 'Widget' })),
@@ -25,6 +29,12 @@ const features = [
 <Base title="Admin" wide>
   <div data-keep-scroll>
   <h1>Household admin</h1>
+  {choresOn && (
+    <p class="hint-lead">
+      <a href="/chores/manage">Manage chores, rewards and points &rarr;</a>
+      {waiting > 0 && <> <a class="jump-count" href="/chores/manage#pending-h" title="Reward requests waiting for approval">{waiting} to approve</a></>}
+    </p>
+  )}
   {flash && <div class={`notice toast ${flash.ok ? '' : 'error'}`} role="status">{flash.text}</div>}
 
   <nav class="jump" aria-label="Admin sections">
@@ -42,10 +52,10 @@ const features = [
       <input type="hidden" name="action" value="invite" />
       <div><label for="inv-email">Email</label><input id="inv-email" name="email" type="email" inputmode="email" required maxlength="254" autocomplete="off" autocapitalize="off" /></div>
       <div class="role"><label for="inv-role">Role</label>
-        <select id="inv-role" name="role"><option value="member">Member (view only)</option><option value="manager">Manager (can invite)</option></select></div>
+        <select id="inv-role" name="role"><option value="member">Member</option><option value="manager">Manager</option></select></div>
       <button type="submit">Send invite</button>
     </form>
-    <p class="text-muted hint">Invitations expire after 7 days. A member's email has a one-time Join link that works for 2 days; after that, or for a manager, they sign in with a link emailed to their address.</p>
+    <p class="text-muted hint"><strong>Members</strong> use the dashboard, tick chores and ask for rewards. <strong>Managers</strong> also invite people, approve rewards and edit everything. Invitations expire after 7 days. A member's email has a one-time Join link that works for 2 days; after that, or for a manager, they sign in with a link emailed to their address.</p>
     {invites.length > 0 && (
       <>
         <h2 class="mt-4">Pending invitations</h2>
@@ -55,7 +65,7 @@ const features = [
             {invites.map((i) => (
               <tr>
                 <td class="primary">{i.email}</td><td data-label="Role"><span class="tag">{i.role}</span></td><td data-label="Expires"><Time ms={i.expires_at} /></td>
-                <td class="act"><form method="post" action="/admin/action"><input type="hidden" name="action" value="revoke_invite" /><input type="hidden" name="id" value={i.id} /><button class="ghost" type="submit" aria-label={`Revoke invitation for ${i.email}`} data-confirm={`Revoke the invitation for ${i.email}? The link they were sent will stop working.`}>Revoke</button></form></td>
+                <td class="act"><div class="actions"><form method="post" action="/admin/action"><input type="hidden" name="action" value="resend_invite" /><input type="hidden" name="id" value={i.id} /><button class="ghost" type="submit" aria-label={`Send the invitation to ${i.email} again`} data-confirm={`Send a new invitation to ${i.email}? The earlier link stops working.`} data-confirm-label="Send again">Resend</button></form><form method="post" action="/admin/action"><input type="hidden" name="action" value="revoke_invite" /><input type="hidden" name="id" value={i.id} /><button class="ghost" type="submit" aria-label={`Revoke invitation for ${i.email}`} data-confirm={`Revoke the invitation for ${i.email}? The link they were sent will stop working.`}>Revoke</button></form></div></td>
               </tr>
             ))}
           </tbody>
@@ -83,11 +93,11 @@ const features = [
                   <button class="ghost" type="submit" data-confirm={u.role === 'manager' ? `Make ${u.email} a member? They will lose access to this page.` : undefined} aria-label={`${u.role === 'manager' ? 'Make member' : 'Make manager'}: ${u.email}`}>{u.role === 'manager' ? 'Make member' : 'Make manager'}</button>
                 </form>
               )}
-              <form method="post" action="/admin/action">
+              {u.id !== me.id && <form method="post" action="/admin/action">
                 <input type="hidden" name="action" value="set_disabled" /><input type="hidden" name="id" value={u.id} />
                 <input type="hidden" name="disabled" value={u.disabledAt ? '0' : '1'} />
                 <button class={u.disabledAt ? 'ghost' : 'danger'} type="submit" aria-label={`${u.disabledAt ? 'Re-enable' : 'Disable'}: ${u.email}`} data-confirm={u.disabledAt ? undefined : `Disable ${u.email}? They are signed out everywhere and cannot sign in until re-enabled.`}>{u.disabledAt ? 'Re-enable' : 'Disable'}</button>
-              </form>
+              </form>}
             </div></td>
           </tr>
         ))}
@@ -97,22 +107,23 @@ const features = [
 
   <section class="card" id="people">
     <div class="card-head"><h2>People</h2><span class="text-muted text-[.85rem]">{household.length} of {MAX_PEOPLE}</span></div>
-    <p class="text-muted hint-lead">The kids and adults who get a colour on the calendar and a column on the Chores page. A person is just a name; they do not need a login. Chore lists are assigned to them under Chores &rarr; Manage.</p>
+    <p class="text-muted hint-lead">The kids and adults who get a colour on the calendar and a column on the Chores page. A person is just a name; they do not need a login. Each person's chores are set under <a href="/chores/manage">Manage chores</a>. Changes to a row save as soon as you leave a field.</p>
     <div class="people-list">
-      {household.map((p) => (
+      {household.map((p) => { const count = counts.get(p.id) ?? 0; return (
         <div class="person-box">
-          <form method="post" action="/admin/action" class="person-row">
+          <form method="post" action="/admin/action" class="person-row" data-autosave>
             <input type="hidden" name="action" value="person_save" /><input type="hidden" name="id" value={p.id} />
             <div><label for={`pn-${p.id}`}>Name</label><input id={`pn-${p.id}`} name="name" value={p.name} required maxlength="30" /></div>
             <div class="color"><label for={`pc-${p.id}`}>Colour</label><input id={`pc-${p.id}`} name="color" type="color" value={p.color} /></div>
             <div><label for={`pm-${p.id}`}>Calendar words</label><input id={`pm-${p.id}`} name="match" value={p.match.join(', ')} maxlength="200" /></div>
             <div class="btns">
+              <span class="note self-center flex-1">{count} {count === 1 ? 'chore' : 'chores'}{choresOn && <> · <a href="/chores/manage">Manage</a></>}</span>
               <button class="ghost" type="submit">Save</button>
               <button class="danger" type="submit" name="action" value="person_remove" formnovalidate aria-label={`Remove ${p.name}`} data-confirm={`Remove ${p.name}? Their chore lists are kept and move to Anyone.`}>Remove</button>
             </div>
           </form>
         </div>
-      ))}
+      ); })}
       {household.length < MAX_PEOPLE && (
         <div class="person-box-new">
           <form method="post" action="/admin/action" class="person-row">
@@ -169,9 +180,10 @@ const features = [
 
   <details class="card group" id="activity">
     <summary class="card-summary"><h2>Recent activity</h2><span class="text-muted">last {audit.length}</span></summary>
+    <label class="cap-field mb-3">Filter <input type="search" data-filter="#activity-rows" placeholder="Event, person or detail" autocomplete="off" /></label>
     <table class="stack">
       <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Detail</th></tr></thead>
-      <tbody>
+      <tbody id="activity-rows">
         {audit.map((a) => (
           <tr><td class="primary"><Time ms={a.at} /></td><td data-label="Who">{a.actorEmail ?? <span class="muted">system</span>}</td><td data-label="Event">{a.event}</td><td data-label="Detail" class="mono">{a.detail}</td></tr>
         ))}
@@ -179,4 +191,15 @@ const features = [
     </table>
   </details>
   </div>
+  <script>
+    // A person's row saves when you change a field (the browser only fires `change` when the value differs), so editing two rows never loses the first one.
+    for (const form of document.querySelectorAll<HTMLFormElement>('form[data-autosave]')) {
+      form.addEventListener('change', () => { if (form.checkValidity()) form.requestSubmit(); });
+    }
+    // The activity filter hides rows that do not contain the text.
+    document.querySelector<HTMLInputElement>('input[data-filter]')?.addEventListener('input', (e) => {
+      const q = (e.currentTarget as HTMLInputElement).value.trim().toLowerCase();
+      for (const row of document.querySelectorAll<HTMLElement>('#activity-rows tr')) row.hidden = !!q && !row.textContent!.toLowerCase().includes(q);
+    });
+  </script>
 </Base>

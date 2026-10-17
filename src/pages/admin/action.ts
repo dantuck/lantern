@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { createInvite, revokeInvite, updateUser, type Role } from '../../lib/auth/users';
+import { createInvite, listPendingInvites, revokeInvite, updateUser, type Role } from '../../lib/auth/users';
 import { revokeSession } from '../../lib/auth/sessions';
 import { LIMITS, hit } from '../../lib/rateLimit';
 import { inviteEmail, selectMailer } from '../../lib/mailer';
@@ -11,7 +11,22 @@ import { removePerson, savePerson } from '../../lib/peopleStore';
 import { registry } from '../../plugins/registry';
 import type { FlashCode } from '../../lib/messages';
 
+/** The flash for a new invitation: what went wrong, or whether the email went out. */
+const inviteMsg = (locals: App.Locals, inviter: string, r: Awaited<ReturnType<typeof createInvite>>, sent: FlashCode): FlashCode =>
+  r.ok ? (sendInvite(locals, inviter, r) ? sent : 'invite_saved_no_mail') : r.error;
+
 const asRole = (v: string): Role | null => (v === 'manager' || v === 'member' ? v : null);
+
+/** Emails a new invitation. Returns false when email is not set up, so the page can say so instead of claiming it was sent. */
+function sendInvite(locals: App.Locals, inviter: string, r: { email: string; linkToken?: string }): boolean {
+  const mailer = selectMailer(env, import.meta.env.DEV);
+  const origin = safeAppOrigin(env.APP_ORIGIN, import.meta.env.DEV);
+  if (!mailer || !origin) return false;
+  const joinUrl = r.linkToken ? `${origin}/auth/invite#token=${r.linkToken}` : undefined;
+  const mail = { to: r.email, ...inviteEmail(inviter, `${origin}/login`, joinUrl) };
+  locals.cfContext.waitUntil(mailer.send(mail).catch((e) => console.error('invite mail failed', String(e))));
+  return true;
+}
 
 /** One manager-only form endpoint. The page shows the outcome via a fixed message code, never reflected text. */
 export const POST: APIRoute = async ({ request, locals, redirect }) => {
@@ -27,16 +42,17 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     case 'invite': {
       if (!(await hit(db, `invite:${me.id}`, LIMITS.invite))) { msg = 'rate_limited'; break; }
       const r = await createInvite(db, me, s('email'), asRole(s('role')) ?? 'member');
-      msg = r.ok ? 'invite_sent' : r.error;
-      if (r.ok) {
-        const mailer = selectMailer(env, import.meta.env.DEV);
-        const origin = safeAppOrigin(env.APP_ORIGIN, import.meta.env.DEV);
-        if (mailer && origin) {
-          const joinUrl = r.linkToken ? `${origin}/auth/invite#token=${r.linkToken}` : undefined;
-          const mail = { to: r.email, ...inviteEmail(me.email, `${origin}/login`, joinUrl) };
-          locals.cfContext.waitUntil(mailer.send(mail).catch((e) => console.error('invite mail failed', String(e))));
-        }
-      }
+      msg = inviteMsg(locals, me.email, r, 'invite_sent');
+      break;
+    }
+    case 'resend_invite': {
+      // The email and role come from the stored invitation. The new one is made first, so a failure leaves the old one in place; then the old link stops working.
+      if (!(await hit(db, `invite:${me.id}`, LIMITS.invite))) { msg = 'rate_limited'; break; }
+      const old = (await listPendingInvites(db)).find((i) => i.id === s('id'));
+      if (!old) { msg = 'not_found'; break; }
+      const r = await createInvite(db, me, old.email, old.role);
+      if (r.ok) await revokeInvite(db, me, old.id);
+      msg = inviteMsg(locals, me.email, r, 'invite_resent');
       break;
     }
     case 'revoke_invite':
