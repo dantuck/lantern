@@ -10,7 +10,10 @@ check "manager signs in" "$([ -n "$M" ] && echo y)" y
 check "admin page renders for manager" "$(get "$M" /admin | grep -c 'Household admin')" 1
 check "invite kid as member" "$(post "$M" -d 'action=invite&email=Kid@Example.com&role=member' $B/admin/action)" "303 $B/admin?msg=invite_sent"
 check "invite shows as pending" "$(get "$M" /admin | grep -c 'kid@example.com')" 1
-check "invite mail logged, no token in it" "$(npx astro dev logs 2>&1 | grep -A4 'invited you' | grep -c token)" 0
+# A member's mail carries the one-time Join link (/auth/invite#token=...). Any other token in it, such as a sign-in one, is a leak.
+MAIL=$(npx astro dev logs 2>&1 | grep -A4 'invited you')
+check "invite mail has the Join link and no other token" "$(echo "$MAIL" | grep token | grep -vc 'auth/invite#token=')" 0
+check "member invite mail includes the Join link" "$(echo "$MAIL" | grep -c 'auth/invite#token=')" 1
 check "inviting existing user rejected" "$(post "$M" -d 'action=invite&email=mom@example.com' $B/admin/action)" "303 $B/admin?msg=already_a_user"
 check "bad email rejected" "$(post "$M" -d 'action=invite&email=nope' $B/admin/action)" "303 $B/admin?msg=invalid_email"
 check "unknown flash code not reflected" "$(get "$M" '/admin?msg=<script>alert(1)</script>' | grep -c 'alert(1)')" 0
