@@ -7,6 +7,7 @@ import { dayKey } from '../../lib/dates';
 import { householdZone } from '../../lib/household';
 import { loadPeople } from '../../lib/peopleStore';
 import { isOn } from '../../lib/features';
+import { choreRev } from '../../lib/rev';
 import { isManager } from '../../lib/http';
 
 // Middleware already limits this path to managers (requiredRole in src/lib/http.ts); check again so the page is safe on its own.
@@ -15,7 +16,7 @@ if (!isOn(Astro.locals.disabled, 'chores')) return new Response('Not found', { s
 
 const [state, people] = await Promise.all([choreState(env.DB, dayKey(Date.now(), householdZone), true), loadPeople(env.DB)]);
 ---
-<Base title="Manage chores" wide>
+<Base title="Manage chores" wide rev={await choreRev(state, people)}>
   <p><a href="/chores">&larr; Back to chores</a></p>
   <h1>Manage chores</h1>
   <ChoreManager client:load initial={state} people={people} />

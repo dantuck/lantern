@@ -7,6 +7,7 @@ import { dayKey } from '../../lib/dates';
 import { householdZone } from '../../lib/household';
 import { loadPeople } from '../../lib/peopleStore';
 import { isOn } from '../../lib/features';
+import { choreRev } from '../../lib/rev';
 import { isManager } from '../../lib/http';
 
 if (!isOn(Astro.locals.disabled, 'chores')) return new Response('Not found', { status: 404 });
@@ -15,6 +16,6 @@ const [state, people] = await Promise.all([choreState(env.DB, dayKey(Date.now(),
 const who = people.find((p) => p.id === Astro.params.person);
 if (!who) return new Response('Not found', { status: 404 });
 ---
-<Base title={`${who.name} · Chores`} wide>
+<Base title={`${who.name} · Chores`} wide rev={await choreRev(state, people)}>
   <PersonChores client:load initial={state} people={people} who={who.id} />
 </Base>

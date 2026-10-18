@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { hold } from '../lib/holdRefresh.svelte';
   import { untrack } from 'svelte';
   import { formatCountdown, timeLeftMs, type Sound, type Timer } from '../lib/choreTypes';
   import { audioReady, onAudioChange, playSound, soundLengthMs, unlockAudio } from '../lib/chime';
@@ -34,15 +35,16 @@
     const key = ringKey;
     if (key === null || muted) return;
     if (untrack(() => now) - key > 2 * 60_000) return;
+    const release = hold(); // a page refresh would cut the alarm off, so it waits until the last round has played
     let rounds = 0;
     const ring = () => {
       playSound(sound);
       navigator.vibrate?.([200, 100, 200]);
-      if (++rounds >= 4) clearInterval(id);
+      if (++rounds >= 4) { clearInterval(id); release(); }
     };
     const id = setInterval(ring, Math.max(12_000, soundLengthMs(sound) + 3000));
     ring();
-    return () => clearInterval(id);
+    return () => { clearInterval(id); release(); };
   });
 
   // Keep the screen on while counting, so a tablet that would have gone to sleep is still awake to ring.

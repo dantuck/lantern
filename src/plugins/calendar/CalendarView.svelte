@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { holdRefresh } from '../../lib/holdRefresh.svelte';
   import { DAY_MS, addDays, dayKey, dayLabel, formatDay, formatTime, keyOf, parseKey, startOfDayMs } from '../../lib/dates';
   import { bannerSpans, groupByDay, hourSpan as hourSpanOf, isBannerEvent, layoutDay, monthGrid, weekStartKey } from './agenda';
   import { FAMILY, peopleOf, type Person } from '../../lib/people';
@@ -96,6 +97,8 @@
   const colorOf = (ev: CalEvent) => whoOf(ev)[0]?.color;
   let only = $state<string[]>([]);
   const toggle = (id: string) => (only = only.includes(id) ? only.filter((x) => x !== id) : [...only, id]);
+  // A page refresh would put these back to the defaults, so it waits while the viewer has moved off today or filtered the list.
+  holdRefresh(() => cursor !== todayKey || only.length > 0 || slotChoice !== null);
   const visible = $derived(only.length ? events.filter((ev) => whoOf(ev).some((p) => only.includes(p.id))) : events);
   const usesFamily = $derived(events.some((ev) => whoOf(ev).includes(FAMILY)));
   const chips = $derived(roster.filter((p) => p !== FAMILY || usesFamily));

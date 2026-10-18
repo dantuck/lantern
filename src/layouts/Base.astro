@@ -9,11 +9,11 @@ import { env } from 'cloudflare:workers';
 import { pendingCount } from '../lib/rewards';
 import NavBadge from '../components/NavBadge.astro';
 // `full` lets a page (the calendar) use the whole width of a wall display instead of the usual reading width.
-interface Props { title?: string; wide?: boolean; full?: boolean; bare?: boolean; description?: string; demo?: boolean; feature?: string }
+interface Props { title?: string; wide?: boolean; full?: boolean; bare?: boolean; description?: string; demo?: boolean; feature?: string; rev?: string; live?: boolean }
 // `wide` / `narrow-center` stay as marker classes: wall mode and the large-screen width in global.css select on them.
 const WIDE = 'max-w-[68rem] mx-auto pt-5 pb-12 px-4 sm:pt-8 sm:pb-16 sm:px-6 [&>h1]:mb-4';
 const NARROW = 'narrow-center max-w-md mx-auto py-10 px-4 sm:py-16 min-h-[calc(100dvh-8rem)] grid content-center [&>.card]:shadow-[var(--shadow-md)] [&>.card]:p-6 sm:[&>.card]:p-8';
-const { title = 'Lantern', wide = false, full = false, bare = false, description, demo = false, feature } = Astro.props;
+const { title = 'Lantern', wide = false, full = false, bare = false, description, demo = false, feature, rev, live: always = false } = Astro.props;
 const user = Astro.locals.user;
 const path = Astro.url.pathname;
 const current = (href: string) => (path === href ? 'page' : undefined);
@@ -55,6 +55,9 @@ const tabs = [...picked, ...fill].slice(0, TABS);
 const more = items.filter((l) => !tabs.includes(l));
 const moreCurrent = more.some((l) => path === l.href);
 const hasRail = demo || !!user;
+// A signed-in page keeps itself current (scripts/refresh.ts) when it opts in. `rev` fingerprints the data it was built from, so an
+// open page swaps only when that changed; `live` alone (the dashboard, whose widgets read from outside) swaps whenever it checks.
+const live = !!user && !demo && !bare && (always || rev !== undefined);
 ---
 <!doctype html>
 <html lang="en">
@@ -75,7 +78,7 @@ const hasRail = demo || !!user;
     <script is:inline src="/theme-init.js"></script>
     <title>{title}</title>
   </head>
-  <body class={hasRail ? 'has-rail' : undefined}>
+  <body class={hasRail ? 'has-rail' : undefined} data-live={live ? '' : undefined}>
     <a class="skip" href="#main">Skip to content</a>
     {demo && (
       <div class="demo-banner" role="note">
@@ -136,7 +139,7 @@ const hasRail = demo || !!user;
     )}
     {hasRail && <WallToggle exit />}
     {bare ? <slot /> : (
-      <main id="main" tabindex="-1" class={full ? `wide full ${WIDE} max-w-none` : wide ? `wide ${WIDE}` : NARROW} data-feature={feature}>
+      <main id="main" tabindex="-1" class={full ? `wide full ${WIDE} max-w-none` : wide ? `wide ${WIDE}` : NARROW} data-feature={feature} data-rev={rev}>
         {demo && feature && <p class="feature-off notice" data-feature-off={feature}><span>This is switched off in the demo's admin page. <a href="/demo/admin">Turn it back on</a>.</span></p>}
         <slot />
       </main>
@@ -146,6 +149,7 @@ const hasRail = demo || !!user;
       import '../scripts/wall';
       import '../scripts/localtime';
       import '../scripts/pwa';
+      import '../scripts/refresh';
       import '../scripts/confirm';
     </script>
   </body>

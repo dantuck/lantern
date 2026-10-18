@@ -13,7 +13,7 @@ const plugins = registry.enabled.filter((p) => isOn(disabled, p.def.id));
 const chores = isOn(disabled, 'chores');
 const lists = isOn(disabled, 'lists');
 ---
-<Base title={dashboard.title} wide>
+<Base title={dashboard.title} wide live>
   <h1>{dashboard.title}</h1>
   {plugins.length === 0 && !chores && !lists && <p class="muted">Nothing is switched on yet. A manager can turn widgets on in Admin.</p>}
   <div class="dash"><div class="dash-grid">

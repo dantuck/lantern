@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { holdRefresh } from '../lib/holdRefresh.svelte';
   import type { HList } from '../lib/lists';
 
   let { initial, demo = false }: { initial: HList[]; demo?: boolean } = $props();
@@ -10,6 +11,7 @@
   let confirming = $state<string | null>(null); // list id awaiting a second click on "Delete list"
   let newName = $state('');
   let drafts = $state<Record<string, string>>({});
+  holdRefresh(() => busy || confirming !== null || newName !== '' || Object.values(drafts).some((d) => d !== ''));
 
   type Payload =
     | { action: 'add_list'; name: string }

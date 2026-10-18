@@ -2,12 +2,14 @@
 // and the page reads `busy`, `error` and `saved` (a count that goes up on each successful save) to show progress.
 import type { ChoreState } from './choreTypes';
 import { runChores } from './choreClient';
+import { holdRefresh } from './holdRefresh.svelte';
 
 export function chorePipe(get: () => ChoreState, set: (s: ChoreState) => void, demo: boolean) {
   let pending = $state(0);
   let error = $state('');
   let saved = $state(0);
   let tail: Promise<unknown> = Promise.resolve();
+  holdRefresh(() => pending > 0); // a page refresh must not land mid-save
 
   const step = async (payload: Record<string, unknown>): Promise<boolean> => {
     pending++; error = '';

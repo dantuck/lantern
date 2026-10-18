@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { holdRefresh } from '../lib/holdRefresh.svelte';
   import { allowanceLeft, canAsk, formatCountdown, timeAvailable, timeLeftMs, PERIOD_LABEL, PERIODS, onToday, sections, skippedToday, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
   import { runChores } from '../lib/choreClient';
   import { liveTimers } from '../lib/timerClient.svelte';
@@ -95,6 +96,7 @@
   // Countdowns started on the person's page or on any other device. The page with the person's name is the one that rings.
   // svelte-ignore state_referenced_locally
   const clock = liveTimers(() => choreState, (s) => (choreState = s), { demo, busy: () => busy });
+  holdRefresh(() => busy);
 
   const timeTitle = (id: string) => (choreState.allowance[id] ? `${allowanceLeft(choreState.allowance[id])} left of today's allowance + ${choreState.minutes[id] ?? 0} banked` : 'Screen time to use');
   const usesTime = $derived(choreState.rewards.some((r) => r.minutes > 0) || Object.keys(choreState.allowance).length > 0 || Object.values(choreState.minutes).some((n) => n > 0));

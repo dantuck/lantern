@@ -7,6 +7,7 @@ import { dayKey, formatDay } from '../../lib/dates';
 import { householdZone } from '../../lib/household';
 import { loadPeople } from '../../lib/peopleStore';
 import { isOn } from '../../lib/features';
+import { choreRev } from '../../lib/rev';
 import { isManager } from '../../lib/http';
 
 if (!isOn(Astro.locals.disabled, 'chores')) return new Response('Not found', { status: 404 });
@@ -14,6 +15,6 @@ if (!isOn(Astro.locals.disabled, 'chores')) return new Response('Not found', { s
 const day = dayKey(Date.now(), householdZone);
 const [state, people] = await Promise.all([choreState(env.DB, day, isManager(Astro.locals)), loadPeople(env.DB)]);
 ---
-<Base title="Chores" wide>
+<Base title="Chores" wide rev={await choreRev(state, people)}>
   <Chores client:load initial={state} people={people} intro={`${formatDay(day, { weekday: 'long', month: 'long', day: 'numeric' })}. Ticks reset each morning.`} />
 </Base>

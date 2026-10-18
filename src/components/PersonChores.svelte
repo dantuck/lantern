@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { holdRefresh } from '../lib/holdRefresh.svelte';
   import Confetti from './Confetti.svelte';
   import RoutineEditor from './RoutineEditor.svelte';
   import Stepper from './Stepper.svelte';
@@ -44,6 +45,7 @@
   // svelte-ignore state_referenced_locally
   const clock = liveTimers(() => choreState, (s) => (choreState = s), { demo, busy: () => pipe.busy, hold: () => editing });
   const timer = $derived(choreState.timers[who]);
+  holdRefresh(() => editing);
   const sound = $derived<Sound>(choreState.sounds[who] ?? DEFAULT_SOUND);
   const usesTime = $derived(allowance !== undefined || banked > 0 || timer !== undefined || choreState.rewards.some((r) => r.minutes > 0));
   const MUTE_KEY = 'lantern:timer-muted';
