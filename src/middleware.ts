@@ -5,7 +5,7 @@ import { SESSION_COOKIE } from './lib/auth/policy';
 import { clearCookie } from './lib/auth/cookies';
 import { disabledFeatures } from './lib/features';
 import { redirectTarget } from './lib/origin';
-import { SAFE_METHODS, isPublicPath, isSameOrigin, json, requiredRole, withSecurityHeaders } from './lib/http';
+import { SAFE_METHODS, canonicalPath, isPublicPath, isSameOrigin, json, requiredRole, withSecurityHeaders } from './lib/http';
 
 const enforceCsp = import.meta.env.PROD;
 
@@ -20,6 +20,8 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     return finish(new Response('Forbidden', { status: 403 }));
   }
 
+  const path = canonicalPath(url.pathname);
+
   const sid = cookies.get(SESSION_COOKIE)?.value;
   const auth = await validateSession(env.DB, sid);
   if (auth) {
@@ -30,15 +32,15 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     clearCookie(cookies, SESSION_COOKIE);
   }
 
-  if (!auth && !isPublicPath(url.pathname)) {
-    if (url.pathname.startsWith('/api/')) return finish(json({ error: 'unauthorized' }, 401));
+  if (!auth && !isPublicPath(path)) {
+    if (path.startsWith('/api/')) return finish(json({ error: 'unauthorized' }, 401));
     // Signed-out visitors to the front door get the product page; everything else goes to sign-in.
-    return finish(ctx.redirect(url.pathname === '/' ? '/welcome' : '/login', 302));
+    return finish(ctx.redirect(path === '/' ? '/welcome' : '/login', 302));
   }
-  if (auth && requiredRole(url.pathname) === 'manager' && auth.user.role !== 'manager') {
+  if (auth && requiredRole(path) === 'manager' && auth.user.role !== 'manager') {
     return finish(new Response('Forbidden', { status: 403 }));
   }
-  if (auth && (url.pathname === '/login' || url.pathname === '/welcome')) return finish(ctx.redirect('/', 302));
+  if (auth && (path === '/login' || path === '/welcome')) return finish(ctx.redirect('/', 302));
 
   return finish(await next());
 });

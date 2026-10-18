@@ -52,10 +52,27 @@ export const json = (data: unknown, status = 200) =>
 
 export const clientIp = (request: Request) => request.headers.get('cf-connecting-ip') ?? 'unknown';
 
-/** Role a path demands beyond being signed in. Enforced in middleware so new admin pages can't forget it. */
+/** Role a canonical path demands beyond being signed in. Enforced in middleware so new admin pages can't forget it. */
 const MANAGER_PATHS = ['/admin', '/chores/manage'];
-export function requiredRole(pathname: string): 'manager' | null {
-  return MANAGER_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ? 'manager' : null;
+export function requiredRole(path: string): 'manager' | null {
+  return MANAGER_PATHS.some((p) => path === p || path.startsWith(`${p}/`)) ? 'manager' : null;
+}
+
+/**
+ * The path as Astro's router sees it ("/%61dmin" is /admin). Every path rule in the middleware must use this, not
+ * `url.pathname`. If it cannot be decoded cleanly the raw path is returned and has to match as is.
+ */
+export function canonicalPath(pathname: string): string {
+  if (!pathname.includes('%')) return pathname;
+  let path = pathname;
+  try {
+    for (let i = 0; i < 10; i++) {
+      const next = decodeURI(path);
+      if (next === path) break;
+      path = next;
+    }
+  } catch { /* keep the last good form */ }
+  return path;
 }
 
 /** Whether the signed-in user is a manager. Pages and APIs that vary by role use this one check. */
@@ -65,7 +82,7 @@ export const isManager = (locals: { user?: { role: string } | undefined }): bool
  * Reads a request body with a hard byte cap, returning null if it is exceeded. Content-Length is only a hint
  * (chunked requests have none), so the stream itself is counted and cancelled once it goes over.
  */
-export async function readBodyText(request: Request, maxBytes: number): Promise<string | null> {
+export async function readBodyText(request: Pick<Request, 'headers' | 'body'>, maxBytes: number): Promise<string | null> {
   if (Number(request.headers.get('content-length') ?? 0) > maxBytes) return null;
   if (!request.body) return '';
   const reader = request.body.getReader();

@@ -5,7 +5,7 @@ import { createSession, revokeSession } from '../src/lib/auth/sessions';
 import { listAllSessions, listAudit } from '../src/lib/auth/admin';
 import { SESSION_IDLE_TTL } from '../src/lib/auth/policy';
 import { inviteEmail } from '../src/lib/mailer';
-import { requiredRole } from '../src/lib/http';
+import { canonicalPath, requiredRole } from '../src/lib/http';
 
 const T0 = 1_700_000_000_000;
 let db: D1Database;
@@ -44,6 +44,10 @@ describe('role guard and invite mail', () => {
     expect(requiredRole('/admin/action')).toBe('manager');
     expect(requiredRole('/administrator')).toBeNull();
     expect(requiredRole('/devices')).toBeNull();
+    // The router decodes the path, so the middleware gates on the canonical form.
+    for (const p of ['/%61dmin', '/admin/%61ction', '/chores/%6danage', '/%2561dmin']) expect(requiredRole(canonicalPath(p)), p).toBe('manager');
+    expect(canonicalPath('/devices')).toBe('/devices');
+    expect(canonicalPath('/%E0%A4%A')).toBe('/%E0%A4%A'); // undecodable: kept as is
   });
   it('invite mail has no token and escapes the inviter', () => {
     const m = inviteEmail('<b>x</b>@example.com', 'https://fam.example/login');
