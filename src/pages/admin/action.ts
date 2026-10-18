@@ -7,6 +7,7 @@ import { inviteEmail, selectMailer } from '../../lib/mailer';
 import { safeAppOrigin } from '../../lib/origin';
 import { readForm } from '../../lib/http';
 import { setFeature, switchableIds } from '../../lib/features';
+import { isChannel, isKind, setNotify } from '../../lib/managerNotify';
 import { removePerson, savePerson } from '../../lib/peopleStore';
 import { registry } from '../../plugins/registry';
 import type { FlashCode } from '../../lib/messages';
@@ -69,6 +70,13 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       const disabled = s('disabled') === '1';
       const r = await updateUser(db, me, s('id'), { disabled });
       msg = r.ok ? (disabled ? 'user_disabled' : 'user_enabled') : r.error;
+      break;
+    }
+    case 'set_notify': {
+      const kind = s('kind'), channel = s('channel');
+      if (!isKind(kind) || !isChannel(channel)) break;
+      await setNotify(db, me.id, kind, channel, s('on') === '1'); // your own preference only, whatever id the form carries
+      msg = 'notify_saved';
       break;
     }
     case 'set_feature': {

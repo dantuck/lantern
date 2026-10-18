@@ -116,19 +116,46 @@ export async function deliverDue(db: D1Database, keys: PushKeys, now = Date.now(
   return sent;
 }
 
+/** Whether `sub` is a well-formed subscription to a known push service. */
+function validSubscription(sub: PushSubscription): boolean {
+  if (!allowedEndpoint(sub.endpoint) || sub.endpoint.length > 1024) return false;
+  try {
+    return b64uDecode(sub.p256dh).length === 65 && b64uDecode(sub.auth).length >= 16;
+  } catch { return false; }
+}
+
 /** Stores a device's subscription for a person. A device can follow several people. */
 export async function saveSubscription(db: D1Database, person: string, sub: PushSubscription, now = Date.now()): Promise<'ok' | 'bad_request' | 'limit'> {
-  if (!allowedEndpoint(sub.endpoint) || sub.endpoint.length > 1024) return 'bad_request';
-  try {
-    if (b64uDecode(sub.p256dh).length !== 65 || b64uDecode(sub.auth).length < 16) return 'bad_request';
-  } catch { return 'bad_request'; }
-  const count = await db.prepare('SELECT COUNT(*) AS n FROM push_subscriptions').first<{ n: number }>();
+  if (!validSubscription(sub)) return 'bad_request';
+  const count = await db.prepare('SELECT (SELECT COUNT(*) FROM push_subscriptions) + (SELECT COUNT(*) FROM manager_push) AS n').first<{ n: number }>();
   if ((count?.n ?? 0) >= MAX_SUBSCRIPTIONS) return 'limit';
   await db
     .prepare('INSERT INTO push_subscriptions (endpoint, person, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (endpoint, person) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth')
     .bind(sub.endpoint, person, sub.p256dh, sub.auth, now)
     .run();
   return 'ok';
+}
+
+/** Stores a device a manager wants notifications on. */
+export async function saveManagerSubscription(db: D1Database, userId: string, sub: PushSubscription, now = Date.now()): Promise<'ok' | 'bad_request' | 'limit'> {
+  if (!validSubscription(sub)) return 'bad_request';
+  const count = await db.prepare('SELECT (SELECT COUNT(*) FROM push_subscriptions) + (SELECT COUNT(*) FROM manager_push) AS n').first<{ n: number }>();
+  if ((count?.n ?? 0) >= MAX_SUBSCRIPTIONS) return 'limit';
+  await db
+    .prepare('INSERT INTO manager_push (endpoint, user_id, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (endpoint, user_id) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth')
+    .bind(sub.endpoint, userId, sub.p256dh, sub.auth, now)
+    .run();
+  return 'ok';
+}
+
+/** Stops a manager's notifications on one device. */
+export async function removeManagerSubscription(db: D1Database, endpoint: string, userId: string): Promise<void> {
+  await db.prepare('DELETE FROM manager_push WHERE endpoint = ? AND user_id = ?').bind(endpoint, userId).run();
+}
+
+/** Whether a manager has allowed notifications on this device. */
+export async function managerSubscribed(db: D1Database, endpoint: string, userId: string): Promise<boolean> {
+  return (await db.prepare('SELECT 1 AS x FROM manager_push WHERE endpoint = ? AND user_id = ?').bind(endpoint, userId).first()) !== null;
 }
 
 /** Stops alerts for a device, for one person or (with no person) for all of them. */

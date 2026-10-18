@@ -10,6 +10,10 @@ import { loadPeople } from '../../lib/peopleStore';
 import { dayKey } from '../../lib/dates';
 import { isManager, json, readJson } from '../../lib/http';
 import { isOn } from '../../lib/features';
+import { selectMailer } from '../../lib/mailer';
+import { safeAppOrigin } from '../../lib/origin';
+import { notifyManagers, type Activity } from '../../lib/managerNotify';
+import { pushKeys } from '../../lib/push';
 
 const id = z.string().min(1).max(64);
 const title = z.string().trim().min(1).max(80);
@@ -60,6 +64,23 @@ const today = () => dayKey(Date.now(), householdZone);
 const off = (locals: App.Locals) => !isOn(locals.disabled, 'chores');
 const view = async (locals: App.Locals) => json(await choreState(env.DB, today(), isManager(locals)));
 
+/** What a manager is told about a member action that worked, or null for the ones they are not told about. Read before the action runs, so "extended" and "stopped" can be told apart from a timer that was not there. */
+async function activityFor(db: D1Database, b: z.infer<typeof memberBody>): Promise<(() => Activity) | null> {
+  if (b.action !== 'redeem' && b.action !== 'use_time' && b.action !== 'timer_stop') return null;
+  const [people, timers, reward] = await Promise.all([
+    loadPeople(db),
+    timersNow(db),
+    b.action === 'redeem' ? db.prepare('SELECT name FROM rewards WHERE id = ?').bind(b.rewardId).first<{ name: string }>() : null,
+  ]);
+  const name = people.find((p) => p.id === b.person)?.name ?? 'Someone';
+  const path = `/chores/${encodeURIComponent(b.person)}`;
+  const running = (timers.timers[b.person]?.endsAt ?? 0) > timers.now;
+  if (b.action === 'redeem') return () => ({ kind: 'rewards', headline: `${name} asked for a reward`, detail: `${name} would like "${reward?.name ?? 'a reward'}". It is waiting for you to approve or deny it.`, path: '/chores/manage' });
+  if (b.action === 'use_time') return () => ({ kind: 'timers', headline: running ? `${name} added screen time` : `${name} started a timer`, detail: `${name} ${running ? 'added' : 'started'} ${b.minutes} ${b.minutes === 1 ? 'minute' : 'minutes'} of screen time.`, path });
+  if (!timers.timers[b.person]) return null;
+  return () => ({ kind: 'timers', headline: `${name} stopped their timer`, detail: `${name} stopped their screen time timer${running ? ' early' : ''}.`, path });
+}
+
 const STATUS: Record<string, number> = { not_found: 404, not_due: 409, limit: 409, insufficient: 409, not_eligible: 409, bad_request: 400 };
 
 export const GET: APIRoute = async ({ locals, url }) => {
@@ -79,11 +100,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (asMember.success) {
     const b = asMember.data;
     if (!(await knows(b))) return json({ error: 'bad_request' }, 400);
+    const via = { mailer: selectMailer(env, import.meta.env.DEV), origin: safeAppOrigin(env.APP_ORIGIN, import.meta.env.DEV), keys: pushKeys(env) };
+    const activity = (via.mailer && via.origin) || via.keys ? await activityFor(db, b).catch(() => null) : null;
     result = b.action === 'check' ? await setCheck(db, b.id, today(), b.done)
       : b.action === 'use_time' ? await startTimer(db, b.person, b.minutes, today())
       : b.action === 'timer_stop' ? (await stopTimer(db, b.person), 'ok')
       : b.action === 'sound_set' ? await setSound(db, b.person, b.sound)
       : await requestRedemption(db, b.person, b.rewardId);
+    if (result === 'ok' && activity) locals.cfContext.waitUntil(notifyManagers(db, via, activity(), locals.user?.id));
   } else {
     const parsed = managerBody.safeParse(raw);
     if (!parsed.success) return json({ error: 'bad_request' }, 400);

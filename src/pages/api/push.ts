@@ -3,8 +3,8 @@ import { env } from 'cloudflare:workers';
 import { z } from 'zod';
 import { loadPeople } from '../../lib/peopleStore';
 import { isOn } from '../../lib/features';
-import { json, readJson } from '../../lib/http';
-import { pushKeys, removeSubscription, saveSubscription, subscribedPeople } from '../../lib/push';
+import { isManager, json, readJson } from '../../lib/http';
+import { managerSubscribed, pushKeys, removeManagerSubscription, removeSubscription, saveManagerSubscription, saveSubscription, subscribedPeople } from '../../lib/push';
 
 const person = z.string().min(1).max(64);
 const endpoint = z.string().min(1).max(1024);
@@ -12,6 +12,10 @@ const body = z.discriminatedUnion('action', [
   z.object({ action: z.literal('status'), endpoint }),
   z.object({ action: z.literal('subscribe'), person, subscription: z.object({ endpoint, keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) }) }) }),
   z.object({ action: z.literal('unsubscribe'), endpoint, person: person.optional() }),
+  // A manager's own notifications. Kept apart from the per-person alerts above, which follow a child, not a login.
+  z.object({ action: z.literal('manager_status'), endpoint }),
+  z.object({ action: z.literal('manager_subscribe'), subscription: z.object({ endpoint, keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) }) }) }),
+  z.object({ action: z.literal('manager_unsubscribe'), endpoint }),
 ]);
 
 const off = (locals: App.Locals) => !isOn(locals.disabled, 'chores');
@@ -32,6 +36,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!parsed.success) return json({ error: 'bad_request' }, 400);
   const b = parsed.data;
   const db = env.DB;
+  if (b.action === 'manager_status' || b.action === 'manager_subscribe' || b.action === 'manager_unsubscribe') {
+    if (!isManager(locals)) return json({ error: 'forbidden' }, 403);
+    const me = locals.user!.id;
+    if (b.action === 'manager_subscribe') {
+      const { endpoint: address, keys } = b.subscription;
+      const result = await saveManagerSubscription(db, me, { endpoint: address, ...keys });
+      if (result !== 'ok') return json({ error: result }, result === 'limit' ? 409 : 400);
+      return json({ on: true });
+    }
+    if (b.action === 'manager_unsubscribe') await removeManagerSubscription(db, b.endpoint, me);
+    return json({ on: await managerSubscribed(db, b.endpoint, me) });
+  }
   if (b.action === 'status') return json({ people: await subscribedPeople(db, b.endpoint) });
   if (b.action === 'unsubscribe') {
     await removeSubscription(db, b.endpoint, b.person);

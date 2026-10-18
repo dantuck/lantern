@@ -121,3 +121,13 @@ ${button(loginUrl, 'Open the dashboard')}
 ${body}`);
   return { subject: "You're invited to Lantern", text, html };
 }
+
+/** A short heads-up for a manager: something happened (a reward was asked for, a timer started). `headline` and `detail` are plain text. */
+export function activityEmail(headline: string, detail: string, link: string): Omit<Mail, 'to'> {
+  const text = [headline, '', detail, '', `Open Lantern: ${link}`, '', 'You get these because you chose emails for this on the admin page. You can change that there.'].join('\n');
+  const html = shell(headline, `<h1 class="fg" style="margin:0 0 8px;font-size:22px;line-height:1.3;color:#1d1813">${esc(headline)}</h1>
+<p class="fg" style="margin:0;color:#1d1813">${esc(detail)}</p>
+${button(link, 'Open Lantern')}
+<p class="muted" style="margin:0;font-size:13px;line-height:1.5;color:#6b6258">You get these because you chose emails for this on the admin page. You can change that there.</p>`);
+  return { subject: headline, text, html };
+}

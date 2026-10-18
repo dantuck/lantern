@@ -5,6 +5,7 @@ export const MESSAGES = {
   invite_resent: { text: 'Invitation sent again. The old link no longer works.', ok: true },
   invite_revoked: { text: 'Invitation revoked.', ok: true },
   role_changed: { text: 'Role updated.', ok: true },
+  notify_saved: { text: 'Alert preference saved.', ok: true },
   user_disabled: { text: 'User disabled and signed out everywhere.', ok: true },
   user_enabled: { text: 'User re-enabled.', ok: true },
   feature_enabled: { text: 'Turned on.', ok: true },

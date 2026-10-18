@@ -61,18 +61,47 @@ export async function isSubscribed(person: string): Promise<boolean> {
   return (await peopleFor(await post({ action: 'status', endpoint: sub.endpoint }))).includes(person);
 }
 
-/** Asks permission (this must run from a tap) and signs this device up for alerts about `person`. */
-export async function enablePush(person: string): Promise<'ok' | 'denied' | 'error'> {
+/** Asks permission (this must run from a tap), gets this browser's subscription, and sends it to the server with `payload`. */
+async function subscribeWith(payload: Record<string, unknown>): Promise<'ok' | 'denied' | 'error'> {
   try {
     const key = await serverKey();
     if (!key) return 'error';
     if ((await Notification.requestPermission()) !== 'granted') return 'denied';
     const reg = await navigator.serviceWorker.ready;
     const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uDecode(key) }));
-    const res = await post({ action: 'subscribe', person, subscription: { endpoint: sub.endpoint, keys: { p256dh: b64uEncode(sub.getKey('p256dh') ?? new ArrayBuffer(0)), auth: b64uEncode(sub.getKey('auth') ?? new ArrayBuffer(0)) } } });
+    const res = await post({ ...payload, subscription: { endpoint: sub.endpoint, keys: { p256dh: b64uEncode(sub.getKey('p256dh') ?? new ArrayBuffer(0)), auth: b64uEncode(sub.getKey('auth') ?? new ArrayBuffer(0)) } } });
     return res?.ok ? 'ok' : 'error';
   } catch {
     return 'error';
+  }
+}
+
+/** Signs this device up for alerts about `person`. */
+export const enablePush = (person: string) => subscribeWith({ action: 'subscribe', person });
+
+/** Whether this signed-in manager already gets notifications on this device. A member (or no subscription) is simply false. */
+export async function isManagerSubscribed(): Promise<boolean> {
+  const sub = await currentSubscription();
+  if (!sub || Notification.permission !== 'granted') return false;
+  const res = await post({ action: 'manager_status', endpoint: sub.endpoint });
+  return res?.ok ? ((await res.json()) as { on?: boolean }).on === true : false;
+}
+
+/** Signs this device up for the manager's notifications (reward requests, timers). */
+export const enableManagerPush = () => subscribeWith({ action: 'manager_subscribe' });
+
+/** Stops the manager's notifications on this device. The browser's subscription is dropped too unless a person's alerts still use it. */
+export async function disableManagerPush(): Promise<boolean> {
+  try {
+    const sub = await currentSubscription();
+    if (!sub) return true;
+    const res = await post({ action: 'manager_unsubscribe', endpoint: sub.endpoint });
+    if (!res?.ok) return false;
+    const stillPeople = await peopleFor(await post({ action: 'status', endpoint: sub.endpoint }));
+    if (stillPeople.length === 0) await sub.unsubscribe();
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -83,7 +112,8 @@ export async function disablePush(person: string): Promise<boolean> {
     if (!sub) return true;
     const res = await post({ action: 'unsubscribe', endpoint: sub.endpoint, person });
     if (!res?.ok) return false;
-    if ((await peopleFor(res)).length === 0) await sub.unsubscribe();
+    // A manager's notifications on this device use the same browser subscription, so keep it while they are on.
+    if ((await peopleFor(res)).length === 0 && !(await isManagerSubscribed())) await sub.unsubscribe();
     return true;
   } catch {
     return false;

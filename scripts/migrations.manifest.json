@@ -14,5 +14,6 @@
   "0013_daily_screen_time.sql": "53cffec63c411312c3274a98b37e97f9b9fd7c22d7d53311caaca5944aad2e97",
   "0014_chore_skips.sql": "67b39c263d908c14a452a78680909a566bc16f868f9a956cda462694744cc197",
   "0015_screentime_timers.sql": "dcd2c53e672143ed91b0e12087c985b3c97bce19741a921e98b40df44c08ba4c",
-  "0016_invite_link.sql": "b5ee4b3c37ebb2ed5ed3060a6bc1815d6d2445dcd7aacf4f541a8c694d1c6159"
+  "0016_invite_link.sql": "b5ee4b3c37ebb2ed5ed3060a6bc1815d6d2445dcd7aacf4f541a8c694d1c6159",
+  "0017_manager_notify.sql": "40f9900a3d88b3b34c0af66d89e6109f50f04c68bfaeb0e0fc7eb0bb3de52154"
 }

@@ -10,6 +10,13 @@ import { loadPeople, MAX_PEOPLE } from '../../lib/peopleStore';
 import { registry } from '../../plugins/registry';
 import { choreCounts } from '../../lib/chores';
 import { pendingCount } from '../../lib/rewards';
+import { isManager } from '../../lib/http';
+import { notifyPrefsFor } from '../../lib/managerNotify';
+import { pushKeys } from '../../lib/push';
+import ManagerPush from '../../components/ManagerPush.svelte';
+
+// Middleware already limits this path to managers (requiredRole in src/lib/http.ts); check again so the page is safe on its own.
+if (!isManager(Astro.locals)) return new Response('Forbidden', { status: 403 });
 
 const me = Astro.locals.user!;
 const off = Astro.locals.disabled ?? new Set<string>();
@@ -18,6 +25,13 @@ const [users, invites, devices, audit, household, counts, waiting] = await Promi
   listUsers(env.DB), listPendingInvites(env.DB), listAllSessions(env.DB), listAudit(env.DB, 50), loadPeople(env.DB),
   choresOn ? choreCounts(env.DB) : new Map<string, number>(), choresOn ? pendingCount(env.DB, Astro.locals) : 0,
 ]);
+const mine = await notifyPrefsFor(env.DB, me.id);
+const pushReady = pushKeys(env) !== null;
+const alerts = [
+  { kind: 'rewards', label: 'Reward requests', hint: 'When someone asks to spend points.' },
+  { kind: 'timers', label: 'Screen time timers', hint: 'When a timer is started, extended or stopped.' },
+] as const;
+const channels = [{ id: 'email', label: 'Email' }, { id: 'push', label: 'Notification' }] as const;
 const flash = flashFor(Astro.url.searchParams.get('msg'));
 const currentHash = Astro.locals.session!.idHash;
 // Plugins come from dashboard.config.ts (what is installed); managers choose which of them, and which built-ins, are shown.
@@ -72,6 +86,36 @@ const features = [
         </table>
       </>
     )}
+  </section>
+
+  <section class="card" id="alerts">
+    <div class="card-head"><h2>Your alerts</h2></div>
+    <table class="stack">
+      <thead><tr><th>Tell me when</th>{channels.map((c) => <th>{c.label}</th>)}</tr></thead>
+      <tbody>
+        {alerts.map((a) => (
+          <tr>
+            <td class="primary">{a.label}<span class="muted">&nbsp;&middot; {a.hint}</span></td>
+            {channels.map((c) => {
+              const on = mine[`${a.kind}_${c.id}`];
+              return (
+                <td data-label={c.label}>
+                  {c.id === 'push' && !pushReady ? <span class="muted">Not set up</span> : (
+                    <form method="post" action="/admin/action">
+                      <input type="hidden" name="action" value="set_notify" /><input type="hidden" name="kind" value={a.kind} /><input type="hidden" name="channel" value={c.id} />
+                      <input type="hidden" name="on" value={on ? '0' : '1'} />
+                      <button class="ghost" type="submit" aria-pressed={on} aria-label={`${a.label} by ${c.label.toLowerCase()}: ${on ? 'on, turn off' : 'off, turn on'}`}>{on ? 'On' : 'Off'}</button>
+                    </form>
+                  )}
+                </td>
+              );
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <p class="text-muted hint">Email goes to {me.email} and needs email to be set up. Notifications go to each device you allow below. You are never told about what you do yourself.</p>
+    {pushReady && <ManagerPush client:load />}
   </section>
 
   <section class="card" id="members">
