@@ -6,6 +6,10 @@ export default defineConfig({
   presets: [presetWind4({ preflights: { reset: false } })],
   extractors: [extractorSvelte()],
   transformers: [transformerDirectives(), transformerVariantGroup()],
+  variants: [
+    // Tailwind's `pointer-coarse:` (touch screens), which presetWind4 does not include.
+    (matcher) => (matcher.startsWith('pointer-coarse:') ? { matcher: matcher.slice('pointer-coarse:'.length), parent: '@media (pointer: coarse)' } : matcher),
+  ],
   shortcuts: {
     // Surfaces. Contextual overrides (.grid > .card, print, wall mode) stay in global.css and key off these class names.
     card: 'bg-card border border-solid border-line rounded-[var(--radius)] p-[1.1rem] shadow-[var(--shadow-sm)] sm:p-6 [section&]:mb-5 [section&]:overflow-x-auto [details&]:mb-5 [details&]:overflow-x-auto [&[id]]:scroll-mt-[4.5rem] md:[&[id]]:scroll-mt-4',
