@@ -128,6 +128,31 @@ export const skippedToday = (items: readonly ChoreItem[]): ChoreItem[] => items.
 export const todaysRoutines = (routines: readonly Routine[]): Routine[] =>
   routines.map((r) => ({ ...r, items: r.items.filter(onToday) })).filter((r) => r.items.length > 0);
 
+/** A chore already set up for someone, offered again when adding one to another person's list. */
+export type ChoreTemplate = Pick<ChoreItem, 'title' | 'points' | 'period' | 'days' | 'onceDate'>;
+
+/**
+ * The chores in the household that could be added to `person`'s list: those on other lists (or earlier on none), matching `query`,
+ * leaving out any title they already have and one-offs whose day has passed. A title shared by several is offered once, by its first.
+ */
+export function choreSuggestions(routines: readonly Routine[], person: string | null, query: string, day: string, limit = 8): ChoreTemplate[] {
+  const q = query.trim().toLowerCase();
+  const have = new Set(routines.filter((r) => r.person === person).flatMap((r) => r.items.map((i) => i.title.toLowerCase())));
+  const out: ChoreTemplate[] = [];
+  for (const r of routines) {
+    if (r.person === person) continue;
+    for (const i of r.items) {
+      const t = i.title.toLowerCase();
+      if (have.has(t) || (q && !t.includes(q)) || (i.onceDate !== null && i.onceDate < day)) continue;
+      have.add(t);
+      out.push({ title: i.title, points: i.points, period: i.period, days: i.days, onceDate: i.onceDate });
+    }
+  }
+  // Titles starting with the query read as the better match, then alphabetical.
+  const rank = (c: ChoreTemplate) => (q && c.title.toLowerCase().startsWith(q) ? 0 : 1);
+  return out.sort((a, b) => rank(a) - rank(b) || a.title.localeCompare(b.title)).slice(0, limit);
+}
+
 /** Chores grouped by time of day, in the order of the day. Times of day with no chores are left out. */
 export const sections = <T extends { period: Period }>(items: readonly T[]): { period: Period; items: T[] }[] =>
   PERIODS.map((period) => ({ period, items: items.filter((i) => i.period === period) })).filter((s) => s.items.length > 0);

@@ -153,7 +153,7 @@
         <span class="note">{items.length} {items.length === 1 ? 'chore' : 'chores'}{o.id === null ? ' · no points' : ''}</span>
       </summary>
 
-      <RoutineEditor person={o.id} name={o.name} {items} bonuses={bonusesOf(o.id)} day={choreState.day} {busy} {send} collapsible />
+      <RoutineEditor person={o.id} name={o.name} {items} bonuses={bonusesOf(o.id)} day={choreState.day} {busy} {send} routines={choreState.routines} collapsible />
     </details>
   {:else}
     <p class="note">Nobody or no chore matches "{query.trim()}".</p>

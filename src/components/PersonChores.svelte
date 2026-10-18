@@ -192,7 +192,7 @@
   {#if choreState.manager && editing}
   <section class="card" aria-labelledby="today-h">
     <h2 class="card-h" id="today-h">Routine <span class="note">{routine?.items.length ?? 0} {routine?.items.length === 1 ? 'chore' : 'chores'}, tap one to edit</span></h2>
-    <RoutineEditor person={who} name={me.name} items={routine?.items ?? []} bonuses={routine?.bonuses ?? periodRecord(0)} day={choreState.day} {busy} {send} collapsible />
+    <RoutineEditor person={who} name={me.name} items={routine?.items ?? []} bonuses={routine?.bonuses ?? periodRecord(0)} day={choreState.day} {busy} {send} routines={choreState.routines} collapsible />
   </section>
   {:else}
   <section class="card" aria-labelledby="today-h">

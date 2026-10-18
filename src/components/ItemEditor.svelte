@@ -5,7 +5,7 @@
   import { keep, text } from '../lib/choreClient';
 
   /** The edit rows for one chore (title, points, time of day, schedule, remove). The parent supplies the card around them. */
-  let { c, day, busy, send, onremove }: { c: ChoreItem; day: string; busy: boolean; send: (payload: Record<string, unknown>) => Promise<boolean>; onremove?: () => void } = $props();
+  let { c, day, busy, send, onremove }: { c: ChoreItem; day: string; busy: boolean; send: (payload: Record<string, unknown>) => Promise<boolean>; onremove: () => void } = $props();
 
   /** Flips one weekday on a chore. Picking every day is the same as "every day"; the last day cannot be turned off. */
   const flipDay = (weekday: number) => {
@@ -16,7 +16,7 @@
 
 <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
   <input class="m-0" value={c.title} data-v={c.title} maxlength="80" aria-label="Chore" onchange={(e) => keep(e, !!text(e) && send({ action: 'item_update', id: c.id, title: text(e) }))} />
-  <ConfirmButton ariaLabel={`Remove ${c.title}`} disabled={busy} onconfirm={async () => { if (await send({ action: 'item_remove', id: c.id })) onremove?.(); }} />
+  <ConfirmButton ariaLabel={`Remove ${c.title}`} disabled={busy} onconfirm={onremove} />
 </div>
 <div class="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-2">
   <Stepper caption="Points" class="w-[9.75rem]" value={c.points} min={0} max={100} label={`Points for ${c.title}`} onchange={(n) => send({ action: 'item_update', id: c.id, points: n })} />

@@ -4,7 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { createTestDb } from './d1shim';
 import { addItem, choreState, MAX_ITEMS_PER_ROUTINE, removeItem, setBonus, setCheck, setSkip, updateItem, type ChoreInput } from '../src/lib/chores';
 import { adjustPoints, approveAffordable, adjustMinutes, balanceOf, claimGoal, decideRedemption, MAX_GOALS, MAX_PENDING, removeGoal, removeReward, requestRedemption, saveGoal, saveReward, setAllowance, useMinutes } from '../src/lib/rewards';
-import { canAsk, describeSchedule, itemDue, sections, toggleDay, WEEKDAYS_MASK } from '../src/lib/choreTypes';
+import { canAsk, choreSuggestions, describeSchedule, itemDue, sections, toggleDay, WEEKDAYS_MASK, type ChoreItem, type Routine } from '../src/lib/choreTypes';
 import { requiredRole } from '../src/lib/http';
 
 const T = 1_700_000_000_000;
@@ -546,5 +546,22 @@ describe('skipping a chore for a day', () => {
     await removeItem(db, id);
     await give(db, 'agnes', chore('Bins'));
     expect((await items())[0]!.skipped).toBe(false);
+  });
+});
+
+describe('choreSuggestions', () => {
+  const item = (title: string, o: Partial<ChoreItem> = {}): ChoreItem => ({ id: title, title, points: 2, done: false, period: 'morning', days: null, onceDate: null, due: true, skipped: false, ...o });
+  const routine = (person: string | null, items: ChoreItem[]): Routine => ({ id: String(person), person, bonuses: { morning: 0, afternoon: 0, evening: 0, any: 0 }, bonusEarned: { morning: false, afternoon: false, evening: false, any: false }, items });
+  const routines = [routine('a', [item('Feed the dog'), item('Make bed'), item('Old trip', { onceDate: '2020-01-01' })]), routine('b', [item('Feed the Dog'), item('Dishes', { points: 5 })]), routine('c', [item('Make bed')])];
+
+  it('offers chores from other lists once each, leaving out ones the person already has', () => {
+    expect(choreSuggestions(routines, 'c', '', '2026-10-18').map((c) => c.title)).toEqual(['Dishes', 'Feed the dog']);
+  });
+  it('matches the query anywhere, best prefix first, and skips one-offs that have passed', () => {
+    expect(choreSuggestions(routines, 'c', 'd', '2026-10-18').map((c) => c.title)).toEqual(['Dishes', 'Feed the dog']);
+    expect(choreSuggestions(routines, 'c', 'trip', '2026-10-18')).toEqual([]);
+  });
+  it('carries the points and schedule over', () => {
+    expect(choreSuggestions(routines, 'c', 'dish', '2026-10-18')).toEqual([{ title: 'Dishes', points: 5, period: 'morning', days: null, onceDate: null }]);
   });
 });
