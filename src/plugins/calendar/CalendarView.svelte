@@ -9,11 +9,13 @@
   import type { Meal, MealDay } from '../mealq/client';
   import { SLOTS, SLOT_COLOR, SLOT_LABEL, type Slot } from '../mealq/slots';
 
-  let { events, timeZone, locale, nowMs, windowStart, windowEnd, people = [], weather, meals = [], mealSlots = ['dinner'] }: {
+  let { events, timeZone, locale, nowMs, windowStart, windowEnd, people = [], weather, meals = [], mealSlots = ['dinner'], embedded = false }: {
     events: CalEvent[]; timeZone: string; locale: string; nowMs: number; windowStart: number; windowEnd: number;
     people?: Person[]; weather?: WeatherData | undefined;
     /** MealQ days that have meals, and which slots show until someone changes the toggles. */
     meals?: MealDay[] | undefined; mealSlots?: Slot[] | undefined;
+    /** The dashboard's week: no view switcher, and it ignores the remembered view. */
+    embedded?: boolean;
   } = $props();
 
   type View = 'month' | 'week' | 'day' | 'agenda';
@@ -45,7 +47,8 @@
       const saved = localStorage.getItem(VIEW_KEY);
       const slots = JSON.parse(localStorage.getItem(SLOTS_KEY) ?? 'null');
       if (Array.isArray(slots)) slotChoice = SLOTS.filter((x) => slots.includes(x));
-      if (VIEWS.some((v) => v.id === wanted)) view = wanted as View; // ?view=week is a shareable link
+      if (embedded) {} // the saved view and ?view= belong to the full page
+      else if (VIEWS.some((v) => v.id === wanted)) view = wanted as View; // ?view=week is a shareable link
       else if (VIEWS.some((v) => v.id === saved)) view = saved as View;
       else if (matchMedia('(max-width: 40rem)').matches) view = 'agenda';
     } catch {}
@@ -300,12 +303,14 @@
       <button type="button" class="ghost m-0 w-auto py-[.45rem] px-4 rounded-full text-[.9rem] disabled:opacity-35 disabled:cursor-default max-[40rem]:flex-1" onclick={() => (cursor = todayKey)} disabled={cursor === todayKey && view !== 'month'}>Today</button>
       <button type="button" class="ghost cal-step size-10" onclick={() => go(next)} disabled={!next} aria-label={`Next ${view === 'agenda' ? 'days' : view}`}><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg></button>
     </div>
-    <h2 class="order-[-1] m-0 flex-[1_1_11rem] text-left [font-size:clamp(1.15rem,1rem+.6vw,1.45rem)] whitespace-nowrap tracking-[-.02em] max-[40rem]:col-span-full max-[40rem]:row-start-1" aria-live="polite">{title}</h2>
+    <svelte:element this={embedded ? 'h3' : 'h2'} class="order-[-1] m-0 flex-[1_1_11rem] text-left [font-size:clamp(1.15rem,1rem+.6vw,1.45rem)] whitespace-nowrap tracking-[-.02em] max-[40rem]:col-span-full max-[40rem]:row-start-1" aria-live="polite">{title}</svelte:element>
+    {#if !embedded}
     <div class="seg-group mb-3 max-[40rem]:grid max-[40rem]:grid-cols-4 max-[40rem]:col-span-full" role="group" aria-label="Calendar view">
       {#each VIEWS as v (v.id)}
         <button type="button" class="seg-btn" aria-pressed={view === v.id} onclick={() => setView(v.id)}>{v.label}</button>
       {/each}
     </div>
+    {/if}
     {#if chips.length > 0}
       <div class="flex flex-wrap items-center gap-[.3rem] ml-auto mb-5 max-[40rem]:col-span-full max-[40rem]:ml-0" role="group" aria-label="Show whose events">
         {#each chips as p (p.id)}
@@ -361,7 +366,7 @@
                 aria-label={fmt({ weekday: 'long', month: 'long', day: 'numeric' }, c.day)}>
                 <span class="text-[.7rem] [font-weight:650] uppercase tracking-[.06em] {c.day === todayKey ? 'text-accent' : 'text-muted'}">{fmt({ weekday: 'short' }, c.day)}</span>
                 <span class="text-[1.3rem] font-semibold text-center min-w-8 leading-8 rounded-full @max-[46rem]:text-[1.15rem] {c.day === todayKey ? 'bg-accent text-accent-fg' : ''}">{+c.day.slice(8, 10)}</span>
-                {@render wxBadge(c.day, '@max-[46rem]:text-[.75rem] @max-[46rem]:[&_i]:hidden @max-[46rem]:[&_svg]:hidden')}
+                {@render wxBadge(c.day, '[&_i]:hidden [&_svg]:hidden @[46rem]:[&_i]:block @[46rem]:[&_svg]:block')}
               </button>
             {:else}
               <div class="flex flex-col flex-wrap items-center justify-center gap-2 py-2 px-0 m-0 border-solid [border-width:0_0_0_1px] border-line bg-transparent text-fg font-normal hover:bg-card2" style:--c={c.person?.color}>

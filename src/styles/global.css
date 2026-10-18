@@ -167,6 +167,9 @@ td .actions { display: flex; gap: .4rem; justify-content: flex-end; flex-wrap: w
   .span-2 { grid-column: span 2; }
   .dash-grid > [data-plugin="mealq"] { grid-row: span 2; height: 0; min-height: 100%; overflow-y: auto; }
 }
+/* The calendar card is span-2 from here on, so it has room for the week; below that it stays the agenda list. */
+.cal-week { display: none; }
+@container (min-width: 36rem) { .cal-agenda { display: none; } .cal-week { display: block; } }
 @container (min-width: 52rem) { .dash-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (min-width: 64rem) { main.wide { max-width: 80rem; } }
 /* Tablets and other touch screens: a little larger type for arm's-length reading, and roomier summaries. */

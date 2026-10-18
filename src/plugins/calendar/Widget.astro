@@ -1,6 +1,7 @@
 ---
 import { dayKey, dayLabel, formatTime } from '../../lib/dates';
 import { groupByDay } from './agenda';
+import CalendarView from './CalendarView.svelte';
 import { env } from 'cloudflare:workers';
 import { loadPeople } from '../../lib/peopleStore';
 import { peopleOf, type Person } from '../../lib/people';
@@ -19,6 +20,7 @@ const LIMIT = 10;
 let shown = 0;
 const total = days.reduce((n, d) => n + d.events.length, 0);
 ---
+<div class="cal-agenda">
 {days.length === 0 ? (
   <p class="text-muted">Nothing scheduled in the next 7 days.</p>
 ) : (
@@ -43,3 +45,21 @@ const total = days.reduce((n, d) => n + d.events.length, 0);
     {total > LIMIT && <p class="text-muted"><a href={moreHref}>+{total - LIMIT} more</a></p>}
   </div>
 )}
+</div>
+{/* Wider cards swap the agenda for the week (see .cal-week in global.css). Hidden, it never hydrates, so phones skip the script. */}
+<div class="cal-week">
+  <CalendarView
+    client:visible
+    embedded
+    events={data.events}
+    timeZone={config.timeZone}
+    locale={config.locale}
+    nowMs={Date.now()}
+    windowStart={data.windowStart}
+    windowEnd={data.windowEnd}
+    people={people}
+    weather={data.weather}
+    meals={data.meals}
+    mealSlots={config.meals?.slots}
+  />
+</div>
