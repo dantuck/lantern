@@ -1,6 +1,6 @@
 # MealQ API contract for Lantern
 
-The dashboard's **MealQ plugin** shows a household's meal plan. It needs one new read-only endpoint on the MealQ API and a way to issue a scoped token for it. This document is the contract the plugin is built and tested against. `test/fixtures/mealq-meal-plan.json` is a conforming response; the MealQ API's own tests can validate against the same file.
+The dashboard's **MealQ plugin** shows a household's meal plan, and the calendar can overlay the same plan (`meals: {}` in its config, which asks for a wider date range). It needs one new read-only endpoint on the MealQ API and a way to issue a scoped token for it. This document is the contract the plugin is built and tested against. `test/fixtures/mealq-meal-plan.json` is a conforming response; the MealQ API's own tests can validate against the same file.
 
 The dashboard only ever sends `GET`. It never writes to MealQ.
 
@@ -68,7 +68,7 @@ The optional fields power the expandable day view. In MealQ they are opt-in per 
 | `429` | Rate limited (send `Retry-After`) | same |
 | `5xx` | MealQ trouble | same |
 
-The dashboard caches a successful response for 15 minutes, so expected load is about 4 requests per hour per household.
+The dashboard caches a successful response for 60 seconds, so expected load is at most about 60 requests per hour per household.
 
 ## Dashboard setup once the endpoint exists
 

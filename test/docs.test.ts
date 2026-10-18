@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 const DOCS = ['README.md', 'SECURITY.md', 'CHANGELOG.md', 'docs/setup-guide.md', 'docs/you-are-the-host.md', 'docs/threat-model.md',
-  'docs/releasing.md', 'docs/pwa-manual-check.md', 'docs/mealq-api-contract.md', 'src/plugins/README.md'];
+  'docs/releasing.md', 'docs/pwa-manual-check.md', 'docs/mealq-api-contract.md', 'docs/features.md', 'docs/architecture.md', 'PRIVACY.md', 'src/plugins/README.md'];
 const read = (p: string) => readFileSync(p, 'utf8');
 const scripts = Object.keys(JSON.parse(read('package.json')).scripts as Record<string, string>);
 

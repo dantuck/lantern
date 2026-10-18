@@ -9,10 +9,11 @@ are yours, because nobody else is doing them.
 | Who | What they can see |
 |---|---|
 | **You**, and anyone who can log in to your Cloudflare account | Everything: the member list, the audit log, every secret you set, and the dashboard's code and settings |
-| **The people you invite** | The dashboard widgets, their own devices, and (managers only) the Admin page |
+| **The people you invite** | The dashboard widgets, the household's chores, points, rewards, screen time and lists, and their own devices. Managers also see and run the Admin page and every device |
 | **Cloudflare** | Your site's traffic and stored data, as with any site you host there |
-| **Resend** | The sign-in and invite emails, and who they went to |
+| **Resend** | The sign-in and invite emails, any emails to managers about reward requests and timers, and who they went to |
 | **Google, MealQ** | Only the read-only requests the widgets make with the credentials you gave them |
+| **Browser push services** (Apple, Google, Mozilla, Microsoft) | Only if you turn alerts on: that your Worker sent an encrypted message to a device, not what it says |
 | **The software's author** | Nothing. There is no telemetry, update check or reporting (see [`SECURITY.md`](../SECURITY.md)) |
 
 Because your Cloudflare login is the key to all of it, protect that account first: a strong unique password and
@@ -25,8 +26,9 @@ Because your Cloudflare login is the key to all of it, protect that account firs
 | **Update** | When a release lands, and at least every few months | `git fetch --tags`, check out the new tag, read `CHANGELOG.md`, then `npm ci && npm run update`. Update takes a backup first. |
 | **Back up** | Automatic on every update; manually before anything risky | `npx wrangler d1 export lantern --remote --output backup.sql`. Keep it private: it contains member emails and the audit log. It contains none of the API keys or tokens you set (those are Worker secrets, not database rows). |
 | **Keep the domain renewed** | Yearly | If the domain lapses, the site goes down, and someone who registers it could send convincing sign-in emails from it. Turn on auto-renew. |
-| **Review members** | When people join or leave | Admin: disable anyone who should no longer have access; that signs them out everywhere at once. |
-| **Rotate secrets** | If one might have leaked, or when someone with access leaves | Make a new key or token at the source (Resend, Google, MealQ), then `npx wrangler secret put NAME` and revoke the old one. |
+| **Review members** | When people join or leave | Admin: disable anyone who should no longer have access; that signs them out everywhere at once. Add or remove the household's *people* there too. |
+| **Look after the household's data** | When a child leaves the household, or on request | It is personal data about the people in it (chores, points, screen time). Remove a person on the Admin page, and see [`PRIVACY.md`](../PRIVACY.md) for what is kept and for how long. |
+| **Rotate secrets** | If one might have leaked, or when someone with access leaves | Make a new key or token at the source (Resend, Google, MealQ), then `npx wrangler secret put NAME` and revoke the old one. For the push keys, run `npm run push:keys`, set both secrets, and have devices turn alerts on again. |
 
 If you do nothing for a while, nothing breaks: the site keeps working, and sessions expire by themselves (30 days
 idle, 90 days at most). What you lose is security fixes, so do not leave updates for years.

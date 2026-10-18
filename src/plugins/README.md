@@ -8,15 +8,19 @@ A plugin is a folder `src/plugins/<id>/`. Copy `example/` to start.
 | `Widget.astro` | yes | Card body. Receives `data` (the loader's output) and `config`. Put interactive bits in a Svelte island with `client:visible`. |
 | `Page.astro` | no | Full-page view at `/p/<id>`. Falls back to `Widget.astro`. |
 
+Besides `calendar/` and `mealq/`, `example/` is a minimal template that is shown only in development (and the CSP check build). Each enabled plugin also gets a link in the navigation, a full page at `/p/<id>`, and a JSON endpoint at `/api/plugins/<id>/data` (GET only, signed-in). A manager can switch any plugin off under Admin → Widgets and features; that hides it without touching `dashboard.config.ts`.
+
 Then enable it in `dashboard.config.ts` (your local copy of `dashboard.config.example.ts`; add it to the example too if it should ship by default) (order = display order; `span: 2` makes it wide).
 
 ## The contract (`definePlugin`)
 
 - **`id`**: lowercase slug, must equal the folder name.
-- **`configSchema`**: zod schema for non-secret settings from `dashboard.config.ts`. Invalid config fails at startup and in tests.
+- **`name`, `icon`**: the card title and its icon: a Feather icon name (`src/lib/icons.ts`) or an image under `public/icons/`.
+- **`configSchema`**: zod schema for non-secret settings from `dashboard.config.ts`. Invalid config fails at startup and in tests. `zoneLocaleShape` and `hostnameField` in `src/plugins/fields.ts` are shared building blocks for a time zone and locale, and for a bare hostname that becomes the plugin's allowed host.
+- **`resolveConfig`** (optional): fill in raw config from the other enabled plugins' entries before it is validated. The calendar uses it to borrow MealQ's `apiHost` for `meals: {}`.
 - **`secrets`**: names of Worker secrets (`wrangler secret put NAME`). The host passes the loader only these. If any is missing the card shows "not set up" and the loader never runs. **`optionalSecrets`** are passed when set and never block the card (the calendar uses `MEALQ_API_TOKEN` this way for its meal plan). Platform bindings (`DB`, `RESEND_API_KEY`, ...) are reserved and rejected.
 - **`fetchPolicy`**: exact hostnames (https only) and methods the loader may use. Default is GET only. Widen on purpose and say why (e.g. `POST` to an OAuth token endpoint).
-- **`cacheTtlSeconds`**: loader output is cached in KV for this long. If the loader fails, the last good copy (up to 24h) is shown, marked as saved data.
+- **`cacheTtlSeconds`**: loader output is cached in KV for this long, keyed by plugin id and a hash of its config (60 seconds for MealQ, 5 minutes for the calendar). If the loader fails, the last good copy (up to 24h) is shown, marked as saved data. A forced refresh still waits at least 5 seconds between fetches.
 - **`loader(ctx)`**: server-only and read-only. Use `ctx.fetch`, never the global `fetch`. It has 8 seconds. Return JSON-serialisable data.
 
 ## Rules

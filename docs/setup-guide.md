@@ -195,14 +195,17 @@ problem and run it again: it picks up where it left off and offers your earlier 
 3. **Open the link in the same browser** you asked from. Links only work in the browser that requested them, which
    is what stops forwarded or scanned links from working.
 4. When setup asks whether you are signed in, say yes. It then removes the one-time bootstrap secret.
-5. Open **Admin** and invite the rest of the household by email. They sign in the same way.
+5. Open **Admin**. Add the household's **people** (each gets a colour on the calendar and a column on the Chores page), and
+   invite the rest of the household by email. They sign in the same way. What each feature does, and how to configure the
+   calendar's extra feeds, weather and meals, is in [`features.md`](features.md).
 6. On a phone, install it: in Chrome use the install button, on iPhone use Safari, Share, **Add to Home Screen**.
    [`pwa-manual-check.md`](pwa-manual-check.md) is a short checklist to confirm offline and sign-out behaviour.
 
 ## 8. Optional: "time is up" alerts on a locked iPad or phone
 
 Screen time timers work without this: the person's page counts down and rings while it is open. This adds an alert that
-arrives even when the page is closed or the screen is locked. It uses the browser's own push service (Apple, Google,
+arrives even when the page is closed or the screen is locked. The same keys also let managers get push notifications about
+reward requests and timers (Admin, *Your alerts*). It uses the browser's own push service (Apple, Google,
 Mozilla or Microsoft), so it is **off until you set it up**, and nothing about it runs until you do.
 
 1. Make a key pair on your machine: `npm run push:keys`. It prints two values and sends nothing anywhere.
@@ -242,3 +245,4 @@ the timer ending. Keep the private key secret like any other secret; if it leaks
 
 - Keep it current: [`README.md`](../README.md#updating) explains `npm run update`.
 - Understand what you now run, and what you are responsible for: [`you-are-the-host.md`](you-are-the-host.md).
+- See everything it can do: [`features.md`](features.md). How it is built: [`architecture.md`](architecture.md).

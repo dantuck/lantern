@@ -6,14 +6,20 @@ must do). It describes one household's deployment on its own Cloudflare account.
 
 ## What is worth protecting
 
-1. **Access to the dashboard**: who is allowed in. Behind it sit the household's calendar and meal plan.
+1. **Access to the dashboard**: who is allowed in. Behind it sit the household's calendar and meal plan, its chores,
+   points, rewards and screen time, and its shared lists.
 2. **The credentials you gave it**: a read-only calendar service account, a read-only MealQ token, and a
    send-only Resend key. All three are Worker secrets.
-3. **The member list and audit log**: email addresses and who did what (kept 400 days).
+3. **The member list and audit log**: email addresses and who did what (kept 400 days), and the household's own
+   data: the people in it (often children), what they did each day, and their points and screen time.
 4. **The deployed code**, because whoever controls it can read everything above.
 
-The app is read-only for members: they cannot edit calendars or meal plans through it. The only writes are
-sign-in, sign-out, and manager invitations. That keeps the damage of most mistakes small.
+The calendar and meal plan are read-only: nothing is ever written to Google or MealQ, and plugins cannot write to the
+household's data. Inside the app, members can tick chores off, ask for rewards, spend screen time and edit the shared
+lists; only managers change chores, rewards, goals, allowances, people, features and invitations, approve reward
+requests, or adjust points and minutes. Every manager endpoint checks the role again itself, beyond the middleware. That
+keeps the damage of a misbehaving member small: the worst a member can do is tick chores, spend their own screen time,
+use up their own points on requests a manager still has to approve, and tidy or clutter the lists.
 
 ## Who might attack it, and what stops them
 
@@ -25,12 +31,12 @@ sign-in, sign-out, and manager invitations. That keeps the damage of most mistak
 | **A session is stolen** | Sessions are random 256-bit ids stored only as hashes, in an HttpOnly, Secure, SameSite=Lax cookie, with 30-day idle and 90-day absolute lifetimes. Any device can be signed out by its owner or a manager, instantly. | `src/lib/auth/sessions.ts`, `src/lib/auth/cookies.ts` |
 | **A lost or taken phone** | Sign out the device (own *Devices* page, or Admin). The locally saved offline copy is deleted at sign-out and revocation, and refused after 24 hours in any case. Private pages (`/admin`, `/devices`) are never saved offline. | `public/sw.js`, `test/sw.test.ts`, `docs/pwa-manual-check.md` |
 | **Cross-site tricks** (forged form posts, framing, injected scripts) | Origin is checked on every state-changing request. A strict Content Security Policy uses hashes with no inline scripts allowed, and the browser may connect only to its own origin. `frame-ancestors 'none'`, HSTS, and `nosniff` are sent. | `src/lib/http.ts`, `astro.config.mjs`, `scripts/check-csp.sh` |
-| **A member abuses their access** | Members are read-only. Only managers invite or disable. The last manager cannot be demoted or disabled, including under concurrent requests. Invitations are rate limited. Managers' actions are in the audit log. | `src/lib/auth/admin.ts`, `test/hardening.test.ts` |
-| **A leaked backup or database export** | It holds emails, roles and the audit log, but no API keys or tokens (those are Worker secrets) and no usable session or sign-in material (only hashes are stored). Keep backups private anyway: the emails are personal data. | `migrations/`, `scripts/update.mjs` |
+| **A member abuses their access** | Members cannot change chores, rewards, points, people, features or invitations: those need the manager role, checked in middleware and again in each endpoint. A reward costs nothing until a manager approves it, spending screen time needs a balance, and request counts and list sizes are capped. Only managers invite or disable. The last manager cannot be demoted or disabled, including under concurrent requests. Invitations are rate limited. Managers' actions are in the audit log. | `src/lib/http.ts`, `src/pages/api/chores.ts`, `src/lib/auth/admin.ts`, `test/hardening.test.ts`, `test/chores.test.ts` |
+| **A leaked backup or database export** | It holds emails, roles, the audit log, the household's chores, points, screen time and lists, and the push addresses and keys of devices that turned on alerts. A leaked push address and key would let someone send that device a notification only if they also held your VAPID private key, which is a Worker secret and is not in the database. It holds no API keys or tokens and no usable session or sign-in material (only hashes are stored). Keep backups private anyway: it is personal data about a household. | `migrations/`, `scripts/update.mjs` |
 | **A leaked API credential** | Each is narrowly scoped, so a leak allows little: read-only calendar for one calendar, a MealQ token that can only read one household's meal plan, a Resend key that can only send. Rotate at the source and re-set the secret. | `docs/you-are-the-host.md` |
 | **A widget (plugin) misbehaves** | A plugin receives only the secrets it declared, can reach only the hosts it declared over HTTPS, with a timeout, and redirects are re-checked. This stops mistakes and surprises in reviewed code. | `src/plugins/fetchPolicy.ts`, `src/plugins/host.ts` |
-| **An upstream is down or slow** | Widgets time out after 8 seconds and fall back to a stale copy for up to 24 hours. Error details are logged server-side, never sent to the browser. | `src/plugins/host.ts` |
-| **Someone aims the alert sender at somewhere it should not go** (the "time is up" push) | Alerts are off unless the host sets the VAPID keys. A device's push address comes from its browser, so it is accepted only if it is https and on a known push service (Google, Apple, Mozilla, Microsoft), re-checked when sending, and redirects are never followed. The message is encrypted for that device, and each device is limited to the people a member chose. At most 100 devices are kept. | `src/lib/push.ts`, `test/screentime-timer.test.ts` |
+| **An upstream is down or slow** | Widgets time out after 8 seconds and fall back to a stale copy for up to 24 hours. A broken optional source (an extra calendar, the forecast, meals on the calendar) is skipped without taking the calendar down, and feeds are size-capped. Error details are logged server-side, never sent to the browser. | `src/plugins/host.ts`, `src/plugins/calendar/plugin.ts` |
+| **Someone aims the alert sender at somewhere it should not go** (the "time is up" push) | Alerts are off unless the host sets the VAPID keys. A device's push address comes from its browser, so it is accepted only if it is https and on a known push service (Google, Apple, Mozilla, Microsoft), re-checked when sending, and redirects are never followed. The message is encrypted for that device, and each device is limited to the people a member chose. At most 100 devices are kept. Managers' own notification devices are kept separately and are only accepted from managers. | `src/lib/push.ts`, `test/screentime-timer.test.ts` |
 | **Software leaks data by itself** (telemetry, tracking) | None exists, and tests fail if a new network destination, tracking API or dependency appears. | `test/egress.test.ts`, `scripts/check-bundle.sh` |
 
 ## What is not defended against
@@ -43,13 +49,15 @@ sign-in, sign-out, and manager invitations. That keeps the damage of most mistak
   not hostile code, so only add plugins you have read.
 - **A malicious release or dependency that you choose to deploy.** Signed tags, a pinned and audited dependency
   list, and reading the changelog and diff before updating reduce the risk but cannot remove it.
-- **A compromised device that is currently signed in.** It can read what that member can read until it is signed
-  out.
+- **A compromised device that is currently signed in.** It can read and do what that member can until it is signed
+  out. On a manager's device that includes the Admin page.
+- **Honouring screen time.** Lantern keeps the count and the timer; it cannot stop a device. Whether the limit is kept
+  is up to the household.
 - **Timing differences.** A known address takes a few milliseconds longer to answer than an unknown one (it
   writes a token). Responses are identical and rate limits make probing impractical, but it is not constant-time.
 - **A newly disclosed vulnerability in a dependency before you update.** `npm run verify` blocks releases with
   known high or critical advisories, except those accepted with a written reason in `scripts/audit.mjs`
-  (currently two, both build- or dev-time only).
+  (currently none).
 
 ## Assumptions
 

@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Last updated: 2026-10-06*
+*Last updated: 2026-10-18*
 
 Lantern, by Plan To Live LLC, is open-source software that you run yourself. This policy covers two things: what the
 project and Plan To Live LLC collect, and what the software you deploy stores.
@@ -15,8 +15,11 @@ project page for it) is hosted on GitHub, which has its own privacy practices wh
 
 When you deploy Lantern, **you** are the operator and the data controller for your household. Everything is stored in
 your own Cloudflare account (D1 database and KV): member email addresses and roles, invites, hashed sign-in tokens
-and sessions, rate-limit counters, a 400-day audit log, chore lists and when chores were ticked off (kept 60 days),
-points and reward requests, running screen time timers and each person's chosen timer sound, the browser addresses of devices that turned on "time is up" alerts (optional), shared lists, and a short cache of widget data. Nothing is copied anywhere else.
+and sessions, rate-limit counters, a 400-day audit log, the household's people (names and colours), their chores and when
+chores were ticked off or skipped (kept 60 and 7 days), points, reward requests and household goals, screen time minutes,
+allowances, running timers and each person's chosen timer sound, each manager's notification choices, the browser
+addresses and keys of devices that turned on "time is up" alerts or manager notifications (optional), shared lists, and a
+short cache of widget data. Much of this is about household members, including children, so see the sections below. Nothing is copied anywhere else.
 
 ## Who your Lantern talks to
 
@@ -25,11 +28,12 @@ list, and a test fails if the code gains a new destination without it being adde
 
 | Service | Purpose | What is sent |
 |---|---|---|
-| Resend | Sign-in and invite emails | Recipient address and message |
+| Resend | Sign-in and invite emails, and optional emails to managers about reward requests and timers | Recipient address and message |
 | Google (Calendar API) | Calendar widget | A signed service-account token request and a read-only calendar query |
 | Open-Meteo (optional) | Forecast in the calendar | Your coordinates, rounded to about 1 km, and your time zone |
+| Extra calendar hosts (optional): the NHL's schedule API, Google's public holiday feed, and any public `.ics` link you list | Extra calendars overlaid on the calendar | A plain GET of the feed. Nothing about you or the household |
 | MealQ (the host you configure) | Meal plan widget | Your MealQ access token and a date range |
-| The push service of a member's browser (Apple, Google, Mozilla or Microsoft), optional | "Time is up" alert for a screen time timer, only if you set the VAPID keys and a member turns alerts on for a device | An encrypted message only that device can read. The push service learns that your Lantern sent a message to that device |
+| The push service of a member's browser (Apple, Google, Mozilla or Microsoft), optional | "Time is up" alert for a screen time timer, and notifications to managers, only if you set the VAPID keys and someone turns alerts on for a device | An encrypted message only that device can read. The push service learns that your Lantern sent a message to that device |
 
 Each of those services has its own privacy policy, which applies to data sent to it. Your own Cloudflare account is
 also subject to Cloudflare's privacy policy.
