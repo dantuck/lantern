@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.14.0](https://github.com/dantuck/lantern/compare/v0.13.0...v0.14.0) (2026-10-18)
+
+
+### Added
+
+* **pwa:** refresh open pages when the app returns to the front ([84669cf](https://github.com/dantuck/lantern/commit/84669cf512898f103a218168ec718b1c7444be1f))
+
 ## [0.13.0](https://github.com/dantuck/lantern/compare/v0.12.0...v0.13.0) (2026-10-18)
 
 
