@@ -1,8 +1,11 @@
 import { addDays, isValidTimeZone, keyOf, zonedTimeMs } from '../../lib/dates';
+import { readBodyText } from '../../lib/http';
 import { clip } from './events';
 import type { CalEvent } from './types';
 
 const MAX_EVENTS = 1000;
+/** A calendar feed is text; anything past this is not one we want to hold in memory. */
+const MAX_FEED_BYTES = 2 * 1024 * 1024;
 
 /** RFC 5545 line unfolding: a line starting with a space or tab continues the previous one. */
 const unfold = (text: string): string[] => text.replace(/\r?\n[ \t]/g, '').split(/\r?\n/);
@@ -93,5 +96,7 @@ export const feedUrl = (url: string): URL => new URL(url.replace(/^webcal:\/\//i
 export async function fetchFeed(fetchFn: typeof fetch, url: string, idPrefix: string, zone: string): Promise<CalEvent[]> {
   const res = await fetchFn(feedUrl(url).toString(), { headers: { Accept: 'text/calendar' } });
   if (!res.ok) throw new Error(`calendar feed ${res.status}`);
-  return parseIcs(await res.text(), idPrefix, zone);
+  const text = await readBodyText(res, MAX_FEED_BYTES);
+  if (text === null) throw new Error('calendar feed too large');
+  return parseIcs(text, idPrefix, zone);
 }

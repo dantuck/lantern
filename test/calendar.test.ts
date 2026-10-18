@@ -4,7 +4,7 @@ import { groupByDay, monthGrid } from '../src/plugins/calendar/agenda';
 import { getAccessToken, listEvents, normalizeEvent, parseServiceAccount, signJwt } from '../src/plugins/calendar/google';
 import { parseNhlSchedule } from '../src/plugins/calendar/nhl';
 import { PRESETS } from '../src/plugins/calendar/presets';
-import { parseIcs } from '../src/plugins/calendar/ics';
+import { fetchFeed, parseIcs } from '../src/plugins/calendar/ics';
 import plugin, { configSchema } from '../src/plugins/calendar/plugin';
 import { resolveFetchPolicy } from '../src/plugins/types';
 import { loadPluginData } from '../src/plugins/host';
@@ -336,5 +336,17 @@ describe('calendar meals', () => {
   it('never calls MealQ when meals are not configured, even with the token set', async () => {
     const { seen } = await run({ MEALQ_API_TOKEN: 'secret' }, { timeZone: NY }, () => new Response('{}'));
     expect(seen.some((u) => u.includes(MEALQ))).toBe(false);
+  });
+});
+
+describe('fetchFeed size cap', () => {
+  const ics = 'BEGIN:VEVENT\nUID:a\nDTSTART:20261010\nSUMMARY:Hi\nEND:VEVENT\n';
+  it('reads a normal feed', async () => {
+    const events = await fetchFeed((async () => new Response(ics)) as typeof fetch, 'https://x.example/a.ics', 'f', 'UTC');
+    expect(events).toHaveLength(1);
+  });
+  it('refuses a feed that grows past the cap, even without a Content-Length', async () => {
+    const big = new ReadableStream({ start(c) { for (let i = 0; i < 3; i++) c.enqueue(new Uint8Array(1024 * 1024)); c.close(); } });
+    await expect(fetchFeed((async () => new Response(big)) as typeof fetch, 'https://x.example/a.ics', 'f', 'UTC')).rejects.toThrow('too large');
   });
 });
