@@ -7,6 +7,22 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.13.0](https://github.com/dantuck/lantern/compare/v0.12.0...v0.13.0) (2026-10-18)
+
+
+### Added
+
+* **admin:** notify managers of reward requests and timers ([eecdb2e](https://github.com/dantuck/lantern/commit/eecdb2e968987a617d5f6b6268fc50d6c0208eb3))
+* **calendar:** show the week on wide dashboard cards ([e048a22](https://github.com/dantuck/lantern/commit/e048a22603f21dd760891f9aeb917b4f80aef273))
+* **chores:** add typeahead quick-add and undo for removed chores ([8eb425a](https://github.com/dantuck/lantern/commit/8eb425a00a8c0ae4ced6ff9b7cf5a4143ac2bba4))
+
+
+### Fixed
+
+* **calendar:** cap the size of calendar feeds ([9c6cb37](https://github.com/dantuck/lantern/commit/9c6cb37e965bf230d56d699c835d1982f6ace97c))
+* **css:** add the missing pointer-coarse variant ([5ae8803](https://github.com/dantuck/lantern/commit/5ae880377ccfc43861de4ef8b8533bfa7cfb45da))
+* **security:** match access rules against the decoded request path ([313efbf](https://github.com/dantuck/lantern/commit/313efbfb747e3c74427ee10494904dbfdd85dd77))
+
 ## [0.12.0](https://github.com/dantuck/lantern/compare/v0.11.0...v0.12.0) (2026-10-17)
 
 
