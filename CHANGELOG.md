@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.14.1](https://github.com/dantuck/lantern/compare/v0.14.0...v0.14.1) (2026-10-18)
+
+
+### Fixed
+
+* **calendar:** drop multi-day row label and stop gutter wrapping ([e632c93](https://github.com/dantuck/lantern/commit/e632c939d09be8c04c36d0ab188fa3c02cb50e65))
+
 ## [0.14.0](https://github.com/dantuck/lantern/compare/v0.13.0...v0.14.0) (2026-10-18)
 
 
