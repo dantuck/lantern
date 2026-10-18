@@ -382,7 +382,6 @@
         </div>
         {#if banners.spans.length > 0}
           <div class="grid [grid-template-columns:var(--gutter)_repeat(var(--n),minmax(0,1fr))] min-w-[32rem] [border-top:1px_solid_var(--border)] gap-y-[2px] py-1" style:--lanes={banners.lanes}>
-            <span class="text-[.7rem] text-muted text-right pr-2 [grid-column:1] [grid-row:1/span_var(--lanes,1)] self-center">multi-day</span>
             {#each banners.spans as s (s.ev.id)}
               <button type="button" class="cal-banner {s.opensHere ? '' : '[&&]:ml-0 [&&]:rounded-l-none [&&]:border-l-0'} {s.closesHere ? '' : '[&&]:mr-0 [&&]:rounded-r-none [&&]:border-r-0'}" style:--c={colorOf(s.ev)} title={`${s.ev.title}, ${bannerText(s)}`}
                 style:grid-column="{s.from + 2} / {s.to + 3}" style:grid-row={s.lane + 1} onclick={() => openDay(cols[s.from]!.day)} aria-haspopup="dialog">
@@ -393,7 +392,7 @@
         {/if}
         {#if cols.some((c) => allDayOf(c).length > 0)}
           <div class="grid [grid-template-columns:var(--gutter)_repeat(var(--n),minmax(0,1fr))] min-w-[32rem] [border-top:1px_solid_var(--border)]">
-            <span class="text-[.7rem] text-muted text-right self-center pr-2">all-day</span>
+            <span class="text-[.7rem] text-muted text-right self-center pr-2 whitespace-nowrap">all-day</span>
             {#each cols as c (c.id)}
               <div class="grid gap-[2px] p-1 [border-left:1px_solid_var(--border)] content-start min-w-0">{#each allDayOf(c) as ev (ev.id)}<button type="button" class="cal-chip-ad" style:--c={c.person?.color ?? colorOf(ev)} title={ev.title} onclick={() => openDay(c.day)} aria-haspopup="dialog">{ev.title}</button>{/each}</div>
             {/each}
@@ -401,7 +400,7 @@
         {/if}
         {#if cols.some((c) => mealsOn(c.day).length > 0)}
           <div class="grid [grid-template-columns:var(--gutter)_repeat(var(--n),minmax(0,1fr))] min-w-[32rem] [border-top:1px_solid_var(--border)]">
-            <span class="text-[.7rem] text-muted text-right self-center pr-2">meals</span>
+            <span class="text-[.7rem] text-muted text-right self-center pr-2 whitespace-nowrap">meals</span>
             {#each view === 'day' ? [cols[0]!] : cols as c (c.id)}
               <div class="grid gap-[2px] p-1 [border-left:1px_solid_var(--border)] content-start min-w-0" style:grid-column={view === 'day' ? '2 / -1' : undefined}>
                 {#each mealsOn(c.day) as m (m.id)}
