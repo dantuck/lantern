@@ -3,22 +3,7 @@
 // Add an entry only with a reason that says why it cannot affect this deployment.
 import { spawnSync } from 'node:child_process';
 
-const ACCEPTED = {
-  'GHSA-ch52-4w7c-c8xp': {
-    pkg: 'http-cache-semantics',
-    reason: 'Dependency of astro itself (build-time remote-asset caching). Not present in dist/ (checked by scripts/check-bundle.sh '
-      + 'and a grep of the Worker bundle), and the app fetches no remote images. A client-side HTTP cache library cannot run in the Worker.',
-    reviewed: '2026-10-03',
-  },
-  'GHSA-wq5f-xc86-pv6w': {
-    pkg: 'sharp',
-    reason: 'librsvg flaw in sharp < 0.35.5 (SVG processing). sharp reaches us only through astro (optional, image service) and '
-      + 'wrangler/miniflare (local dev runtime, which pins exactly 0.35.4, so a plain update cannot reach the fix). This app never '
-      + 'processes images: imageService is "passthrough", there is no Images binding, and sharp is not in dist/. Re-check when '
-      + 'miniflare ships a release depending on sharp >= 0.35.5, then delete this entry.',
-    reviewed: '2026-10-06',
-  },
-};
+const ACCEPTED = {};
 
 const out = spawnSync('npm', ['audit', '--omit=dev', '--json'], { encoding: 'utf8' });
 let report;

@@ -25,13 +25,13 @@ describe('setup input checks', () => {
     expect(checkAccountId(ACCOUNT)).toBeNull();
     expect(checkAccountId('nope')).not.toBeNull();
   });
-  it('requires Node 22.12 or newer, as Astro does', () => {
-    for (const ok of ['22.12.0', 'v22.12.1', '22.13.0', '24.15.0', '23.0.0']) expect(nodeVersionOk(ok), ok).toBe(true);
-    for (const bad of ['20.19.0', '22.11.9', '22.0.0', 'v18.0.0', 'x']) expect(nodeVersionOk(bad), bad).toBe(false);
+  it('requires Node 22.22 or newer, as Astro does', () => {
+    for (const ok of ['22.22.0', 'v22.22.1', '22.23.0', '24.15.0', '23.0.0']) expect(nodeVersionOk(ok), ok).toBe(true);
+    for (const bad of ['20.19.0', '22.21.9', '22.12.0', '22.0.0', 'v18.0.0', 'x']) expect(nodeVersionOk(bad), bad).toBe(false);
   });
   it('keeps package.json engines in step with the setup check', () => {
-    expect(JSON.parse(readFileSync('package.json', 'utf8')).engines.node).toBe('>=22.12.0');
-    expect(JSON.parse(readFileSync('node_modules/astro/package.json', 'utf8')).engines.node).toBe('>=22.12.0');
+    expect(JSON.parse(readFileSync('package.json', 'utf8')).engines.node).toBe('>=22.22.0');
+    expect(JSON.parse(readFileSync('node_modules/astro/package.json', 'utf8')).engines.node).toBe('>=22.22.0');
   });
   it('suggests login@<hostname> and never guesses a parent domain', () => {
     expect(defaultSender('dash.family.org', undefined)).toBe('login@dash.family.org');

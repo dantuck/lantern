@@ -30,8 +30,8 @@ describe('documentation stays true to the repository', () => {
   });
 
   it('names the same Node requirement everywhere', () => {
-    expect(read('docs/setup-guide.md')).toContain('Node 22.12');
-    expect(JSON.parse(read('package.json')).engines.node).toBe('>=22.12.0');
+    expect(read('docs/setup-guide.md')).toContain('Node 22.22');
+    expect(JSON.parse(read('package.json')).engines.node).toBe('>=22.22.0');
   });
 
   it('every wrangler command the guides give is a real subcommand', () => {

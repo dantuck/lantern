@@ -16,7 +16,7 @@ any of them.
 
 ## What you need
 
-- A computer with a terminal (macOS, Linux, or Windows with WSL), with **git** and **Node 22.12 or newer**
+- A computer with a terminal (macOS, Linux, or Windows with WSL), with **git** and **Node 22.22 or newer**
   (`node --version` shows it; get it from nodejs.org if it is older).
 - A **domain name** you control, so you can change its DNS settings.
 - A free **Cloudflare** account.

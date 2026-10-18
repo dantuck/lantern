@@ -13,7 +13,7 @@ Sign-in is by emailed magic link only; **managers** invite everyone else. Widget
 
 ## Develop locally
 
-Needs Node 22.12 or newer.
+Needs Node 22.22 or newer.
 
 ```bash
 npm ci                                # also creates wrangler.jsonc and dashboard.config.ts from the templates
@@ -127,7 +127,7 @@ Other protections: strict CSP (hashes, no `unsafe-inline` for scripts), HSTS, `f
 - **Rotate a plugin secret:** `wrangler secret put` it again; the cache refreshes within the plugin's TTL.
 - **Backups:** `npx wrangler d1 export lantern --remote --output backup.sql` (users, invites, audit log; nothing else of value is stored).
 - **Offline copies:** the service worker keeps a copy of the dashboard for 24 hours so it opens without signal, and wipes it on sign-out or revocation. To disable that entirely, set `OFFLINE_PAGES = false` in `public/sw.js` and bump `VERSION`.
-- **Dependency audit:** `scripts/audit.mjs` fails the build on any high/critical advisory not explicitly accepted. One is accepted (`http-cache-semantics`, an Astro build-time dependency that is not shipped); the reasoning is recorded in that file.
+- **Dependency audit:** `scripts/audit.mjs` fails the build on any high/critical advisory not explicitly accepted. None are accepted at the moment; an exception needs a written reason in that file.
 
 ## Known limits
 
