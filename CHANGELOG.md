@@ -7,6 +7,14 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.15.0](https://github.com/dantuck/lantern/compare/v0.14.1...v0.15.0) (2026-10-22)
+
+
+### Added
+
+* **chores:** card layout for the manager page, copy chores between people ([11aa590](https://github.com/dantuck/lantern/commit/11aa590667a16a2b40de8694d5cbf2641c9decd6))
+* **dashboard:** tickable chores card, sticky page headers, demo pill, calendar-first layout ([e966e6f](https://github.com/dantuck/lantern/commit/e966e6f29e48c738853c7684c427b24360d4f64c))
+
 ## [0.14.1](https://github.com/dantuck/lantern/compare/v0.14.0...v0.14.1) (2026-10-18)
 
 
