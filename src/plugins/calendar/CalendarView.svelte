@@ -300,7 +300,7 @@
 {/snippet}
 
 <div class="[--hh:3.5rem] [--c:var(--accent)]">
-  <header class="flex items-center gap-x-[.85rem] gap-y-[.6rem] flex-wrap mb-3 max-[40rem]:grid max-[40rem]:grid-cols-[1fr_auto]">
+  <header class="{embedded ? '' : 'page-head '}flex items-center gap-x-[.85rem] gap-y-[.6rem] flex-wrap mb-3 max-[40rem]:grid max-[40rem]:grid-cols-[1fr_auto]">
     <div class="flex gap-[.35rem] items-center max-[40rem]:col-span-full">
       <button type="button" class="ghost cal-step size-10" onclick={() => go(prev)} disabled={!prev} aria-label={`Previous ${view === 'agenda' ? 'days' : view}`}><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg></button>
       <button type="button" class="ghost m-0 w-auto py-[.45rem] px-4 rounded-full text-[.9rem] disabled:opacity-35 disabled:cursor-default max-[40rem]:flex-1" onclick={() => (cursor = todayKey)} disabled={cursor === todayKey && view !== 'month'}>Today</button>

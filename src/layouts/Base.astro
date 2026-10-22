@@ -81,10 +81,10 @@ const live = !!user && !demo && !bare && (always || rev !== undefined);
   <body class={hasRail ? 'has-rail' : undefined} data-live={live ? '' : undefined}>
     <a class="skip" href="#main">Skip to content</a>
     {demo && (
-      <div class="demo-banner" role="note">
-        <span>Demo with sample data. Nothing here is real.</span>
+      <aside class="demo-pill" role="note">
+        <span><strong>Demo</strong> · sample data</span>
         <a href="/welcome#setup">Get your own</a>
-      </div>
+      </aside>
     )}
     {hasRail ? (
       <>

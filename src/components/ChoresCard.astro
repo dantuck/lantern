@@ -2,7 +2,8 @@
 import { env } from 'cloudflare:workers';
 import Icon from './Icon.astro';
 import { choreState } from '../lib/chores';
-import { todaysRoutines, type ChoreState } from '../lib/choreTypes';
+import type { ChoreState } from '../lib/choreTypes';
+import DashChores from './DashChores.svelte';
 import { dayKey } from '../lib/dates';
 import { householdZone } from '../lib/household';
 import { loadPeople } from '../lib/peopleStore';
@@ -17,11 +18,6 @@ if (!state) {
   try { state = await choreState(env.DB, dayKey(Date.now(), householdZone), false); }
   catch (e) { console.error('chores card: could not read chores:', e instanceof Error ? e.message : 'unknown'); }
 }
-const today = state ? todaysRoutines(state.routines) : [];
-const groups = state
-  ? [...people.map((p) => ({ name: p.name, color: p.color, items: today.filter((r) => r.person === p.id).flatMap((r) => r.items) })),
-     { name: 'Anyone', color: 'var(--accent)', items: today.filter((r) => !r.person || !people.some((p) => p.id === r.person)).flatMap((r) => r.items) }].filter((g) => g.items.length > 0)
-  : [];
 ---
 <section class="card plugin" data-plugin="chores">
   <header class="plugin-head">
@@ -29,19 +25,5 @@ const groups = state
     <a href={href} class="plugin-open">Open</a>
   </header>
   {!state ? <p class="muted">Chores couldn't load. Run the database migrations (<code>npm run update</code>).</p>
-  : groups.length === 0 ? <p class="muted">No chores today. <a href={href}>Open chores</a>.</p>
-  : (
-    <ul class="mini">
-      {groups.map((g) => {
-        const done = g.items.filter((i) => i.done).length;
-        return (
-          <li style={`--c:${g.color}`}>
-            <span class="mini-name">{g.name}</span>
-            <span class="mini-bar" role="img" aria-label={`${g.name}: ${done} of ${g.items.length} done`}><span style={`width:${(done / g.items.length) * 100}%`}></span></span>
-            <span class="mini-n">{done}/{g.items.length}</span>
-          </li>
-        );
-      })}
-    </ul>
-  )}
+  : <DashChores client:load initial={state} people={people} href={href} demo={given !== undefined} />}
 </section>

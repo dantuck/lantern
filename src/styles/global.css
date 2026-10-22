@@ -123,15 +123,24 @@ body.has-rail { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
 /* Side rail: tablets (portrait and landscape) and up, the top bar becomes an icon rail down the left, like a wall calendar's sidebar. */
 @media (min-width: 48rem) {
   body.has-rail { padding-left: 6rem; padding-bottom: 0; }
-  body.has-rail .demo-banner { margin-left: -6rem; padding-left: 7rem; }
 }
+
+/* Page headers stay pinned while a long page scrolls, so the title and its actions (back, Manage) are always in reach. The notch inset keeps them clear of the status bar in an installed PWA. */
+main.wide > h1, .page-head {
+  position: sticky; top: env(safe-area-inset-top); z-index: 20;
+  background: var(--bg); padding-block: .5rem; margin-top: -.5rem;
+}
+main.wide > h1 { margin-bottom: .5rem; }
+/* The person's banner is tall on larger screens, so it only pins in its compact phone layout (it keeps its own gradient background). */
+@media (max-width: 34rem) { .page-pin { position: sticky; top: calc(env(safe-area-inset-top) + .25rem); z-index: 20; } }
+html[data-wall] .page-pin, html[data-wall] main.wide > h1, html[data-wall] .page-head { position: static; }
 
 /* Wall display: no rail, everything larger, calendar fills the screen. */
 html[data-wall] { font-size: 125%; }
 @media (min-width: 90rem) { html[data-wall] { font-size: 150%; } }
 html[data-wall] body.has-rail { padding-left: 0; padding-bottom: 0; }
 html[data-wall] .tabbar, html[data-wall] .sheet,
-html[data-wall] .nav, html[data-wall] .demo-banner { display: none; }
+html[data-wall] .nav, html[data-wall] .demo-pill { display: none; }
 html[data-wall] main.wide { max-width: none; padding: 1rem 1.25rem 2rem; }
 html[data-wall] main.wide > h1 { display: none; }
 html[data-wall] .wall-exit {
@@ -166,6 +175,25 @@ td .actions { display: flex; gap: .4rem; justify-content: flex-end; flex-wrap: w
   .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(9rem, auto); }
   .span-2 { grid-column: span 2; }
   .dash-grid > [data-plugin="mealq"] { grid-row: span 2; height: 0; min-height: 100%; overflow-y: auto; }
+}
+/* One column (phones): the quick-glance cards (chores, lists) come before the long meal plan, and the plan shows its next three days;
+   the card's Open link has the rest. Without this the page is ~3 screens tall and the small cards sit at the very bottom. */
+@container (max-width: 35.99rem) {
+  .dash-grid > [data-plugin="chores"], .dash-grid > [data-plugin="lists"] { order: 1; }
+  .dash-grid > [data-plugin="mealq"] { order: 2; }
+  .dash-grid .meal-days > :nth-child(n+4) { display: none; }
+}
+/* The calendar already shows the meals (its meals row and day sheet), so with a calendar on the dashboard the separate meal plan card goes on
+   tablets and desktops and the screen is the calendar plus chores. Phones keep it, below the chores. The Meals page is still in the nav. */
+@container (min-width: 36rem) {
+  .dash-grid:has(> [data-plugin="calendar"]) > [data-plugin="mealq"] { display: none; }
+}
+/* Wide enough for it: the calendar takes the left column and chores over lists sit beside it, so both are on screen without scrolling. */
+@container (min-width: 52rem) {
+  .dash-grid:has(> [data-plugin="calendar"]) { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .dash-grid:has(> [data-plugin="calendar"]) > [data-plugin="calendar"] { grid-column: 1; grid-row: 1 / span 2; }
+  .dash-grid:has(> [data-plugin="calendar"]) > [data-plugin="chores"] { grid-column: 2; grid-row: 1; }
+  .dash-grid:has(> [data-plugin="calendar"]) > [data-plugin="lists"] { grid-column: 2; grid-row: 2; }
 }
 /* The calendar card is span-2 from here on, so it has room for the week; below that it stays the agenda list. */
 .cal-week { display: none; }
@@ -203,6 +231,8 @@ td .actions { display: flex; gap: .4rem; justify-content: flex-end; flex-wrap: w
   .dash-grid > .span-2 { grid-column: 1; grid-row: span 2; }
   .dash-grid > [data-plugin="mealq"] { grid-row: span 2; }
   .mini li { grid-template-columns: 4.25rem 1fr auto; gap: .6rem; }
+  /* Same calendar | chores over lists layout as the wide-container rule above (which places the cards); here chores get the taller share. */
+  .dash-grid:has(> [data-plugin="calendar"]) { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr); grid-template-rows: minmax(0, 2fr) minmax(0, 1fr); }
 }
 /* Typography for widget headings inside dashboard cards (plugins render a plain <h3>). */
 :where(.plugin) h3 { margin: .25rem 0; font-size: 1.15rem; letter-spacing: -.02em; }
@@ -215,6 +245,20 @@ td .actions { display: flex; gap: .4rem; justify-content: flex-end; flex-wrap: w
 .mini.plain .mini-name { text-decoration: none; color: var(--fg); }
 .mini-bar { height: .55rem; border-radius: 999px; background: var(--card-2); overflow: hidden; }
 .mini-bar span { display: block; height: 100%; border-radius: inherit; background: var(--c); }
+a.mini-name { color: var(--fg); text-decoration: none; }
+a.mini-name:hover { color: var(--accent); }
+/* The second line under a person's bar: what is left to do, and their points and screen time. */
+.mini-sub { grid-column: 1 / -1; margin: -.35rem 0 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .1rem .75rem; font-size: .85rem; color: var(--muted); }
+/* Chores still to do, one per row like a to-do list; tapping a row ticks it off. The ring in front fills in when it is ticked. */
+.mini-todo { display: flex; flex-direction: column; flex: 1 1 100%; min-width: 0; }
+.mini-chip { display: flex; align-items: center; gap: .65rem; width: 100%; min-height: 2.5rem; margin: 0; padding: .3rem .25rem; border-radius: 0; background: transparent; color: var(--fg); border: 0; border-top: 1px solid var(--border); box-shadow: none; font-size: .95rem; font-weight: 500; text-align: left; }
+.mini-chip:first-child { border-top: 0; }
+.mini-chip:hover:not(:disabled) { filter: none; background: color-mix(in srgb, var(--c) 10%, transparent); }
+.mini-chip i { flex: none; width: 1.15rem; height: 1.15rem; border-radius: 50%; border: 2px solid var(--c); }
+.mini-chip:hover:not(:disabled) i { background: color-mix(in srgb, var(--c) 30%, transparent); }
+@media (pointer: coarse) { .mini-chip { min-height: 2.75rem; } }
+.mini-more { align-self: flex-start; padding: .35rem .25rem; font-size: .85rem; }
+.mini-stats { margin-left: auto; display: inline-flex; gap: .75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mini-n { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .9rem; font-weight: 600; }
 /* Meal plan ---------------------------------------------------------------- */
 .meal-days { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: .75rem; align-items: start; }
@@ -249,9 +293,14 @@ html[data-demo-off~="chores"] main[data-feature="chores"] > .feature-off,
 html[data-demo-off~="lists"] main[data-feature="lists"] > .feature-off { display: flex; }
 
 /* Demo mode ---------------------------------------------------------------- */
-.demo-banner { display: flex; gap: .6rem 1rem; align-items: center; justify-content: center; flex-wrap: wrap; padding: .5rem 1rem;
-  background: var(--accent); color: var(--accent-fg); font-size: .88rem; font-weight: 500; text-align: center; }
-.demo-banner a { color: inherit; font-weight: 700; }
+/* A tab hanging from an accent line across the top of the viewport: always in view, takes no page space, centred over the content. */
+.demo-pill { position: fixed; z-index: 30; top: 0; left: 0; right: 0; width: fit-content; margin-inline: auto; display: flex; gap: .1rem .6rem; align-items: center; justify-content: center; flex-wrap: wrap;
+  max-width: calc(100vw - 1.5rem); padding: .3rem 1rem .35rem; border-radius: 0 0 .8rem .8rem; background: var(--accent); color: var(--accent-fg); font-size: .78rem; line-height: 1.2; box-shadow: 0 3px 10px rgb(0 0 0 / .18); }
+.demo-pill::before { content: ""; position: fixed; inset: 0 0 auto; height: 3px; background: var(--accent); pointer-events: none; }
+.demo-pill strong { letter-spacing: .06em; text-transform: uppercase; font-size: .7rem; }
+.demo-pill a { color: inherit; font-weight: 700; text-underline-offset: .15em; }
+.demo-pill span + a { padding-left: .6rem; border-left: 1px solid color-mix(in srgb, currentColor 35%, transparent); }
+@media (min-width: 48rem) { .demo-pill { left: 6rem; } }
 button[disabled].demo-off { cursor: not-allowed; }
 
 /* Responsive tables: below tablet width each row becomes a labelled card (cells carry data-label). ---- */

@@ -141,7 +141,7 @@
 
   {#if error}<p class="notice error sticky top-2 z-30" role="alert">{error}</p>{/if}
 
-  <header class="flex flex-wrap items-center gap-x-5 gap-y-3 mb-5 py-[1.1rem] px-5 border border-solid border-[color-mix(in_srgb,var(--c)_35%,var(--border))] rounded-[var(--radius)] shadow-[var(--shadow-sm)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--c)_24%,var(--card)),color-mix(in_srgb,var(--c)_7%,var(--card)))] max-[34rem]:gap-x-2 max-[34rem]:gap-y-2 max-[34rem]:mb-3 max-[34rem]:p-3">
+  <header class="page-pin flex flex-wrap items-center gap-x-5 gap-y-3 mb-5 py-[1.1rem] px-5 border border-solid border-[color-mix(in_srgb,var(--c)_35%,var(--border))] rounded-[var(--radius)] shadow-[var(--shadow-sm)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--c)_24%,var(--card)),color-mix(in_srgb,var(--c)_7%,var(--card)))] max-[34rem]:gap-x-2 max-[34rem]:gap-y-2 max-[34rem]:mb-3 max-[34rem]:p-3">
     <span class="avatar size-16 text-[1.7rem] shadow-[0_0_0_4px_color-mix(in_srgb,var(--c)_30%,var(--card))] max-[34rem]:size-10 max-[34rem]:text-[1.1rem] max-[34rem]:shadow-none" aria-hidden="true">{initialOf(me)}</span>
     <h1 class="m-0 text-[2rem] flex-[1_1_8rem] max-[34rem]:text-[1.5rem] max-[34rem]:basis-0 max-[34rem]:min-w-0">{me.name}</h1>
     <!-- On phones the wrapper dissolves: points and chores become pills beside the name, screen time a slim full-width row. -->
