@@ -17,7 +17,9 @@ if (!isOn(Astro.locals.disabled, 'chores')) return new Response('Not found', { s
 const [state, people] = await Promise.all([choreState(env.DB, dayKey(Date.now(), householdZone), true), loadPeople(env.DB)]);
 ---
 <Base title="Manage chores" wide rev={await choreRev(state, people)}>
-  <p><a href="/chores">&larr; Back to chores</a></p>
-  <h1>Manage chores</h1>
+  <header class="flex items-center gap-1 mb-2">
+    <a class="icon-btn -ml-2 text-fg" href="/chores" aria-label="Back to chores"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg></a>
+    <h1 class="m-0 text-[1.5rem]">Manage chores</h1>
+  </header>
   <ChoreManager client:load initial={state} people={people} />
 </Base>

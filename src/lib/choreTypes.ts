@@ -103,6 +103,15 @@ export const hasDay = (days: number, weekday: number): boolean => ((days >> week
 export const itemDue = (s: { days: number | null; onceDate: string | null }, day: string): boolean =>
   s.onceDate !== null ? s.onceDate === day : s.days === null || hasDay(s.days, weekdayOf(day));
 
+/** Whether a chore is on the schedule for a weekday (0 = Sunday), whatever the date; a one-off counts on the weekday of its date. */
+export const itemDueOnWeekday = (s: { days: number | null; onceDate: string | null }, weekday: number): boolean =>
+  s.onceDate !== null ? weekdayOf(s.onceDate) === weekday : s.days === null || hasDay(s.days, weekday);
+
+/** Someone whose routine can be managed: a person, or `id: null` for "Anyone". */
+export type Owner = { id: string | null; name: string; color: string };
+/** A stable key for an owner's id ("anyone" for no one). */
+export const ownerKey = (id: string | null): string => id ?? 'anyone';
+
 /** Short weekday names from Sunday, matching the bit order of `days`. */
 export const WEEKDAY_SHORT: readonly string[] = Array.from({ length: 7 }, (_, i) => formatDay(`2023-01-0${1 + i}`, { weekday: 'short' }));
 export const toggleDay = (days: number, weekday: number): number => days ^ (1 << weekday);
@@ -177,6 +186,12 @@ export const periodRecord = <T,>(value: T): Record<Period, T> => Object.fromEntr
 
 /** A weekday mask as stored on a chore: every day is null. */
 export const normalizeDays = (mask: number): number | null => (mask === EVERY_DAY ? null : mask);
+
+/** "1 pt" or "5 pts". */
+export const ptsLabel = (n: number): string => plural(n, 'pt');
+
+/** "1 chore" or "3 chores". */
+export function plural(n: number, noun: string): string { return `${n} ${noun}${n === 1 ? '' : 's'}`; }
 
 /** "Oct 7, 8:02 AM", for the point history. */
 export const formatWhen = (ms: number): string => new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });

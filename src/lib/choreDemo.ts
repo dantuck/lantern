@@ -1,5 +1,5 @@
 // Browser-safe. The demo has no database, so this applies the same actions as /api/chores to a copy of the state held in the page.
-import { allowanceFor, allowanceLeft, isSound, itemDue, onToday, periodRecord, PERIODS, type ChoreItem, type ChoreState, type Period } from './choreTypes';
+import { allowanceFor, allowanceLeft, isSound, itemDue, onToday, periodRecord, PERIODS, type ChoreState, type Period } from './choreTypes';
 
 let seq = 0;
 /** Where each demo timer's minutes came from, so stopping one early can give them back the way the server does. */
@@ -114,13 +114,13 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
     case 'goal_remove': s.goals = s.goals.filter((g) => g.id !== p.id); break;
     case 'goal_claim': { const g = s.goals.find((x) => x.id === p.id); if (g && !g.claimed && g.progress >= g.target) g.claimed = true; break; }
     case 'adjust': log(p.person, p.delta, 'adjust', p.note ?? ''); break;
-    case 'item_add': {
-      const r = routineOf(p.person ?? null);
-      const item: ChoreItem = { id: uid('c'), title: p.title, points: p.points, done: false, period: p.period, days: p.onceDate ? null : p.days ?? null, onceDate: p.onceDate ?? null, due: false, skipped: false };
-      r.items.push(item);
+    case 'item_add':
+    case 'items_add':
+      for (const i of p.action === 'items_add' ? p.items : [p]) {
+        routineOf(i.person ?? null).items.push({ id: uid('c'), title: i.title, points: i.points, done: false, period: i.period, days: i.onceDate ? null : i.days ?? null, onceDate: i.onceDate ?? null, due: false, skipped: false });
+      }
       refresh();
       break;
-    }
     case 'item_update':
       for (const r of s.routines) for (const i of r.items) if (i.id === p.id) {
         if (p.title !== undefined) i.title = p.title;

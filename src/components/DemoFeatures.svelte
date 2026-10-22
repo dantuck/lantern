@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { toggleIn } from '../lib/arrays';
   import { DEMO_FEATURES, readOff, writeOff } from '../lib/demoFeatures';
 
   let off = $state<string[]>([]);
   $effect(() => { off = readOff(); });
 
   function toggle(id: string) {
-    off = off.includes(id) ? off.filter((x) => x !== id) : [...off, id];
+    off = toggleIn(off, id);
     writeOff(off);
   }
 </script>

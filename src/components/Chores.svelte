@@ -1,5 +1,6 @@
 <script lang="ts">
   import { holdRefresh } from '../lib/holdRefresh.svelte';
+  import { toggleIn } from '../lib/arrays';
   import { allowanceLeft, canAsk, formatCountdown, timeAvailable, timeLeftMs, PERIOD_LABEL, PERIODS, onToday, sections, skippedToday, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
   import { runChores } from '../lib/choreClient';
   import { liveTimers } from '../lib/timerClient.svelte';
@@ -64,7 +65,7 @@
   });
   const filtering = $derived(only.length > 0 || status !== 'all' || period !== 'all');
   const clear = () => { only = []; status = 'all'; period = 'all'; };
-  const toggle = (id: string) => { only = only.includes(id) ? only.filter((x) => x !== id) : [...only, id]; };
+  const toggle = (id: string) => { only = toggleIn(only, id); };
   /** The time-of-day choices that exist today, so the filter never offers an empty option. */
   const periodChoices = $derived.by(() => {
     const today = PERIODS.filter((p) => choreState.routines.some((r) => r.items.some((i) => onToday(i) && i.period === p)));
@@ -271,7 +272,7 @@
           <ul class="list-none m-0 p-0">
             {#each rewardsFor(who.id) as r (r.id)}
               <li class="list-row">
-                <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.05rem] font-medium">{r.name}{#if r.minutes > 0} <span class="text-muted text-[.88rem] font-normal">({mins(r.minutes)})</span>{/if}</span>
+                <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.05rem] font-medium">{r.name}{#if r.minutes > 0}<span class="block"><span class="pill mt-1"><span aria-hidden="true">⏱</span> +{r.minutes} min<span class="sr-only"> of screen time</span></span></span>{/if}</span>
                 <button type="button" class="small" disabled={busy || available(who.id) < r.cost} onclick={() => send({ action: 'redeem', person: who.id, rewardId: r.id })}>
                   <span aria-hidden="true">★</span> {r.cost}<span class="sr-only"> points, ask for {r.name}</span>
                 </button>
