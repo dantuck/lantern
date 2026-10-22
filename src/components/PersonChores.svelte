@@ -5,7 +5,7 @@
   import Stepper from './Stepper.svelte';
   import TimerCard from './TimerCard.svelte';
   import AlarmSettings from './AlarmSettings.svelte';
-  import { allowanceLeft, canAsk, DEFAULT_SOUND, formatWhen, LEDGER_LABEL, onToday, PERIOD_LABEL, periodRecord, sections, skippedToday, timeAvailable, timerRunning, type ChoreState, type Sound } from '../lib/choreTypes';
+  import { allowanceLeft, canAsk, DEFAULT_SOUND, formatWhen, LEDGER_LABEL, onToday, PERIOD_LABEL, periodRecord, plural, sections, skippedToday, timeAvailable, timerRunning, type ChoreState, type Sound } from '../lib/choreTypes';
   import { unlockAudio } from '../lib/chime';
   import { liveTimers } from '../lib/timerClient.svelte';
   import { celebrate } from '../lib/celebrate.svelte';
@@ -187,14 +187,14 @@
     </div>
   </header>
 
-  <TimerCard {who} name={me.name} {timer} now={clock.now} {sound} canAddMore={minutes >= 5} {busy} stop={stopTimer} addMore={addMore} bind:muted />
+  <TimerCard name={me.name} {timer} now={clock.now} {sound} canAddMore={minutes >= 5} {busy} stop={stopTimer} addMore={addMore} bind:muted />
 
   <div class="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] max-[52rem]:grid-cols-[minmax(0,1fr)] gap-x-6 items-start">
     <div>
   {#if choreState.manager && editing}
   <section class="card" aria-labelledby="today-h">
-    <h2 class="card-h" id="today-h">Routine <span class="note">{routine?.items.length ?? 0} {routine?.items.length === 1 ? 'chore' : 'chores'}, tap one to edit</span></h2>
-    <RoutineEditor person={who} name={me.name} items={routine?.items ?? []} bonuses={routine?.bonuses ?? periodRecord(0)} day={choreState.day} {busy} {send} routines={choreState.routines} collapsible />
+    <h2 class="card-h" id="today-h">Routine <span class="note">{plural(routine?.items.length ?? 0, 'chore')}, tap one to edit</span></h2>
+    <RoutineEditor person={who} name={me.name} color={me.color} items={routine?.items ?? []} bonuses={routine?.bonuses ?? periodRecord(0)} day={choreState.day} {busy} {send} routines={choreState.routines} />
   </section>
   {:else}
   <section class="card" aria-labelledby="today-h">
@@ -313,7 +313,7 @@
       {#each shop as r (r.id)}
         {@const short = r.cost - available}
         <li class="list-row">
-          <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.1rem] font-medium">{r.name}{#if r.minutes > 0} <span class="note">({r.minutes} min of screen time)</span>{/if}
+          <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.1rem] font-medium">{r.name}{#if r.minutes > 0}<span class="block"><span class="pill mt-1"><span aria-hidden="true">⏱</span> +{r.minutes} min<span class="sr-only"> of screen time</span></span></span>{/if}
             {#if short > 0}<span class="note block">{short} more {short === 1 ? 'point' : 'points'} to go</span>{/if}
           </span>
           <button type="button" class="w-auto m-0" disabled={busy || short > 0} onclick={() => send({ action: 'redeem', person: who, rewardId: r.id })}><span aria-hidden="true">★</span> {r.cost}<span class="sr-only"> points, ask for {r.name}</span></button>

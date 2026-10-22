@@ -43,6 +43,8 @@ export default defineConfig({
     // Row of controls inside a list (scope picker); and the manage forms: a card per item, a small caption over a field.
     'row-item': 'flex flex-wrap items-center gap-2 mb-2',
     'edit-card': 'grid gap-2 p-3 mb-2 rounded-[var(--radius-sm)] bg-card2 border border-solid border-line',
+    // Screen-time badge on a reward ("⏱ +30 min"); never wraps, even inside a row that breaks long words.
+    'pill': 'inline-flex items-center gap-[.35rem] py-[.2rem] px-[.65rem] rounded-full bg-accent-soft text-accent text-[.82rem] font-semibold leading-none whitespace-nowrap [overflow-wrap:normal]',
     cap: 'text-[.75rem] font-semibold text-muted',
     'cap-field': 'grid gap-1 m-0 [&>:first-child]:text-[.75rem] [&>:first-child]:font-semibold [&>:first-child]:text-muted',
     // Secondary text under a heading or beside a control.
@@ -77,7 +79,8 @@ export default defineConfig({
     'cal-block': 'absolute block box-border m-0 text-left font-normal cursor-pointer border-solid [border-width:0_0_0_4px] [border-color:var(--c)] shadow-none overflow-hidden py-[.2rem] px-2 rounded-[10px] text-[.8rem] leading-[1.25] bg-[color-mix(in_srgb,var(--c)_18%,var(--card))] text-fg min-h-[1.1rem] hover:bg-[color-mix(in_srgb,var(--c)_30%,var(--card))] hover:filter-none @max-[46rem]:py-[.15rem] @max-[46rem]:pr-[.3rem] @max-[46rem]:pl-[.4rem] @max-[46rem]:text-[.75rem] @max-[46rem]:[border-left-width:3px] @max-[46rem]:rounded-[8px]',
     'cal-toggle': 'inline-flex items-center gap-[.35rem] w-auto m-0 py-[.3rem] px-[.7rem] rounded-full text-[.8rem] font-semibold text-muted shadow-none bg-transparent [border:1px_dashed_var(--border)] hover:filter-none hover:text-fg [&[aria-pressed=true]]:text-fg [&[aria-pressed=true]]:bg-[color-mix(in_srgb,var(--c)_16%,var(--card))] [&[aria-pressed=true]]:[border:1px_solid_var(--c)] pointer-coarse:min-h-11',
     'cal-dialog': 'overflow-auto p-0 m-auto border border-solid border-line rounded-[var(--radius)] bg-card text-fg shadow-[var(--shadow-md),0_24px_60px_-20px_rgb(0_0_0/.45)] open:animate-[expand_.18s_cubic-bezier(.2,.8,.2,1)] motion-reduce:open:animate-none backdrop:bg-[rgb(20_15_10/.45)] backdrop:backdrop-blur-[3px] open:backdrop:animate-[fade_.18s_ease-out] motion-reduce:open:backdrop:animate-none',
-    'cal-dialog-head': 'sticky top-0 z-[1] flex items-center gap-2 py-4 px-[1.1rem] bg-card [border-bottom:1px_solid_var(--border)]',
+    'dialog-head': 'sticky top-0 z-[1] flex items-center gap-2 py-4 px-[1.1rem] bg-card [border-bottom:1px_solid_var(--border)]',
+    'sheet': 'outline-none m-0 mt-auto p-0 w-full max-w-none max-h-[90dvh] overflow-auto border border-solid border-line border-b-0 rounded-t-[var(--radius)] bg-card text-fg shadow-[var(--shadow-md),0_-16px_50px_-20px_rgb(0_0_0/.45)] motion-safe:open:animate-[sheet-up_.24s_cubic-bezier(.2,.8,.2,1)] backdrop:bg-[rgb(20_15_10/.45)] backdrop:backdrop-blur-[3px] motion-safe:open:backdrop:animate-[fade_.2s_ease-out]',
     'routine-row': 'ghost flex items-center gap-[.85rem] w-[calc(100%+1.5rem)] -mx-3 m-0 py-[.55rem] px-3 min-h-12 text-left rounded-[var(--radius-sm)] border-0 shadow-none bg-transparent text-fg [&&&:hover]:bg-[color-mix(in_srgb,var(--c,var(--accent))_10%,var(--card))] [&&&:active]:bg-[color-mix(in_srgb,var(--c,var(--accent))_16%,var(--card))] [&&&:hover]:filter-none transition-colors',
     'cal-label': 'm-0 mb-1 text-[.72rem] [font-weight:650] uppercase tracking-[.07em] text-muted',
     'cal-pill': 'py-[.05rem] px-2 rounded-full bg-card2 text-[.75rem]',

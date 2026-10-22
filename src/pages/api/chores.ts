@@ -23,6 +23,7 @@ const itemDays = z.number().int().min(1).max(127).nullable().optional(); // week
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const period = z.enum(PERIODS as [string, ...string[]]);
+const newItem = { title, points, period, days: itemDays, onceDate: date.nullable().optional() };
 
 /** What anyone signed in may do: tick chores and ask to spend points. */
 const memberBody = z.discriminatedUnion('action', [
@@ -35,7 +36,8 @@ const memberBody = z.discriminatedUnion('action', [
 
 /** What only a manager may do: everything that shapes the routines and the rewards. */
 const managerBody = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('item_add'), person: person.nullable(), title, points, period, days: itemDays, onceDate: date.nullable().optional() }),
+  z.object({ action: z.literal('item_add'), person: person.nullable(), ...newItem }),
+  z.object({ action: z.literal('items_add'), items: z.array(z.object({ person: person.nullable(), ...newItem })).min(1).max(240) }),
   z.object({ action: z.literal('item_update'), id, title: title.optional(), points: points.optional(), period: period.optional(), days: itemDays, onceDate: date.nullable().optional() }),
   z.object({ action: z.literal('item_remove'), id }),
   z.object({ action: z.literal('item_skip'), id, skipped: z.boolean() }),
@@ -52,10 +54,13 @@ const managerBody = z.discriminatedUnion('action', [
   z.object({ action: z.literal('adjust'), person, delta: z.number().int().min(-1000).max(1000).refine((n) => n !== 0), note: z.string().trim().max(60) }),
 ]);
 
-/** Whether a request's `person`, if it names one, is someone in the household. */
+/** Whether every person a request names (its `person`, or each item's in a batch) is someone in the household. */
 const knows = async (b: object) => {
-  const who = 'person' in b ? (b.person as string | null) : null;
-  return who === null || (await loadPeople(env.DB)).some((p) => p.id === who);
+  const who = 'person' in b ? [b.person as string | null] : 'items' in b ? (b.items as { person: string | null }[]).map((i) => i.person) : [];
+  const named = who.filter((w) => w !== null);
+  if (named.length === 0) return true;
+  const people = await loadPeople(env.DB);
+  return named.every((w) => people.some((p) => p.id === w));
 };
 
 const today = () => dayKey(Date.now(), householdZone);
@@ -91,7 +96,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
 
 export const POST: APIRoute = async ({ request, locals }) => {
   if (off(locals)) return json({ error: 'not_found' }, 404);
-  const raw = await readJson(request, 8192);
+  const raw = await readJson(request, 65536);
   if (raw === null) return json({ error: 'too_large' }, 413);
   const db = env.DB;
   let result: string = 'ok';
@@ -117,6 +122,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const manager = locals.user!;
     switch (b.action) {
       case 'item_add': result = await addItem(db, b.person, { title: b.title, points: b.points, period: b.period as Period, days: b.days ?? null, onceDate: b.onceDate ?? null }); break;
+      case 'items_add':
+        for (const i of b.items) {
+          result = await addItem(db, i.person, { title: i.title, points: i.points, period: i.period as Period, days: i.days ?? null, onceDate: i.onceDate ?? null });
+          if (result !== 'ok') break;
+        }
+        break;
       case 'item_update': {
         const { action: _a, id: itemId, ...changes } = b;
         result = await updateItem(db, itemId, Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined)));

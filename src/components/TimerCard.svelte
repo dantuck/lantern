@@ -6,8 +6,7 @@
 
   // The countdown for one person: big numbers while it runs, then a "time's up" panel that rings this device (unless it is muted) until
   // someone clears it. The timer itself lives on the server (see timers.ts); this only shows it and plays the sound.
-  let { who, name, timer, now, sound, canAddMore, busy, stop, addMore, muted = $bindable(false) }: {
-    who: string;
+  let { name, timer, now, sound, canAddMore, busy, stop, addMore, muted = $bindable(false) }: {
     name: string;
     timer: Timer | undefined;
     now: number;

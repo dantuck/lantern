@@ -467,7 +467,7 @@
 
   <dialog class="cal-dialog w-[min(32rem,calc(100vw-2rem))] max-h-[min(40rem,85dvh)]" bind:this={dlg} aria-labelledby="day-title"
     onclick={(e) => e.target === dlg && dlg?.close()}>
-    <header class="cal-dialog-head">
+    <header class="dialog-head">
       {@render stepBtn('prev', 'Previous day', () => (cursor = addDays(cursor, -1)), !canPrevDay)}
       <div class="flex-1 min-w-0">
         <h3 class="[&&]:m-0 text-[1.15rem] tracking-[-.02em]" id="day-title">{fmt({ weekday: 'long' }, cursor)}</h3>
@@ -513,7 +513,7 @@
 
   <dialog class="cal-dialog w-[min(30rem,calc(100vw-2rem))] max-h-[min(42rem,88dvh)]" bind:this={mealDlg} aria-labelledby="meal-title"
     onclick={(e) => e.target === mealDlg && mealDlg?.close()}>
-    <header class="cal-dialog-head">
+    <header class="dialog-head">
       {@render stepBtn('prev', 'Previous meal', () => (pickedId = prevMeal!.meal.id), !prevMeal)}
       <div class="flex-1 min-w-0">
         {#if picked}<p class="m-0 text-[.75rem] uppercase tracking-[.07em] font-semibold" style:color={SLOT_COLOR[picked.meal.slot]}>{fmt({ weekday: 'long', month: 'short', day: 'numeric' }, picked.key)} · {SLOT_LABEL[picked.meal.slot]}</p>{/if}
