@@ -109,7 +109,7 @@
 
 {#if error}<p class="notice error" role="alert">{error}</p>{/if}
 
-<header class="flex items-start justify-between gap-x-4 gap-y-3 mb-4">
+<header class="page-head flex items-start justify-between gap-x-4 gap-y-3 mb-4">
   <div class="min-w-0">
     <h1 class="mt-0 mx-0 mb-1 [html[data-wall]_&]:hidden">Chores</h1>
     {#if intro}<p class="m-0 text-muted">{intro}</p>{/if}
