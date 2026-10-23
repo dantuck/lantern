@@ -103,6 +103,9 @@ export const hasDay = (days: number, weekday: number): boolean => ((days >> week
 export const itemDue = (s: { days: number | null; onceDate: string | null }, day: string): boolean =>
   s.onceDate !== null ? s.onceDate === day : s.days === null || hasDay(s.days, weekdayOf(day));
 
+/** A one-off whose day is before `day`: finished with, unless it is moved to another date. */
+export const isPastOnce = (s: { onceDate: string | null }, day: string): boolean => s.onceDate !== null && s.onceDate < day;
+
 /** Whether a chore is on the schedule for a weekday (0 = Sunday), whatever the date; a one-off counts on the weekday of its date. */
 export const itemDueOnWeekday = (s: { days: number | null; onceDate: string | null }, weekday: number): boolean =>
   s.onceDate !== null ? weekdayOf(s.onceDate) === weekday : s.days === null || hasDay(s.days, weekday);
@@ -152,7 +155,7 @@ export function choreSuggestions(routines: readonly Routine[], person: string | 
     if (r.person === person) continue;
     for (const i of r.items) {
       const t = i.title.toLowerCase();
-      if (have.has(t) || (q && !t.includes(q)) || (i.onceDate !== null && i.onceDate < day)) continue;
+      if (have.has(t) || (q && !t.includes(q)) || isPastOnce(i, day)) continue;
       have.add(t);
       out.push({ title: i.title, points: i.points, period: i.period, days: i.days, onceDate: i.onceDate });
     }
