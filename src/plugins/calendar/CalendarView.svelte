@@ -41,6 +41,14 @@
   // svelte-ignore state_referenced_locally
   let now = $state(nowMs);
 
+  const CURSOR_KEY = 'calendar-cursor';
+  let cursorLoaded = false; // not reactive: only gates the first write until the saved day has been read
+  $effect(() => {
+    const day = cursor;
+    if (!cursorLoaded || embedded) return;
+    try { sessionStorage.setItem(CURSOR_KEY, day); } catch {}
+  });
+
   // Remember the last view; phones start on the agenda, which reads best on a narrow screen.
   $effect(() => {
     try {
@@ -52,7 +60,11 @@
       else if (VIEWS.some((v) => v.id === wanted)) view = wanted as View; // ?view=week is a shareable link
       else if (VIEWS.some((v) => v.id === saved)) view = saved as View;
       else if (matchMedia('(max-width: 40rem)').matches) view = 'agenda';
+      // The day being looked at survives a refresh in this tab, as long as it is still inside the loaded window.
+      const day = embedded ? null : sessionStorage.getItem(CURSOR_KEY);
+      if (day && day >= firstKey && day <= lastKey) cursor = day;
     } catch {}
+    cursorLoaded = true;
     const t = setInterval(() => (now = Date.now()), 60_000);
     return () => clearInterval(t);
   });
