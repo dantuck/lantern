@@ -18,3 +18,6 @@ document.addEventListener('toggle', (e) => {
   if (!(d instanceof HTMLDetailsElement) || !d.id) return;
   try { store?.setItem(KEY, JSON.stringify({ ...read(), [d.id]: d.open })); } catch { /* not remembered */ }
 }, { capture: true });
+
+// Module marker: keeps this file's top-level names out of the global scope shared with the other scripts.
+export {};

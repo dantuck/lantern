@@ -55,3 +55,6 @@ document.addEventListener('submit', (e) => {
     form.requestSubmit(btn as HTMLButtonElement);
   });
 });
+
+// Module marker: keeps this file's top-level names out of the global scope shared with the other scripts.
+export {};
