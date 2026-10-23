@@ -7,6 +7,15 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.16.1](https://github.com/dantuck/lantern/compare/v0.16.0...v0.16.1) (2026-10-23)
+
+
+### Fixed
+
+* **calendar:** keep the focused day across a refresh ([d9904e9](https://github.com/dantuck/lantern/commit/d9904e93fb946e973b9174e874f794d7442c09d4))
+* **chores:** keep the picked person and open sections on refresh ([1c1a38d](https://github.com/dantuck/lantern/commit/1c1a38db6e3d44608fc6ccf03e1aab0bcca943ff))
+* **scripts:** make client scripts modules so top-level names don't collide ([20ab805](https://github.com/dantuck/lantern/commit/20ab8052c9db64680535261ed64a8efbe2f994ec))
+
 ## [0.16.0](https://github.com/dantuck/lantern/compare/v0.15.0...v0.16.0) (2026-10-23)
 
 
