@@ -258,7 +258,7 @@
 
       {#if col.person && (rewardsFor(col.person.id).length > 0 || pendingFor(col.person.id).length > 0)}
         {@const who = col.person}
-        <details class="mt-[1.1rem] pt-3 [border-top:1px_solid_var(--border)]">
+        <details id={`rewards-${who.id}`} class="mt-[1.1rem] pt-3 [border-top:1px_solid_var(--border)]">
           <summary class="cursor-pointer [font-weight:650] pointer-coarse:flex pointer-coarse:items-center pointer-coarse:min-h-11">Rewards{#if pendingFor(who.id).length > 0}<span class="count-badge ml-2 font-semibold bg-[var(--c)] text-white">{pendingFor(who.id).length}</span>{/if}</summary>
           {#each pendingFor(who.id) as r (r.id)}
             <div class="flex flex-wrap items-center gap-x-[.6rem] gap-y-[.4rem] py-2">

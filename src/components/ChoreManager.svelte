@@ -55,6 +55,18 @@
   const shown = $derived(owners.filter(matches));
   /** The one person whose routine is on show, by id ("anyone" for no one). Empty until someone is picked, and again if the filter hides them. */
   let picked = $state('');
+  // Kept for this tab's session so a refresh (or the page's own live update) lands on the same person.
+  const PICKED_KEY = 'chore-manage-picked';
+  let pickedLoaded = false; // not reactive: only gates the first write until the saved choice has been read
+  $effect(() => {
+    try { picked = sessionStorage.getItem(PICKED_KEY) ?? ''; } catch { /* nothing remembered */ }
+    pickedLoaded = true;
+  });
+  $effect(() => {
+    const p = picked;
+    if (!pickedLoaded) return;
+    try { sessionStorage.setItem(PICKED_KEY, p); } catch { /* not remembered */ }
+  });
   const current = $derived(shown.find((o) => ownerKey(o.id) === picked));
   const itemsOf = (id: string | null): ChoreItem[] => choreState.routines.find((r) => r.person === id)?.items ?? [];
   const bonusesOf = (id: string | null) => choreState.routines.find((r) => r.person === id)?.bonuses ?? periodRecord(0);
@@ -146,8 +158,8 @@
   });
 </script>
 
-{#snippet help(text: string)}
-  <details class="group mb-3 text-[.9rem]">
+{#snippet help(id: string, text: string)}
+  <details id={`help-${id}`} class="group mb-3 text-[.9rem]">
     <summary class="flex w-fit cursor-pointer items-center gap-1 list-none text-muted min-h-8 pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden"><span class="inline-block text-[1.1rem] leading-none transition-transform group-open:rotate-90" aria-hidden="true">›</span>How this works</summary>
     <p class="note mt-1 mb-0">{text}</p>
   </details>
@@ -207,7 +219,7 @@
     <h2 class="m-0">Household goals</h2>
     <button type="button" id="add-goal" class="small" aria-expanded={adding === 'goal'} onclick={() => (adding = adding === 'goal' ? null : 'goal')}>+ Add goal</button>
   </div>
-  {@render help('A target everyone works toward together. Every point anyone earns counts, and spending points on personal rewards does not lower it. When a goal is reached, treat the household, then mark it as enjoyed.')}
+  {@render help('goals', 'A target everyone works toward together. Every point anyone earns counts, and spending points on personal rewards does not lower it. When a goal is reached, treat the household, then mark it as enjoyed.')}
   {#if adding === 'goal'}
     <Panel title="Add a goal" onclose={() => closeAdd('goal')}>{@render goalForm()}</Panel>
   {/if}
@@ -338,7 +350,7 @@
     <h2 class="m-0">Rewards</h2>
     <button type="button" id="add-reward" class="small" aria-expanded={adding === 'reward'} onclick={() => (adding = adding === 'reward' ? null : 'reward')}>+ Add reward</button>
   </div>
-  {@render help('What points can be spent on. Anyone can ask for a reward they can afford, unless you limit it to certain people, in which case only they see it; nothing is deducted until you approve it, in the waiting list at the top of this page (or on the Chores page).')}
+  {@render help('rewards', 'What points can be spent on. Anyone can ask for a reward they can afford, unless you limit it to certain people, in which case only they see it; nothing is deducted until you approve it, in the waiting list at the top of this page (or on the Chores page).')}
   {#if adding === 'reward'}
     <Panel title="Add a reward" onclose={() => closeAdd('reward')}>{@render rewardForm()}</Panel>
   {/if}
