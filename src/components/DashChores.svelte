@@ -20,7 +20,7 @@
   // A page refresh must not land mid-save or while the undo is still on offer.
   holdRefresh(() => busy || undo !== null);
 
-  const SHOWN = 3;
+  const SHOWN = 3; // in each person's list, one-offs go first (they will not be back tomorrow) so the cut-off never hides them
   const groups = $derived.by(() => {
     const today = todaysRoutines(state.routines);
     const mine = (id: string | null) => today.filter((r) => (id === null ? !r.person || !people.some((p) => p.id === r.person) : r.person === id)).flatMap((r) => r.items);
@@ -63,7 +63,7 @@
   <ul class="mini">
     {#each groups as g (g.id ?? 'anyone')}
       {@const done = g.items.filter((i) => i.done).length}
-      {@const todo = g.items.filter((i) => !i.done)}
+      {@const todo = g.items.filter((i) => !i.done).sort((a, b) => +(b.onceDate !== null) - +(a.onceDate !== null))}
       {@const mins = g.id ? timeAvailable(state, g.id) : 0}
       {@const pts = g.id ? state.balances[g.id] : undefined}
       <li style="--c:{g.color}">
@@ -76,7 +76,7 @@
           {:else}
             <span class="mini-todo">
               {#each todo.slice(0, SHOWN) as item (item.id)}
-                <button type="button" class="mini-chip" disabled={busy} onclick={() => tick(item, g.name, true)} aria-label="Mark {item.title} done for {g.name}"><i aria-hidden="true"></i>{item.title}</button>
+                <button type="button" class="mini-chip" disabled={busy} onclick={() => tick(item, g.name, true)} aria-label="Mark {item.title} done for {g.name}"><i aria-hidden="true"></i>{item.title}{#if item.onceDate !== null}<span class="cal-pill ml-auto flex-none text-muted">Today only</span>{/if}</button>
               {/each}
               {#if todo.length > SHOWN}<a class="mini-more" href={g.id ? `${href}/${encodeURIComponent(g.id)}` : href}>+{todo.length - SHOWN} more</a>{/if}
             </span>

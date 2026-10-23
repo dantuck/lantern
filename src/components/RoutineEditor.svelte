@@ -7,8 +7,8 @@
   import CopyChores from './CopyChores.svelte';
   import Panel from './Panel.svelte';
   import Sheet from './Sheet.svelte';
-  import { describeSchedule, itemDueOnWeekday, PERIOD_LABEL, PERIODS, plural, ptsLabel, sections, WEEKDAY_SHORT, type ChoreItem, type Owner, type Period, type Routine } from '../lib/choreTypes';
-  import { weekdayOf } from '../lib/dates';
+  import { describeSchedule, isPastOnce, itemDueOnWeekday, PERIOD_LABEL, PERIODS, plural, ptsLabel, sections, WEEKDAY_SHORT, type ChoreItem, type Owner, type Period, type Routine } from '../lib/choreTypes';
+  import { addDays, dayLabel, weekdayOf } from '../lib/dates';
   import ItemEditor from './ItemEditor.svelte';
 
   /**
@@ -45,16 +45,20 @@
   const notices = $derived(waiting.filter((w) => !w.sent));
   const stop = (id: string) => { clearTimeout(timers.get(id)); timers.delete(id); };
 
-  /** Whether a chore is on the schedule for a weekday (0 = Sunday); a one-off counts on the weekday of its date. */
-  const perDay = $derived(WEEKDAY_SHORT.map((_, d) => live.filter((c) => itemDueOnWeekday(c, d))));
+  const isPast = (c: ChoreItem) => isPastOnce(c, day);
+  /** Whether a chore is on the schedule for a weekday (0 = Sunday); a one-off counts on the weekday of its date, unless that day has gone (it waits in the list to be used again). */
+  const perDay = $derived(WEEKDAY_SHORT.map((_, d) => live.filter((c) => !isPast(c) && itemDueOnWeekday(c, d))));
   /** Chore points on the busiest day: what the most a person can earn from chores alone. */
   const dayPoints = $derived(perDay.map((cs) => cs.reduce((n, c) => n + c.points, 0)));
   const busiest = $derived(Math.max(0, ...dayPoints));
   const today = $derived(weekdayOf(day));
   const manyChores = $derived(live.length > 8);
-  const shownItems = $derived(live.filter((c) => (dayPick === null || itemDueOnWeekday(c, dayPick)) && (periodPick === 'all' || c.period === periodPick)));
+  const shownItems = $derived(live.filter((c) => (dayPick === null || (!isPast(c) && itemDueOnWeekday(c, dayPick))) && (periodPick === 'all' || c.period === periodPick)));
   const groups = $derived(sections(shownItems));
   const openItem = $derived(live.find((c) => c.id === openId));
+
+  /** Moves a one-off to another day, so a chore that came up once can be done again without retyping it. */
+  const reuse = (c: ChoreItem, date: string) => send({ action: 'item_update', id: c.id, onceDate: date });
 
   async function commit(id: string) {
     stop(id);
@@ -109,14 +113,13 @@
           {dayPick === i ? 'bg-accent border-accent [&&]:text-white' : 'bg-card2 border-line [&&:hover]:bg-accent-soft'} {n === 0 && dayPick !== i ? 'opacity-55' : ''}">
           <span class="text-[.7rem] font-semibold uppercase tracking-[.06em] {dayPick === i ? '' : 'text-muted'}">{d}</span>
           <span class="text-[1.25rem] [font-weight:750] leading-none tabular-nums">{n}</span>
-          <span class="block h-1 w-[70%] rounded-full overflow-hidden {dayPick === i ? 'bg-white/30' : 'bg-line'}" aria-hidden="true"><span class="block h-full rounded-full {dayPick === i ? 'bg-white' : 'bg-accent'}" style:width={`${busiest > 0 ? (dayPoints[i]! / busiest) * 100 : 0}%`}></span></span>
           {#if i === today}<span class="absolute top-[.3rem] right-[.3rem] size-[.4rem] rounded-full {dayPick === i ? 'bg-white' : 'bg-accent'}" aria-hidden="true"></span>{/if}
         </button>
       {/each}
     </div>
   </div>
   {#if manyChores}
-    <div class="seg-group mb-3 justify-self-start max-[40rem]:flex" role="group" aria-label="Show a time of day">
+    <div class="seg-group mb-3 justify-self-start max-[40rem]:flex max-[40rem]:justify-self-stretch" role="group" aria-label="Show a time of day">
       <button type="button" class="seg-btn" aria-pressed={periodPick === 'all'} onclick={() => (periodPick = 'all')}>All</button>
       {#each PERIODS as p (p)}<button type="button" class="seg-btn" aria-pressed={periodPick === p} onclick={() => (periodPick = p)}>{PERIOD_LABEL[p]}</button>{/each}
     </div>
@@ -133,7 +136,7 @@
   <Masonry items={sec.items} key={(c) => c.id}>
     {#snippet row(c)}
       {@const inline = openId === c.id && !narrow}
-      <li class="edit-card {inline ? '' : '!grid-cols-[minmax(0,1fr)_auto] items-center'}">
+      <li class="edit-card {inline ? '' : '!grid-cols-[minmax(0,1fr)_auto] items-center'} {isPast(c) && !inline ? 'opacity-70' : ''}">
         {#if inline}
           <ItemEditor {c} {day} {busy} {send} onremove={() => gone(c)} onclose={closeEdit} />
         {:else}
@@ -141,8 +144,20 @@
             <strong class="break-words">{c.title}</strong>
             <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
               <span class="pill"><span aria-hidden="true">★</span> +{ptsLabel(c.points)}</span>
-              <span class="note">{describeSchedule(c)}</span>
+              {#if c.onceDate !== null}
+                <span class="note">Just once · {dayLabel(c.onceDate, day)}{isPast(c) ? ' (past)' : ''}</span>
+              {:else}
+                <span class="note">{describeSchedule(c)}</span>
+              {/if}
             </div>
+            {#if isPast(c)}
+              <div class="flex flex-wrap items-center gap-2 mt-2">
+                <span class="note">Do again:</span>
+                <button type="button" class="ghost small m-0" disabled={busy} aria-label={`Do ${c.title} today`} onclick={() => reuse(c, day)}>Today</button>
+                <button type="button" class="ghost small m-0" disabled={busy} aria-label={`Do ${c.title} tomorrow`} onclick={() => reuse(c, addDays(day, 1))}>Tomorrow</button>
+                <button type="button" class="ghost small m-0" disabled={busy || openId !== null} onclick={() => (openId = c.id)}>Pick a day…</button>
+              </div>
+            {/if}
           </div>
           <button type="button" id={`edit-chore-${c.id}`} class="small m-0 pointer-coarse:min-h-11 pointer-coarse:px-5" disabled={busy || openId !== null} aria-label={`Edit ${c.title}`} onclick={() => (openId = c.id)}>Edit</button>
         {/if}
