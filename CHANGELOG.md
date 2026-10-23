@@ -7,6 +7,18 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.16.0](https://github.com/dantuck/lantern/compare/v0.15.0...v0.16.0) (2026-10-23)
+
+
+### Added
+
+* **chores:** show one-off chores clearly and let them be reused ([785bd3a](https://github.com/dantuck/lantern/commit/785bd3a6a8cd9dcb9c2d48351a9969008a03d0a1))
+
+
+### Fixed
+
+* **chores:** stop time-of-day tabs overlapping on phones ([0481f64](https://github.com/dantuck/lantern/commit/0481f644fff2f6baab9052e0e59463b3712a2141))
+
 ## [0.15.0](https://github.com/dantuck/lantern/compare/v0.14.1...v0.15.0) (2026-10-22)
 
 
