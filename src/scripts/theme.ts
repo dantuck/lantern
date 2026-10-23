@@ -39,3 +39,6 @@ document.addEventListener('click', (e) => {
   if ((e.target as Element).closest('[data-theme-cycle]')) apply(ORDER[(ORDER.indexOf(read()) + 1) % ORDER.length]!);
 });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => read() === 'system' && apply('system'));
+
+// Module marker: keeps this file's top-level names out of the global scope shared with the other scripts.
+export {};
