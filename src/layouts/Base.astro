@@ -122,6 +122,14 @@ const live = !!user && !demo && !bare && (always || rev !== undefined);
             <button type="button" data-theme-set="dark" aria-pressed="false"><Icon name="moon" /><span>Dark</span></button>
           </div>
           <button type="button" class="dm-row" data-wall-toggle aria-pressed="false" popovertarget="display-menu" popovertargetaction="hide"><Icon name="maximize" /><span>Full screen</span></button>
+          {elevation && (
+          <form class="mx-0 mb-0 mt-3" method="post" action="/elevate/action">
+            <input type="hidden" name="action" value="lock" />
+            <p class="dm-label">Manager mode</p>
+            <p class="m-0 mb-2 text-[.8rem] text-muted">Until <Time ms={elevation.until} />, approved by {elevation.by.email}.</p>
+            <button type="submit" class="dm-row"><Icon name="key" /><span>Lock now</span></button>
+          </form>
+          )}
         </div>
 
         <nav class="tabbar" aria-label={demo ? 'Demo' : 'Main'}>
@@ -130,6 +138,14 @@ const live = !!user && !demo && !bare && (always || rev !== undefined);
         </nav>
         <div id="more" class="sheet sheet-pop" popover>
           {more.length > 0 && <div class="sheet-links grid gap-[.15rem]">{more.map((l) => <a class="sheet-link" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span><NavBadge count={l.badge} /></a>)}</div>}
+          {elevation && (
+          <form class="mx-0 mb-0 mt-3" method="post" action="/elevate/action">
+            <input type="hidden" name="action" value="lock" />
+            <p class="dm-label">Manager mode</p>
+            <p class="m-0 mb-2 text-[.8rem] text-muted">Until <Time ms={elevation.until} />, approved by {elevation.by.email}.</p>
+            <button type="submit" class="dm-row"><Icon name="key" /><span>Lock now</span></button>
+          </form>
+          )}
           <div class="sheet-utils">
             <div class="util grid justify-items-center gap-[.15rem] text-[.7rem] font-semibold text-muted"><ThemeToggle /><span>Theme</span></div>
             <div class="util grid justify-items-center gap-[.15rem] text-[.7rem] font-semibold text-muted"><WallToggle /><span>Full screen</span></div>
@@ -153,15 +169,6 @@ const live = !!user && !demo && !bare && (always || rev !== undefined);
       </aside>
     )}
     {hasRail && <WallToggle exit />}
-    {elevation && (
-      <aside class="notice" role="status">
-        <form class="m-0 flex flex-wrap items-center gap-2" method="post" action="/elevate/action">
-          <span><strong>Manager mode</strong> until <Time ms={elevation.until} />, approved by {elevation.by.email}.</span>
-          <input type="hidden" name="action" value="lock" />
-          <button class="ghost" type="submit">Lock now</button>
-        </form>
-      </aside>
-    )}
     {bare ? <slot /> : (
       <main id="main" tabindex="-1" class={full ? `wide full ${WIDE} max-w-none` : wide ? `wide ${WIDE}` : NARROW} data-feature={feature} data-rev={rev}>
         {demo && feature && <p class="feature-off notice" data-feature-off={feature}><span>This is switched off in the demo's admin page. <a href="/demo/admin">Turn it back on</a>.</span></p>}
