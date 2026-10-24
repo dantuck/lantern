@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.17.1](https://github.com/dantuck/lantern/compare/v0.17.0...v0.17.1) (2026-10-24)
+
+
+### Changed
+
+* **nav:** move manager mode lock from banner into menus ([ee9a72e](https://github.com/dantuck/lantern/commit/ee9a72e4621666c6280b6bc7620606400f89ab74))
+
 ## [0.17.0](https://github.com/dantuck/lantern/compare/v0.16.1...v0.17.0) (2026-10-24)
 
 
