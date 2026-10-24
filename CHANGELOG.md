@@ -7,6 +7,18 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.17.0](https://github.com/dantuck/lantern/compare/v0.16.1...v0.17.0) (2026-10-24)
+
+
+### Added
+
+* manager elevation, manager inbox and every-N-weeks chores ([2b9ae00](https://github.com/dantuck/lantern/commit/2b9ae00a96d485dc8d4e3f9a70695b7eead1c728))
+
+
+### Fixed
+
+* **deps:** override undici to 7.30.1 to clear the high-severity audit finding ([e321a58](https://github.com/dantuck/lantern/commit/e321a58e2ab8cf399db3ff57dac6e3552a4587df))
+
 ## [0.16.1](https://github.com/dantuck/lantern/compare/v0.16.0...v0.16.1) (2026-10-23)
 
 
