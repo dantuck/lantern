@@ -40,12 +40,14 @@ describe('admin queries', () => {
 
 describe('role guard and invite mail', () => {
   it('guards /admin and its children only', () => {
-    expect(requiredRole('/admin')).toBe('manager');
-    expect(requiredRole('/admin/action')).toBe('manager');
+    expect(requiredRole('/admin')).toBe('admin');
+    expect(requiredRole('/admin/action')).toBe('admin');
+    expect(requiredRole('/chores/manage')).toBe('manager');
     expect(requiredRole('/administrator')).toBeNull();
     expect(requiredRole('/devices')).toBeNull();
     // The router decodes the path, so the middleware gates on the canonical form.
-    for (const p of ['/%61dmin', '/admin/%61ction', '/chores/%6danage', '/%2561dmin']) expect(requiredRole(canonicalPath(p)), p).toBe('manager');
+    for (const p of ['/%61dmin', '/admin/%61ction', '/%2561dmin']) expect(requiredRole(canonicalPath(p)), p).toBe('admin');
+    expect(requiredRole(canonicalPath('/chores/%6danage'))).toBe('manager');
     expect(canonicalPath('/devices')).toBe('/devices');
     expect(canonicalPath('/%E0%A4%A')).toBe('/%E0%A4%A'); // undecodable: kept as is
   });

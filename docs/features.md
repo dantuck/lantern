@@ -17,6 +17,13 @@ What Lantern does for a household, and how each part is configured. For the movi
 | Manage people, switch widgets and built-ins on or off, set their own notifications | | yes |
 | See every signed-in device and the audit log | | yes |
 
+A manager can also **unlock a member's device for a while** without signing that member out (a wall tablet, say). On the
+device, open **Manager** and ask; it shows a 6-digit code. The manager opens **Approve device** on their own phone, enters
+the code, checks which device and member it is, picks 10, 30 or 60 minutes and approves. That device can then manage
+chores, rewards, goals and points, and a banner shows who approved it and how long is left, with **Lock now**. It cannot
+open Admin, change roles, invite or disable anyone, or add manager alerts. Every approval and early lock is in the audit log, and
+approvals made on the device are logged to the manager who unlocked it.
+
 There is no self sign-up. A **manager** invites each person by email as a member or as a manager. The last manager cannot
 be demoted or disabled.
 
@@ -135,7 +142,8 @@ Each person has **one routine**, split by time of day (morning, afternoon, eveni
 shared chores. A manager adds chores at **Chores → Manage** (`/chores/manage`), giving each:
 
 - a **time of day**;
-- the **days it repeats** (every day, weekdays, or chosen days), or a **single date** for a one-off;
+- the **days it repeats** (every day, weekdays, or chosen days), every week or **every 2nd, 3rd or 4th week** (counted from
+  the week you choose: this one or next), or a **single date** for a one-off;
 - optional **points** (0 to 100).
 
 Ticks are stored per day, so every chore starts fresh each day it is scheduled; nothing needs resetting. A routine holds
@@ -156,7 +164,7 @@ day with a bonus). It is skipped for devices set to reduce motion.
   hidden to pause it without deleting it.
 - **Asking.** Anyone can ask for a reward the person can afford, from that person's column. Nothing is deducted until a
   manager approves; **Approve all that can be afforded** handles a batch. Managers can be told about requests (see
-  [Manager notifications](#manager-notifications)), and a badge on **Chores** shows how many are waiting.
+  [Manager notifications](#manager-notifications)), and the **Inbox** badge shows how many are waiting. Requests are approved or denied in the [Inbox](#manager-notifications), not on the Chores board.
 - **Adjusting.** Managers can add or remove points by hand, with a note. Recent activity is shown as a ledger.
 - **Household goals.** A target the whole household works toward together (up to 20). Progress is the points anyone has
   earned since the goal began, so spending on personal rewards never lowers it. A manager marks a reached goal as claimed.
@@ -192,6 +200,8 @@ iPad the app must be on the Home Screen first. Each device's address must be on 
 Mozilla or Microsoft), and at most 100 devices are kept.
 
 ## Manager notifications
+
+The **Inbox** (managers only, and a member's device a manager has unlocked) is where approvals and activity live. It lists reward requests waiting for approval, read live so a decision removes them everywhere, and a two-week feed of reward requests and screen time timers, with the ones you have not opened marked **New**. The nav badge adds the two together. The feed fills whether or not anyone set up email or push; those below are only extra ways to be told.
 
 Under **Admin → Your alerts**, each manager chooses what they hear about and how:
 

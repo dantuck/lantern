@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { EVERY_DAY, normalizeDays, PERIODS, PERIOD_LABEL, type ChoreItem, type Period } from '../lib/choreTypes';
+  import { EVERY_DAY, normalizeDays, PERIODS, weekStart, PERIOD_LABEL, type ChoreItem, type Period } from '../lib/choreTypes';
   import ConfirmButton from './ConfirmButton.svelte';
   import ScheduleFields from './ScheduleFields.svelte';
   import Stepper from './Stepper.svelte';
@@ -9,9 +9,9 @@
 
   // A draft of the chore as it was when editing started; the card only ever edits one chore, so reading `c` once is right.
   // svelte-ignore state_referenced_locally
-  let draft = $state({ title: c.title, points: c.points, period: c.period as Period, days: c.days ?? EVERY_DAY, once: c.onceDate !== null, date: c.onceDate ?? day });
+  let draft = $state({ title: c.title, points: c.points, period: c.period as Period, days: c.days ?? EVERY_DAY, once: c.onceDate !== null, date: c.onceDate ?? day, every: c.everyWeeks, from: c.weekAnchor ?? weekStart(day) });
 
-  const schedule = $derived(draft.once ? { days: null, onceDate: draft.date } : { days: normalizeDays(draft.days), onceDate: null });
+  const schedule = $derived(draft.once ? { days: null, onceDate: draft.date } : { days: normalizeDays(draft.days), onceDate: null, everyWeeks: draft.every, weekAnchor: draft.every > 1 ? draft.from : null });
 
   async function save(e: SubmitEvent) {
     e.preventDefault();
@@ -30,7 +30,7 @@
         {#each PERIODS as p (p)}<option value={p}>{PERIOD_LABEL[p]}</option>{/each}
       </select></label>
   </div>
-  <ScheduleFields class="text-[.85rem]" subject={c.title} bind:once={draft.once} bind:days={draft.days} bind:date={draft.date} />
+  <ScheduleFields class="text-[.85rem]" subject={c.title} {day} bind:once={draft.once} bind:days={draft.days} bind:date={draft.date} bind:every={draft.every} bind:from={draft.from} />
   <div class="flex flex-wrap items-center justify-between gap-2">
     <ConfirmButton ariaLabel={`Remove ${c.title}`} disabled={busy} onconfirm={onremove} />
     <span class="flex gap-2">

@@ -7,7 +7,7 @@
   import CopyChores from './CopyChores.svelte';
   import Panel from './Panel.svelte';
   import Sheet from './Sheet.svelte';
-  import { describeSchedule, isPastOnce, itemDueOnWeekday, PERIOD_LABEL, PERIODS, plural, ptsLabel, sections, WEEKDAY_SHORT, type ChoreItem, type Owner, type Period, type Routine } from '../lib/choreTypes';
+  import { describeSchedule, inRotation, isPastOnce, itemDueOnWeekday, PERIOD_LABEL, PERIODS, plural, ptsLabel, sections, WEEKDAY_SHORT, type ChoreItem, type Owner, type Period, type Routine } from '../lib/choreTypes';
   import { addDays, dayLabel, weekdayOf } from '../lib/dates';
   import ItemEditor from './ItemEditor.svelte';
 
@@ -46,14 +46,14 @@
   const stop = (id: string) => { clearTimeout(timers.get(id)); timers.delete(id); };
 
   const isPast = (c: ChoreItem) => isPastOnce(c, day);
-  /** Whether a chore is on the schedule for a weekday (0 = Sunday); a one-off counts on the weekday of its date, unless that day has gone (it waits in the list to be used again). */
-  const perDay = $derived(WEEKDAY_SHORT.map((_, d) => live.filter((c) => !isPast(c) && itemDueOnWeekday(c, d))));
+  /** Whether a chore is on the schedule for a weekday (0 = Sunday); a one-off counts on the weekday of its date, and one that skips weeks only in the weeks it is on, unless that day has gone (it waits in the list to be used again). */
+  const perDay = $derived(WEEKDAY_SHORT.map((_, d) => live.filter((c) => !isPast(c) && itemDueOnWeekday(c, d) && inRotation(c, day))));
   /** Chore points on the busiest day: what the most a person can earn from chores alone. */
   const dayPoints = $derived(perDay.map((cs) => cs.reduce((n, c) => n + c.points, 0)));
   const busiest = $derived(Math.max(0, ...dayPoints));
   const today = $derived(weekdayOf(day));
   const manyChores = $derived(live.length > 8);
-  const shownItems = $derived(live.filter((c) => (dayPick === null || (!isPast(c) && itemDueOnWeekday(c, dayPick))) && (periodPick === 'all' || c.period === periodPick)));
+  const shownItems = $derived(live.filter((c) => (dayPick === null || (!isPast(c) && itemDueOnWeekday(c, dayPick) && inRotation(c, day))) && (periodPick === 'all' || c.period === periodPick)));
   const groups = $derived(sections(shownItems));
   const openItem = $derived(live.find((c) => c.id === openId));
 
@@ -72,6 +72,18 @@
     waiting = [...waiting, { c, sent: false }];
     timers.set(c.id, setTimeout(() => void commit(c.id), UNDO_MS));
   }
+
+  // Skipping is saved at once, so its Undo simply puts the chore back; the notice goes away by itself.
+  let skips = $state.raw<ChoreItem[]>([]);
+  const skipTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const dismissSkip = (id: string) => { clearTimeout(skipTimers.get(id)); skipTimers.delete(id); skips = skips.filter((c) => c.id !== id); };
+  async function skip(c: ChoreItem) {
+    if (!(await send({ action: 'item_skip', id: c.id, skipped: true }))) return;
+    skips = [...skips.filter((k) => k.id !== c.id), c];
+    skipTimers.set(c.id, setTimeout(() => dismissSkip(c.id), UNDO_MS));
+  }
+  async function unskip(c: ChoreItem) { dismissSkip(c.id); await send({ action: 'item_skip', id: c.id, skipped: false }); }
+  onDestroy(() => { for (const t of skipTimers.values()) clearTimeout(t); });
   const undo = (id: string) => { stop(id); waiting = waiting.filter((w) => w.c.id !== id); };
   onDestroy(() => { for (const w of waiting) void commit(w.c.id); });
 </script>
@@ -87,7 +99,7 @@
 
 <header class="flex flex-wrap items-center gap-3 mb-3">
   <span class="avatar size-11 text-[1.2rem]" style:--c={color} aria-hidden="true">{person === null ? '★' : name.charAt(0).toUpperCase()}</span>
-  <div class="min-w-0 flex-1">
+  <div class="min-w-0 flex-[1_1_9rem]">
     <strong class="block text-[1.15rem] [overflow-wrap:anywhere]" style:color={color}>{name}</strong>
     <span class="note">{plural(live.length, 'chore')}{person !== null && busiest > 0 ? ` · up to ${ptsLabel(busiest)} a day` : ''}{person === null ? ' · no points' : ''}</span>
   </div>
@@ -159,7 +171,13 @@
               </div>
             {/if}
           </div>
-          <button type="button" id={`edit-chore-${c.id}`} class="small m-0 pointer-coarse:min-h-11 pointer-coarse:px-5" disabled={busy || openId !== null} aria-label={`Edit ${c.title}`} onclick={() => (openId = c.id)}>Edit</button>
+          <div class="flex flex-wrap items-center justify-end gap-1">
+            {#if c.due}
+              <!-- Skipping hides a chore for today only; it is back on its normal schedule tomorrow. Removing for good is under Edit. -->
+              <button type="button" class="ghost small m-0 pointer-coarse:min-h-11" disabled={busy || openId !== null} aria-label={c.skipped ? `Put ${c.title} back on today's list` : `Skip ${c.title} today`} onclick={() => (c.skipped ? send({ action: 'item_skip', id: c.id, skipped: false }) : skip(c))}>{c.skipped ? 'Put back' : 'Skip'}</button>
+            {/if}
+            <button type="button" id={`edit-chore-${c.id}`} class="small m-0 pointer-coarse:min-h-11 pointer-coarse:px-5" disabled={busy || openId !== null} aria-label={`Edit ${c.title}`} onclick={() => (openId = c.id)}>Edit</button>
+          </div>
         {/if}
       </li>
     {/snippet}
@@ -174,6 +192,14 @@
   </Sheet>
 {/if}
 
-{#each notices as w (w.c.id)}
-  <p class="notice flex-wrap items-center justify-between" role="status"><span>Removed <strong>{w.c.title}</strong>.</span> <button type="button" class="small" onclick={() => undo(w.c.id)}>Undo</button></p>
-{/each}
+{#if notices.length > 0 || skips.length > 0}
+  <!-- Pinned to the screen (not the end of a long list) so Undo is always in view. -->
+  <div class="fixed z-40 left-1/2 bottom-[calc(5rem+env(safe-area-inset-bottom))] [translate:-50%_0] w-[min(32rem,calc(100vw-2rem))] grid gap-2 md:bottom-[max(1rem,env(safe-area-inset-bottom))] [body.has-rail_&]:md:left-[calc(50%+3rem)]">
+    {#each skips as c (c.id)}
+      <p class="notice m-0 flex-wrap items-center justify-between bg-card shadow-[var(--shadow-md)]" role="status"><span>Skipped <strong>{c.title}</strong> for today.</span> <button type="button" class="small" onclick={() => void unskip(c)}>Undo</button></p>
+    {/each}
+    {#each notices as w (w.c.id)}
+      <p class="notice m-0 flex-wrap items-center justify-between bg-card shadow-[var(--shadow-md)]" role="status"><span>Removed <strong>{w.c.title}</strong>.</span> <button type="button" class="small" onclick={() => undo(w.c.id)}>Undo</button></p>
+    {/each}
+  </div>
+{/if}

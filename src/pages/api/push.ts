@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers';
 import { z } from 'zod';
 import { loadPeople } from '../../lib/peopleStore';
 import { isOn } from '../../lib/features';
-import { isManager, json, readJson } from '../../lib/http';
+import { isAdmin, json, readJson } from '../../lib/http';
 import { managerSubscribed, pushKeys, removeManagerSubscription, removeSubscription, saveManagerSubscription, saveSubscription, subscribedPeople } from '../../lib/push';
 
 const person = z.string().min(1).max(64);
@@ -37,7 +37,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const b = parsed.data;
   const db = env.DB;
   if (b.action === 'manager_status' || b.action === 'manager_subscribe' || b.action === 'manager_unsubscribe') {
-    if (!isManager(locals)) return json({ error: 'forbidden' }, 403);
+    if (!isAdmin(locals)) return json({ error: 'forbidden' }, 403);
     const me = locals.user!.id;
     if (b.action === 'manager_subscribe') {
       const { endpoint: address, keys } = b.subscription;

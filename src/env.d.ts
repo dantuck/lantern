@@ -21,6 +21,8 @@ declare namespace Cloudflare {
 declare namespace App {
   interface Locals {
     user?: import('./lib/auth/users').User;
+    /** Set when a manager has temporarily unlocked this member's device; `by` is that manager. */
+    elevation?: import('./lib/auth/sessions').Elevation | null;
     session?: import('./lib/auth/sessions').Session;
     /** Ids a manager has switched off (signed-in requests only). See src/lib/features.ts. */
     disabled?: ReadonlySet<string>;

@@ -15,5 +15,8 @@
   "0014_chore_skips.sql": "67b39c263d908c14a452a78680909a566bc16f868f9a956cda462694744cc197",
   "0015_screentime_timers.sql": "dcd2c53e672143ed91b0e12087c985b3c97bce19741a921e98b40df44c08ba4c",
   "0016_invite_link.sql": "b5ee4b3c37ebb2ed5ed3060a6bc1815d6d2445dcd7aacf4f541a8c694d1c6159",
-  "0017_manager_notify.sql": "40f9900a3d88b3b34c0af66d89e6109f50f04c68bfaeb0e0fc7eb0bb3de52154"
+  "0017_manager_notify.sql": "40f9900a3d88b3b34c0af66d89e6109f50f04c68bfaeb0e0fc7eb0bb3de52154",
+  "0018_elevation.sql": "77de09fc45da9361dcaf5c5b005b282861628c32c89afa19aa08255924419fe4",
+  "0019_chore_every_weeks.sql": "16bab0d1e654edd7763a387c429e1ad732208e50bbe2af5441dc3f52870d3e81",
+  "0020_manager_inbox.sql": "a1fb78ba6e11c4856a5c8eabc64f769638e55c035698137351fb717f09eb89dd"
 }

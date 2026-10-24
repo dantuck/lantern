@@ -37,21 +37,28 @@ interface SessionJoinRow {
   id_hash: string; user_id: string; device_label: string; created_at: number; last_seen: number;
   expires_at: number; revoked_at: number | null;
   email: string; role: Role; u_created: number; disabled_at: number | null;
+  elevated_until: number | null; e_id: string | null; e_email: string | null; e_created: number | null;
 }
+
+/** A member's session that a manager has temporarily unlocked: `by` is that manager, who is still an active one. */
+export interface Elevation { by: User; until: number }
 
 /** Validates a cookie value, slides the expiry (throttled) and returns the session plus its active user. */
 export async function validateSession(
   db: D1Database,
   rawId: string | undefined,
   now = Date.now(),
-): Promise<{ session: Session; user: User } | null> {
+): Promise<{ session: Session; user: User; elevation: Elevation | null } | null> {
   if (!rawId || rawId.length > 128) return null;
   const idHash = await sha256Hex(rawId);
   const r = await db
     .prepare(
       `SELECT s.id_hash, s.user_id, s.device_label, s.created_at, s.last_seen, s.expires_at, s.revoked_at,
-              u.email, u.role, u.created_at AS u_created, u.disabled_at
-       FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id_hash = ?`,
+              u.email, u.role, u.created_at AS u_created, u.disabled_at, s.elevated_until,
+              e.id AS e_id, e.email AS e_email, e.created_at AS e_created
+       FROM sessions s JOIN users u ON u.id = s.user_id
+       LEFT JOIN users e ON e.id = s.elevated_by AND e.role = 'manager' AND e.disabled_at IS NULL
+       WHERE s.id_hash = ?`,
     )
     .bind(idHash)
     .first<SessionJoinRow>();
@@ -67,7 +74,12 @@ export async function validateSession(
     await db.prepare('UPDATE sessions SET last_seen = ?, expires_at = ? WHERE id_hash = ? AND revoked_at IS NULL')
       .bind(lastSeen, expiresAt, idHash).run();
   }
+  // Only a member's session can be elevated, and only while the manager who approved it is still an active manager.
+  const elevation: Elevation | null = r.role === 'member' && r.e_id !== null && r.elevated_until !== null && r.elevated_until > now
+    ? { by: { id: r.e_id, email: r.e_email!, role: 'manager', createdAt: r.e_created!, disabledAt: null }, until: r.elevated_until }
+    : null;
   return {
+    elevation,
     session: { idHash, userId: r.user_id, deviceLabel: r.device_label, createdAt: r.created_at, lastSeen, expiresAt },
     user: { id: r.user_id, email: r.email, role: r.role, createdAt: r.u_created, disabledAt: r.disabled_at },
   };

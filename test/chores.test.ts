@@ -30,9 +30,59 @@ describe('schedules', () => {
     expect(describeSchedule({ days: toggleDay(toggleDay(0, 1), 3), onceDate: null }, names)).toBe('Mon, Wed');
     expect(describeSchedule({ days: null, onceDate: WED }, names)).toBe('Once, 2026-10-07');
   });
+  it('repeats every Nth week, counted from the week it starts', () => {
+    const everyOther = { days: 1 << 3, onceDate: null, everyWeeks: 2, weekAnchor: '2026-10-04' }; // Wednesdays, starting the week of Oct 4
+    expect(itemDue(everyOther, WED)).toBe(true);
+    expect(itemDue(everyOther, '2026-10-14')).toBe(false);
+    expect(itemDue(everyOther, '2026-10-21')).toBe(true);
+    expect(itemDue(everyOther, '2026-09-30')).toBe(false); // the week before it starts counts the same way
+    expect(itemDue(everyOther, '2026-09-23')).toBe(true);
+    expect(itemDue(everyOther, THU)).toBe(false); // right week, wrong weekday
+    expect(itemDue({ ...everyOther, everyWeeks: 3 }, '2026-10-14')).toBe(false);
+    expect(itemDue({ ...everyOther, everyWeeks: 3 }, '2026-10-28')).toBe(true);
+    expect(itemDue({ days: 1 << 3, onceDate: null, everyWeeks: 3, weekAnchor: '2026-10-04' }, '2026-10-28')).toBe(true); // 3 weeks on
+    expect(itemDue({ days: 1 << 3, onceDate: null, everyWeeks: 2, weekAnchor: null }, '2026-10-14')).toBe(true); // no anchor: every week
+  });
+  it('says so when weeks are skipped', () => {
+    expect(describeSchedule({ days: 1 << 6, onceDate: null, everyWeeks: 2 })).toBe('Sat, every other week');
+    expect(describeSchedule({ days: null, onceDate: null, everyWeeks: 3 })).toBe('Every day, every 3 weeks');
+    expect(describeSchedule({ days: null, onceDate: null, everyWeeks: 1 })).toBe('Every day');
+  });
   it('groups chores by time of day, in the order of the day', () => {
     const items = [{ period: 'evening' as const, n: 1 }, { period: 'any' as const, n: 2 }, { period: 'morning' as const, n: 3 }, { period: 'morning' as const, n: 4 }];
     expect(sections(items).map((x) => [x.period, x.items.map((i) => i.n)])).toEqual([['morning', [3, 4]], ['evening', [1]], ['any', [2]]]);
+  });
+});
+
+describe('every other week, stored', () => {
+  let db: D1Database;
+  beforeEach(() => { db = createTestDb(); });
+  const first = async (day: string) => (await choreState(db, day, true)).routines[0]!.items[0]!;
+
+  it('keeps the week it starts on and is due only in its weeks', async () => {
+    // T is in the week of 2023-11-12; "now" decides the week when none is given.
+    await addItem(db, 'agnes', chore('Bins', 1, { days: 1 << 3, everyWeeks: 2, weekAnchor: '2026-10-07' }), T);
+    let item = await first(WED);
+    expect([item.everyWeeks, item.weekAnchor, item.due]).toEqual([2, '2026-10-04', true]);
+    expect((await first('2026-10-14')).due).toBe(false);
+    expect((await first('2026-10-21')).due).toBe(true);
+    expect(await setCheck(db, item.id, '2026-10-14', true)).toBe('not_due');
+
+    expect(await updateItem(db, item.id, { everyWeeks: 1 })).toBe('ok');
+    item = await first('2026-10-14');
+    expect([item.everyWeeks, item.weekAnchor, item.due]).toEqual([1, null, true]);
+
+    expect(await updateItem(db, item.id, { everyWeeks: 3, weekAnchor: '2026-10-14' })).toBe('ok');
+    expect((await first('2026-10-14')).weekAnchor).toBe('2026-10-11');
+    expect(await updateItem(db, item.id, { onceDate: WED })).toBe('ok');
+    expect([(await first(WED)).everyWeeks, (await first(WED)).weekAnchor]).toEqual([1, null]);
+  });
+  it('refuses a bad count or date, and defaults the week to the current one', async () => {
+    expect(await addItem(db, 'agnes', chore('A', 0, { everyWeeks: 5 }), T)).toBe('bad_request');
+    expect(await addItem(db, 'agnes', chore('B', 0, { everyWeeks: 0 }), T)).toBe('bad_request');
+    expect(await addItem(db, 'agnes', chore('C', 0, { everyWeeks: 2, weekAnchor: 'next tuesday' }), T)).toBe('bad_request');
+    expect(await addItem(db, 'agnes', chore('D', 0, { everyWeeks: 2 }), T)).toBe('ok');
+    expect((await first(WED)).weekAnchor).toBe('2023-11-12'); // the Sunday of the week T falls in
   });
 });
 
@@ -550,7 +600,7 @@ describe('skipping a chore for a day', () => {
 });
 
 describe('choreSuggestions', () => {
-  const item = (title: string, o: Partial<ChoreItem> = {}): ChoreItem => ({ id: title, title, points: 2, done: false, period: 'morning', days: null, onceDate: null, due: true, skipped: false, ...o });
+  const item = (title: string, o: Partial<ChoreItem> = {}): ChoreItem => ({ id: title, title, points: 2, done: false, period: 'morning', days: null, onceDate: null, everyWeeks: 1, weekAnchor: null, due: true, skipped: false, ...o });
   const routine = (person: string | null, items: ChoreItem[]): Routine => ({ id: String(person), person, bonuses: { morning: 0, afternoon: 0, evening: 0, any: 0 }, bonusEarned: { morning: false, afternoon: false, evening: false, any: false }, items });
   const routines = [routine('a', [item('Feed the dog'), item('Make bed'), item('Old trip', { onceDate: '2020-01-01' })]), routine('b', [item('Feed the Dog'), item('Dishes', { points: 5 })]), routine('c', [item('Make bed')])];
 
@@ -562,6 +612,6 @@ describe('choreSuggestions', () => {
     expect(choreSuggestions(routines, 'c', 'trip', '2026-10-18')).toEqual([]);
   });
   it('carries the points and schedule over', () => {
-    expect(choreSuggestions(routines, 'c', 'dish', '2026-10-18')).toEqual([{ title: 'Dishes', points: 5, period: 'morning', days: null, onceDate: null }]);
+    expect(choreSuggestions(routines, 'c', 'dish', '2026-10-18')).toEqual([{ title: 'Dishes', points: 5, period: 'morning', days: null, onceDate: null, everyWeeks: 1, weekAnchor: null }]);
   });
 });

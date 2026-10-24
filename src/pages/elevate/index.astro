@@ -1,0 +1,81 @@
+---
+import Base from '../../layouts/Base.astro';
+import Time from '../../components/Time.astro';
+import { env } from 'cloudflare:workers';
+import { findRequest, normalizeElevationCode, pendingRequest } from '../../lib/auth/elevation';
+import { ELEVATION_MINUTES } from '../../lib/auth/policy';
+import { isAdmin } from '../../lib/http';
+import { flashFor } from '../../lib/messages';
+
+const { user, session, elevation } = Astro.locals;
+const admin = isAdmin(Astro.locals);
+const flash = flashFor(Astro.url.searchParams.get('msg'));
+// A manager types the code shown on the other device, then checks which device and member it is before approving.
+const typed = admin ? normalizeElevationCode(Astro.url.searchParams.get('code') ?? '') : '';
+const found = typed ? await findRequest(env.DB, typed) : null;
+const pending = !admin && !elevation ? await pendingRequest(env.DB, session!.idHash) : null;
+---
+<Base title={admin ? 'Approve a device' : 'Manager access'}>
+  {admin ? (
+    <div class="card">
+      <h1>Approve a device</h1>
+      <p>On the device that needs manager access, signed in as a member, open <strong>Manager</strong> and ask for access. It shows a 6-digit code. Enter it here.</p>
+      {flash && <div class={`notice ${flash.ok ? '' : 'error'}`} role="status">{flash.text}</div>}
+      <form method="get" action="/elevate">
+        <label for="code">Code</label>
+        <input id="code" name="code" inputmode="numeric" autocomplete="off" maxlength="7" required value={typed} />
+        <button type="submit">Find device</button>
+      </form>
+      {typed && !found && <p class="notice error" role="status">No waiting request has that code. It may have expired.</p>}
+      {found && (
+        <form method="post" action="/elevate/action" class="mt-4">
+          <p><strong>{found.deviceLabel}</strong>, signed in as <strong>{found.email}</strong>.</p>
+          <input type="hidden" name="action" value="approve" />
+          <input type="hidden" name="code" value={typed} />
+          <label for="minutes">Manager access for</label>
+          <select id="minutes" name="minutes">{ELEVATION_MINUTES.map((m) => <option value={m}>{m} minutes</option>)}</select>
+          <p class="muted">That device can manage chores, rewards and points. It cannot open Admin, change roles or invite anyone.</p>
+          <button type="submit">Approve</button>
+        </form>
+      )}
+    </div>
+  ) : elevation ? (
+    <div class="card">
+      <h1>Manager access is on</h1>
+      {flash && <div class={`notice ${flash.ok ? '' : 'error'}`} role="status">{flash.text}</div>}
+      <p>Approved by {elevation.by.email}, until <Time ms={elevation.until} />.</p>
+      <p><a href="/chores/manage">Manage chores, rewards and points &rarr;</a></p>
+      <form method="post" action="/elevate/action"><input type="hidden" name="action" value="lock" /><button class="ghost" type="submit">Lock now</button></form>
+    </div>
+  ) : (
+    <div class="card" data-poll={pending ? '' : undefined}>
+      <h1>Manager access</h1>
+      {flash && <div class={`notice ${flash.ok ? '' : 'error'}`} role="status">{flash.text}</div>}
+      {pending ? (
+        <>
+          <p>Ask a manager to open Lantern on their own device, go to <strong>Approve device</strong> and enter this code:</p>
+          <p class="text-[2.5rem] font-bold tracking-widest" aria-label={`Code ${pending.code.split('').join(' ')}`}>{pending.code.slice(0, 3)} {pending.code.slice(3)}</p>
+          <p class="muted">Waiting for approval. The code works until <Time ms={pending.expiresAt} />.</p>
+          <form method="post" action="/elevate/action"><input type="hidden" name="action" value="lock" /><button class="ghost" type="submit">Cancel</button></form>
+        </>
+      ) : (
+        <>
+          <p>Signed in as <strong>{user!.email}</strong>. A manager can unlock manager tools on this device for a short while, without signing you out.</p>
+          <form method="post" action="/elevate/action"><input type="hidden" name="action" value="request" /><button type="submit">Ask a manager to approve</button></form>
+        </>
+      )}
+    </div>
+  )}
+  <script>
+    // Waiting for a manager: check every few seconds and reload as soon as this device is unlocked.
+    if (document.querySelector('[data-poll]')) {
+      const check = async () => {
+        try {
+          const r = await fetch('/elevate/status', { credentials: 'same-origin' });
+          if (r.ok && ((await r.json()) as { elevated?: boolean }).elevated) location.replace('/elevate');
+        } catch { /* try again next time */ }
+      };
+      setInterval(() => { if (!document.hidden) void check(); }, 3000);
+    }
+  </script>
+</Base>

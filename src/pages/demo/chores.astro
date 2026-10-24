@@ -4,5 +4,5 @@ import Chores from '../../components/Chores.svelte';
 import { demoChores, demoPeople } from '../../demo/data';
 ---
 <Base title="Chores · Demo" wide demo feature="chores">
-  <Chores client:load initial={demoChores()} people={demoPeople} intro="Try ticking things off, asking for a reward or approving one. In the demo nothing is saved." manageHref="/demo/chores/manage" personBase="/demo/chores" demo />
+  <Chores client:load initial={demoChores()} people={demoPeople} intro="Try ticking things off, asking for a reward or approving one. In the demo nothing is saved." manageHref="/demo/chores/manage" inboxHref="/demo/inbox" personBase="/demo/chores" demo />
 </Base>

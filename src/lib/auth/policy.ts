@@ -12,6 +12,11 @@ export const SESSION_ABSOLUTE_TTL = 90 * DAY; // hard cap
 /** Only write last_seen/expiry back when it has moved this much, to limit D1 writes. */
 export const SESSION_TOUCH_INTERVAL = 60 * MINUTE;
 
+/** How long a device's request for manager approval stays open. */
+export const ELEVATION_REQUEST_TTL = 5 * MINUTE;
+/** Minutes of manager access a manager can grant a member's device (first is the default). */
+export const ELEVATION_MINUTES = [10, 30, 60] as const;
+
 export const SESSION_COOKIE = '__Host-session';
 export const NONCE_COOKIE = '__Host-login-nonce';
 

@@ -1,5 +1,6 @@
-import { addDays, weekdayOf } from './dates';
-import { itemDue, periodRecord, PERIODS, type ChoreState, type Period, type Routine } from './choreTypes';
+import { addDays, dayKey, weekdayOf } from './dates';
+import { householdZone } from './household';
+import { itemDue, MAX_EVERY_WEEKS, periodRecord, PERIODS, weekStart, type ChoreState, type Period, type Routine } from './choreTypes';
 import { rewardState } from './rewards';
 
 export const MAX_ITEMS_PER_ROUTINE = 60;
@@ -9,13 +10,13 @@ const KEEP_CHECK_DAYS = 60;
 const KEEP_SKIP_DAYS = 7;
 
 interface RoutineRow { id: string; person: string | null }
-interface ItemRow { id: string; list_id: string; title: string; points: number; period: Period; days: number | null; once_date: string | null }
+interface ItemRow { id: string; list_id: string; title: string; points: number; period: Period; days: number | null; once_date: string | null; every_weeks: number; week_anchor: string | null }
 
 export async function choreState(db: D1Database, day: string, manager: boolean, now = Date.now()): Promise<ChoreState> {
   // Independent reads, so they go out together rather than one round-trip after another.
   const [routineRows, itemRows, checkRows, skipRows, paidRows, bonusRows, rewards] = await Promise.all([
     db.prepare('SELECT id, person FROM chore_lists ORDER BY created_at, id').all<RoutineRow>(),
-    db.prepare('SELECT id, list_id, title, points, period, days, once_date FROM chore_items ORDER BY created_at, id').all<ItemRow>(),
+    db.prepare('SELECT id, list_id, title, points, period, days, once_date, every_weeks, week_anchor FROM chore_items ORDER BY created_at, id').all<ItemRow>(),
     db.prepare('SELECT item_id FROM chore_checks WHERE day = ?').bind(day).all<{ item_id: string }>(),
     db.prepare('SELECT item_id FROM chore_skips WHERE day = ?').bind(day).all<{ item_id: string }>(),
     db.prepare("SELECT ref FROM reward_ledger WHERE kind = 'bonus' AND ref LIKE ?").bind(`%:${day}`).all<{ ref: string }>(),
@@ -43,7 +44,8 @@ export async function choreState(db: D1Database, day: string, manager: boolean, 
       bonusEarned: Object.fromEntries(PERIODS.map((p) => [p, r.person !== null && paid.has(`${r.person}:${p}:${day}`)])) as Record<Period, boolean>,
       items: (itemsByList.get(r.id) ?? []).map((i) => ({
         id: i.id, title: i.title, points: i.points, done: done.has(i.id), period: i.period, days: i.days, onceDate: i.once_date,
-        due: itemDue({ days: i.days, onceDate: i.once_date }, day), skipped: skipped.has(i.id),
+        everyWeeks: i.every_weeks, weekAnchor: i.week_anchor,
+        due: itemDue({ days: i.days, onceDate: i.once_date, everyWeeks: i.every_weeks, weekAnchor: i.week_anchor }, day), skipped: skipped.has(i.id),
       })),
     };
   });
@@ -67,31 +69,46 @@ export interface ChoreInput {
   days: number | null;
   /** A one-off date, which wins over `days`. */
   onceDate: string | null;
+  /** Every Nth week (1 to MAX_EVERY_WEEKS); 1 or left out is every week. Ignored for a one-off. */
+  everyWeeks?: number;
+  /** Any date in the first week it is on; kept as that week's Sunday. Today's week when left out. */
+  weekAnchor?: string | null;
 }
 
 const validDays = (days: number | null) => days === null || (Number.isInteger(days) && days >= 1 && days <= 127);
+const validEvery = (n: number) => Number.isInteger(n) && n >= 1 && n <= MAX_EVERY_WEEKS;
+const validDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d));
+
+/** What is stored for the repeat: a one-off or an every-week chore has no anchor, and any other gets its week's Sunday. */
+function rotation(everyWeeks: number, onceDate: string | null, anchor: string | null | undefined, now: number): { every: number; anchor: string | null } | null {
+  if (!validEvery(everyWeeks) || (anchor != null && !validDate(anchor))) return null;
+  if (onceDate !== null || everyWeeks === 1) return { every: 1, anchor: null };
+  return { every: everyWeeks, anchor: weekStart(anchor ?? dayKey(now, householdZone)) };
+}
 
 export async function addItem(db: D1Database, person: string | null, input: ChoreInput, now = Date.now()): Promise<'ok' | 'limit' | 'bad_request'> {
-  if (!validDays(input.days)) return 'bad_request';
+  const rot = rotation(input.everyWeeks ?? 1, input.onceDate, input.weekAnchor, now);
+  if (!validDays(input.days) || !rot) return 'bad_request';
   const listId = await routineFor(db, person, now);
   const count = await db.prepare('SELECT COUNT(*) AS n FROM chore_items WHERE list_id = ?').bind(listId).first<{ n: number }>();
   if ((count?.n ?? 0) >= MAX_ITEMS_PER_ROUTINE) return 'limit';
   await db
-    .prepare('INSERT INTO chore_items (id, list_id, title, points, period, days, once_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(crypto.randomUUID(), listId, input.title, input.points, input.period, input.onceDate === null ? input.days : null, input.onceDate, now)
+    .prepare('INSERT INTO chore_items (id, list_id, title, points, period, days, once_date, every_weeks, week_anchor, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(crypto.randomUUID(), listId, input.title, input.points, input.period, input.onceDate === null ? input.days : null, input.onceDate, rot.every, rot.anchor, now)
     .run();
   return 'ok';
 }
 
 /** Anything left out of `changes` stays as it is. Giving a date makes it a one-off; giving `onceDate: null` makes it repeat again. */
-export async function updateItem(db: D1Database, id: string, changes: Partial<ChoreInput>): Promise<'ok' | 'not_found' | 'bad_request'> {
-  const row = await db.prepare('SELECT title, points, period, days, once_date FROM chore_items WHERE id = ?').bind(id).first<{ title: string; points: number; period: Period; days: number | null; once_date: string | null }>();
+export async function updateItem(db: D1Database, id: string, changes: Partial<ChoreInput>, now = Date.now()): Promise<'ok' | 'not_found' | 'bad_request'> {
+  const row = await db.prepare('SELECT title, points, period, days, once_date, every_weeks, week_anchor FROM chore_items WHERE id = ?').bind(id).first<{ title: string; points: number; period: Period; days: number | null; once_date: string | null; every_weeks: number; week_anchor: string | null }>();
   if (!row) return 'not_found';
-  const next = { title: row.title, points: row.points, period: row.period, days: row.days, onceDate: row.once_date, ...changes };
-  if (!validDays(next.days)) return 'bad_request';
+  const next = { title: row.title, points: row.points, period: row.period, days: row.days, onceDate: row.once_date, everyWeeks: row.every_weeks, weekAnchor: row.week_anchor, ...changes };
+  const rot = rotation(next.everyWeeks, next.onceDate, next.weekAnchor, now);
+  if (!validDays(next.days) || !rot) return 'bad_request';
   await db
-    .prepare('UPDATE chore_items SET title = ?, points = ?, period = ?, days = ?, once_date = ? WHERE id = ?')
-    .bind(next.title, next.points, next.period, next.onceDate === null ? next.days : null, next.onceDate, id)
+    .prepare('UPDATE chore_items SET title = ?, points = ?, period = ?, days = ?, once_date = ?, every_weeks = ?, week_anchor = ? WHERE id = ?')
+    .bind(next.title, next.points, next.period, next.onceDate === null ? next.days : null, next.onceDate, rot.every, rot.anchor, id)
     .run();
   return 'ok';
 }
@@ -114,13 +131,13 @@ export async function setBonus(db: D1Database, person: string, period: Period, b
  */
 export async function setCheck(db: D1Database, id: string, day: string, done: boolean, now = Date.now()): Promise<'ok' | 'not_found' | 'not_due'> {
   const row = await db
-    .prepare(`SELECT i.title, i.points, i.period, i.days, i.once_date, l.person,
+    .prepare(`SELECT i.title, i.points, i.period, i.days, i.once_date, i.every_weeks, i.week_anchor, l.person,
         EXISTS (SELECT 1 FROM chore_skips s WHERE s.item_id = i.id AND s.day = ?) AS skipped
       FROM chore_items i JOIN chore_lists l ON l.id = i.list_id WHERE i.id = ?`)
     .bind(day, id)
-    .first<{ title: string; points: number; period: Period; days: number | null; once_date: string | null; person: string | null; skipped: number }>();
+    .first<{ title: string; points: number; period: Period; days: number | null; once_date: string | null; every_weeks: number; week_anchor: string | null; person: string | null; skipped: number }>();
   if (!row) return 'not_found';
-  if (done && (!itemDue({ days: row.days, onceDate: row.once_date }, day) || row.skipped === 1)) return 'not_due';
+  if (done && (!itemDue({ days: row.days, onceDate: row.once_date, everyWeeks: row.every_weeks, weekAnchor: row.week_anchor }, day) || row.skipped === 1)) return 'not_due';
   const ref = `${id}:${day}`;
   if (done) {
     await db.prepare('INSERT INTO chore_checks (item_id, day, done_at) VALUES (?, ?, ?) ON CONFLICT (item_id, day) DO NOTHING').bind(id, day, now).run();

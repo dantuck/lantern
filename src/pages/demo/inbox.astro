@@ -1,0 +1,16 @@
+---
+import Base from '../../layouts/Base.astro';
+import Inbox from '../../components/Inbox.svelte';
+import { demoChores, demoPeople } from '../../demo/data';
+
+const now = Date.now();
+const who = demoPeople[0]?.name ?? 'Someone';
+const entries = [
+  { id: 'd1', kind: 'timers' as const, headline: `${who} started a timer`, detail: `${who} started 30 minutes of screen time.`, path: '/demo/chores', createdAt: now - 20 * 60_000 },
+];
+---
+<Base title="Inbox · Demo" wide demo feature="chores">
+  <h1>Inbox</h1>
+  <p>This is what a manager sees: reward requests to approve or deny, and what happened in the household. In the demo nothing is saved.</p>
+  <Inbox client:load initial={demoChores()} people={demoPeople} entries={entries} seenAt={0} demo />
+</Base>

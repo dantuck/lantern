@@ -5,7 +5,7 @@ import { SESSION_COOKIE } from './lib/auth/policy';
 import { clearCookie } from './lib/auth/cookies';
 import { disabledFeatures } from './lib/features';
 import { redirectTarget } from './lib/origin';
-import { SAFE_METHODS, canonicalPath, isPublicPath, isSameOrigin, json, requiredRole, withSecurityHeaders } from './lib/http';
+import { SAFE_METHODS, canonicalPath, isAdmin, isManager, isPublicPath, isSameOrigin, json, requiredRole, withSecurityHeaders } from './lib/http';
 
 const enforceCsp = import.meta.env.PROD;
 
@@ -27,6 +27,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   if (auth) {
     locals.user = auth.user;
     locals.session = auth.session;
+    locals.elevation = auth.elevation;
     locals.disabled = await disabledFeatures(env.DB);
   } else if (sid) {
     clearCookie(cookies, SESSION_COOKIE);
@@ -37,7 +38,8 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     // Signed-out visitors to the front door get the product page; everything else goes to sign-in.
     return finish(ctx.redirect(path === '/' ? '/welcome' : '/login', 302));
   }
-  if (auth && requiredRole(path) === 'manager' && auth.user.role !== 'manager') {
+  const need = auth ? requiredRole(path) : null;
+  if (need && !(need === 'admin' ? isAdmin(locals) : isManager(locals))) {
     return finish(new Response('Forbidden', { status: 403 }));
   }
   if (auth && (path === '/login' || path === '/welcome')) return finish(ctx.redirect('/', 302));

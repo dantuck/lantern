@@ -2,13 +2,13 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { z } from 'zod';
 import { addItem, choreState, removeItem, setBonus, setCheck, setSkip, updateItem } from '../../lib/chores';
-import { PERIODS, SOUNDS, type Period } from '../../lib/choreTypes';
+import { MAX_EVERY_WEEKS, PERIODS, SOUNDS, type Period } from '../../lib/choreTypes';
 import { adjustMinutes, adjustPoints, approveAffordable, claimGoal, decideRedemption, removeGoal, removeReward, requestRedemption, saveGoal, saveReward, setAllowance } from '../../lib/rewards';
 import { setSound, startTimer, stopTimer, timersNow } from '../../lib/timers';
 import { householdZone } from '../../lib/household';
 import { loadPeople } from '../../lib/peopleStore';
 import { dayKey } from '../../lib/dates';
-import { isManager, json, readJson } from '../../lib/http';
+import { isManager, json, managerActor, readJson } from '../../lib/http';
 import { isOn } from '../../lib/features';
 import { selectMailer } from '../../lib/mailer';
 import { safeAppOrigin } from '../../lib/origin';
@@ -23,7 +23,8 @@ const itemDays = z.number().int().min(1).max(127).nullable().optional(); // week
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const period = z.enum(PERIODS as [string, ...string[]]);
-const newItem = { title, points, period, days: itemDays, onceDate: date.nullable().optional() };
+const everyWeeks = z.number().int().min(1).max(MAX_EVERY_WEEKS).optional();
+const newItem = { title, points, period, days: itemDays, onceDate: date.nullable().optional(), everyWeeks, weekAnchor: date.nullable().optional() };
 
 /** What anyone signed in may do: tick chores and ask to spend points. */
 const memberBody = z.discriminatedUnion('action', [
@@ -38,7 +39,7 @@ const memberBody = z.discriminatedUnion('action', [
 const managerBody = z.discriminatedUnion('action', [
   z.object({ action: z.literal('item_add'), person: person.nullable(), ...newItem }),
   z.object({ action: z.literal('items_add'), items: z.array(z.object({ person: person.nullable(), ...newItem })).min(1).max(240) }),
-  z.object({ action: z.literal('item_update'), id, title: title.optional(), points: points.optional(), period: period.optional(), days: itemDays, onceDate: date.nullable().optional() }),
+  z.object({ action: z.literal('item_update'), id, title: title.optional(), points: points.optional(), period: period.optional(), days: itemDays, onceDate: date.nullable().optional(), everyWeeks, weekAnchor: date.nullable().optional() }),
   z.object({ action: z.literal('item_remove'), id }),
   z.object({ action: z.literal('item_skip'), id, skipped: z.boolean() }),
   z.object({ action: z.literal('bonus_set'), person, period, bonus: z.number().int().min(0).max(1000) }),
@@ -64,6 +65,10 @@ const knows = async (b: object) => {
 };
 
 const today = () => dayKey(Date.now(), householdZone);
+/** The optional repeat-every-N-weeks fields of a request, left out when not given so an update keeps what is stored. */
+const rotationOf = (b: { everyWeeks?: number | undefined; weekAnchor?: string | null | undefined }) => ({
+  ...(b.everyWeeks !== undefined ? { everyWeeks: b.everyWeeks } : {}), ...(b.weekAnchor !== undefined ? { weekAnchor: b.weekAnchor } : {}),
+});
 
 /** Middleware has already required a session and a same-origin Origin. Reading and ticking are open to every member. */
 const off = (locals: App.Locals) => !isOn(locals.disabled, 'chores');
@@ -80,7 +85,7 @@ async function activityFor(db: D1Database, b: z.infer<typeof memberBody>): Promi
   const name = people.find((p) => p.id === b.person)?.name ?? 'Someone';
   const path = `/chores/${encodeURIComponent(b.person)}`;
   const running = (timers.timers[b.person]?.endsAt ?? 0) > timers.now;
-  if (b.action === 'redeem') return () => ({ kind: 'rewards', headline: `${name} asked for a reward`, detail: `${name} would like "${reward?.name ?? 'a reward'}". It is waiting for you to approve or deny it.`, path: '/chores/manage' });
+  if (b.action === 'redeem') return () => ({ kind: 'rewards', headline: `${name} asked for a reward`, detail: `${name} would like "${reward?.name ?? 'a reward'}". It is waiting for you to approve or deny it.`, path: '/inbox' });
   if (b.action === 'use_time') return () => ({ kind: 'timers', headline: running ? `${name} added screen time` : `${name} started a timer`, detail: `${name} ${running ? 'added' : 'started'} ${b.minutes} ${b.minutes === 1 ? 'minute' : 'minutes'} of screen time.`, path });
   if (!timers.timers[b.person]) return null;
   return () => ({ kind: 'timers', headline: `${name} stopped their timer`, detail: `${name} stopped their screen time timer${running ? ' early' : ''}.`, path });
@@ -106,7 +111,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const b = asMember.data;
     if (!(await knows(b))) return json({ error: 'bad_request' }, 400);
     const via = { mailer: selectMailer(env, import.meta.env.DEV), origin: safeAppOrigin(env.APP_ORIGIN, import.meta.env.DEV), keys: pushKeys(env) };
-    const activity = (via.mailer && via.origin) || via.keys ? await activityFor(db, b).catch(() => null) : null;
+    const activity = await activityFor(db, b).catch(() => null); // always: the managers' inbox records it even when no email or push is set up
     result = b.action === 'check' ? await setCheck(db, b.id, today(), b.done)
       : b.action === 'use_time' ? await startTimer(db, b.person, b.minutes, today())
       : b.action === 'timer_stop' ? (await stopTimer(db, b.person), 'ok')
@@ -119,12 +124,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!isManager(locals)) return json({ error: 'forbidden' }, 403);
     const b = parsed.data;
     if (!(await knows(b))) return json({ error: 'bad_request' }, 400);
-    const manager = locals.user!;
+    const manager = managerActor(locals)!; // the unlocking manager when a member's device is unlocked, so actions are logged to them
     switch (b.action) {
-      case 'item_add': result = await addItem(db, b.person, { title: b.title, points: b.points, period: b.period as Period, days: b.days ?? null, onceDate: b.onceDate ?? null }); break;
+      case 'item_add': result = await addItem(db, b.person, { title: b.title, points: b.points, period: b.period as Period, days: b.days ?? null, onceDate: b.onceDate ?? null, ...rotationOf(b) }); break;
       case 'items_add':
         for (const i of b.items) {
-          result = await addItem(db, i.person, { title: i.title, points: i.points, period: i.period as Period, days: i.days ?? null, onceDate: i.onceDate ?? null });
+          result = await addItem(db, i.person, { title: i.title, points: i.points, period: i.period as Period, days: i.days ?? null, onceDate: i.onceDate ?? null, ...rotationOf(i) });
           if (result !== 'ok') break;
         }
         break;
