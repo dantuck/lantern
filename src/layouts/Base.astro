@@ -1,12 +1,16 @@
 ---
 import '../styles/global.css';
 import ThemeToggle from '../components/ThemeToggle.astro';
+import Time from '../components/Time.astro';
 import Icon from '../components/Icon.astro';
 import WallToggle from '../components/WallToggle.astro';
+import { demoChores } from '../demo/data';
 import { registry } from '../plugins/registry';
 import { isOn } from '../lib/features';
 import { env } from 'cloudflare:workers';
 import { pendingCount } from '../lib/rewards';
+import { unreadCount } from '../lib/inbox';
+import { isAdmin, isManager, managerActor } from '../lib/http';
 import NavBadge from '../components/NavBadge.astro';
 // `full` lets a page (the calendar) use the whole width of a wall display instead of the usual reading width.
 interface Props { title?: string; wide?: boolean; full?: boolean; bare?: boolean; description?: string; demo?: boolean; feature?: string; rev?: string; live?: boolean }
@@ -20,43 +24,54 @@ const current = (href: string) => (path === href ? 'page' : undefined);
 // One top-bar link per enabled plugin, so each widget's full page (/p/<id>) is a click away.
 const off = Astro.locals.disabled;
 const pluginLinks = registry.enabled.filter((p) => isOn(off, p.def.id)).map((p) => ({ href: `/p/${p.def.id}`, label: p.def.name, icon: p.def.icon }));
-const demoLinks = [
+const demoWaiting = demo ? demoChores().pending.length : 0; // only a demo page builds the sample state
+const demoLinks: { href: string; label: string; icon: string; feature?: string; badge?: number }[] = [
   { href: '/demo', label: 'Dashboard', icon: 'home' },
   { href: '/demo/calendar', label: 'Calendar', icon: 'calendar', feature: 'calendar' },
   { href: '/demo/chores', label: 'Chores', icon: 'check-circle', feature: 'chores' },
   { href: '/demo/lists', label: 'Lists', icon: 'list', feature: 'lists' },
+  { href: '/demo/inbox', label: 'Inbox', icon: 'bell', feature: 'chores', badge: demoWaiting },
   { href: '/demo/meals', label: 'Meals', icon: '/icons/mealq.png', feature: 'mealq' },
   { href: '/demo/devices', label: 'Devices', icon: 'smartphone' },
   { href: '/demo/admin', label: 'Admin', icon: 'shield' },
 ];
 // Every destination, in order. The rail (tablet and up) shows them all; the phone's bottom bar shows the first few and puts the rest, plus the utilities, in a "More" sheet.
-// Reward requests waiting for approval show as a badge on Chores, for managers only.
-const waiting = !demo && user?.role === 'manager' && isOn(off, 'chores') ? await pendingCount(env.DB, Astro.locals) : 0;
+// Managers get an Inbox: reward requests waiting for approval, plus activity they have not opened yet, shown as one badge.
+const showInbox = !demo && isManager(Astro.locals) && isOn(off, 'chores');
+const inboxCount = showInbox
+  ? (await Promise.all([pendingCount(env.DB, Astro.locals), unreadCount(env.DB, managerActor(Astro.locals)!.id).catch(() => 0)])).reduce((a, b) => a + b, 0)
+  : 0;
 const items: { href: string; label: string; icon: string; feature?: string; badge?: number }[] = demo
   ? demoLinks
   : user
     ? [
         { href: '/', label: 'Dashboard', icon: 'home' },
         ...pluginLinks,
-        ...(isOn(off, 'chores') ? [{ href: '/chores', label: 'Chores', icon: 'check-circle', badge: waiting }] : []),
+        ...(isOn(off, 'chores') ? [{ href: '/chores', label: 'Chores', icon: 'check-circle' }] : []),
         ...(isOn(off, 'lists') ? [{ href: '/lists', label: 'Lists', icon: 'list' }] : []),
+        ...(showInbox ? [{ href: '/inbox', label: 'Inbox', icon: 'bell', badge: inboxCount }] : []),
         { href: '/devices', label: 'Devices', icon: 'smartphone' },
-        ...(user.role === 'manager' ? [{ href: '/admin', label: 'Admin', icon: 'shield' }] : []),
+        ...(isAdmin(Astro.locals) ? [{ href: '/admin', label: 'Admin', icon: 'shield' }] : []),
+        // A manager approves a member's device here; a member asks for that, or locks the device again.
+        { href: '/elevate', label: isAdmin(Astro.locals) ? 'Approve device' : 'Manager', icon: 'key' },
       ]
     : [];
 // The phone's bottom bar always leads with the daily-use destinations, in a fixed order, so it does not shuffle as widgets are switched on or off.
 // If one of them is off, the next widget fills its place. Devices and Admin always live under More.
 const TABS = 4;
 const PRIMARY = demo ? ['/demo', '/demo/calendar', '/demo/chores', '/demo/lists'] : ['/', '/p/calendar', '/chores', '/lists'];
-const ALWAYS_MORE = demo ? ['/demo/devices', '/demo/admin'] : ['/devices', '/admin'];
+const ALWAYS_MORE = demo ? ['/demo/inbox', '/demo/devices', '/demo/admin'] : ['/devices', '/admin', '/elevate', '/inbox'];
 const picked = PRIMARY.map((h) => items.find((l) => l.href === h)).filter((l): l is (typeof items)[number] => !!l);
 const fill = items.filter((l) => !picked.includes(l) && !ALWAYS_MORE.includes(l.href));
 const tabs = [...picked, ...fill].slice(0, TABS);
 const more = items.filter((l) => !tabs.includes(l));
+// Something behind "More" that needs a look (the Inbox, for a manager) puts a dot on the button, so it is not missed on a phone.
+const moreWaiting = more.reduce((n, l) => n + (l.badge ?? 0), 0);
 const moreCurrent = more.some((l) => path === l.href);
 const hasRail = demo || !!user;
 // A signed-in page keeps itself current (scripts/refresh.ts) when it opts in. `rev` fingerprints the data it was built from, so an
 // open page swaps only when that changed; `live` alone (the dashboard, whose widgets read from outside) swaps whenever it checks.
+const elevation = !demo ? Astro.locals.elevation : null;
 const live = !!user && !demo && !bare && (always || rev !== undefined);
 ---
 <!doctype html>
@@ -110,8 +125,8 @@ const live = !!user && !demo && !bare && (always || rev !== undefined);
         </div>
 
         <nav class="tabbar" aria-label={demo ? 'Demo' : 'Main'}>
-          {tabs.map((l) => <a class="tab-item" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span><NavBadge count={l.badge} /></a>)}
-          <button class="tab-item" type="button" popovertarget="more" aria-label="More options" aria-current={moreCurrent ? 'page' : undefined}><Icon name="more" /><span>More</span></button>
+          {tabs.map((l) => <a class="tab-item" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span class="tab-label">{l.label}</span><NavBadge count={l.badge} /></a>)}
+          <button class="tab-item" type="button" popovertarget="more" aria-label={moreWaiting > 0 ? `More options, ${moreWaiting} waiting` : 'More options'} aria-current={moreCurrent ? 'page' : undefined}><span class="relative inline-flex"><Icon name="more" />{moreWaiting > 0 && <span class="absolute top-0 left-[calc(100%-.25rem)] grid place-items-center min-w-4 h-4 px-1 rounded-full bg-accent text-white text-[.65rem] font-bold leading-none" aria-hidden="true">{moreWaiting > 9 ? '9+' : moreWaiting}</span>}</span><span class="tab-label">More</span></button>
         </nav>
         <div id="more" class="sheet sheet-pop" popover>
           {more.length > 0 && <div class="sheet-links grid gap-[.15rem]">{more.map((l) => <a class="sheet-link" href={l.href} aria-current={current(l.href)} data-feature={l.feature}><Icon name={l.icon} /><span>{l.label}</span><NavBadge count={l.badge} /></a>)}</div>}
@@ -138,6 +153,15 @@ const live = !!user && !demo && !bare && (always || rev !== undefined);
       </aside>
     )}
     {hasRail && <WallToggle exit />}
+    {elevation && (
+      <aside class="notice" role="status">
+        <form class="m-0 flex flex-wrap items-center gap-2" method="post" action="/elevate/action">
+          <span><strong>Manager mode</strong> until <Time ms={elevation.until} />, approved by {elevation.by.email}.</span>
+          <input type="hidden" name="action" value="lock" />
+          <button class="ghost" type="submit">Lock now</button>
+        </form>
+      </aside>
+    )}
     {bare ? <slot /> : (
       <main id="main" tabindex="-1" class={full ? `wide full ${WIDE} max-w-none` : wide ? `wide ${WIDE}` : NARROW} data-feature={feature} data-rev={rev}>
         {demo && feature && <p class="feature-off notice" data-feature-off={feature}><span>This is switched off in the demo's admin page. <a href="/demo/admin">Turn it back on</a>.</span></p>}

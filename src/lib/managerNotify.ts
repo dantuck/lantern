@@ -1,6 +1,7 @@
 // Tells opted-in managers when a reward is requested or a screen time timer is started, extended or stopped, by email, by push
 // notification, or both, as each manager chose. Sending is best effort: it runs after the response, and a failure is logged and
 // never reaches the person who tapped.
+import { addInbox } from './inbox';
 import { activityEmail, type Mailer } from './mailer';
 import { removeManagerSubscription, sendPush, type PushKeys, type PushSubscription } from './push';
 
@@ -46,11 +47,12 @@ export interface Activity { kind: NotifyKind; headline: string; detail: string; 
 /** What can be sent with: either may be missing, which just skips that channel. */
 export interface Channels { mailer: Mailer | null; origin: string | null; keys: PushKeys | null }
 
-/** Sends `activity` to every manager who wants it, on the channels they chose. Resolves once every send has settled; it never rejects. */
+/** Puts `activity` in the managers' inbox, then sends it to every manager who wants it, on the channels they chose. Resolves once every send has settled; it never rejects. The return value counts only emails and pushes sent. */
 export async function notifyManagers(db: D1Database, via: Channels, activity: Activity, exceptId?: string, send: typeof fetch = fetch): Promise<number> {
   let sent = 0;
   try {
-    const jobs: Promise<void>[] = [];
+    // The inbox is the record; a failure there must not stop the alerts, and it runs alongside them.
+    const jobs: Promise<void>[] = [addInbox(db, activity).catch((e) => console.error('inbox add failed', String(e)))];
     if (via.mailer && via.origin) {
       const mailer = via.mailer;
       const mail = activityEmail(activity.headline, activity.detail, `${via.origin}${activity.path}`);

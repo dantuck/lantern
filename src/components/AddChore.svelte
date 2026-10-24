@@ -1,7 +1,7 @@
 <script lang="ts">
   import ScheduleFields from './ScheduleFields.svelte';
   import Stepper from './Stepper.svelte';
-  import { choreSuggestions, describeSchedule, EVERY_DAY, normalizeDays, PERIODS, PERIOD_LABEL, WEEKDAYS_MASK, WEEKENDS_MASK, type ChoreTemplate, type Period, type Routine } from '../lib/choreTypes';
+  import { choreSuggestions, describeSchedule, EVERY_DAY, normalizeDays, PERIODS, PERIOD_LABEL, WEEKDAYS_MASK, WEEKENDS_MASK, weekStart, type ChoreTemplate, type Period, type Routine } from '../lib/choreTypes';
 
   /**
    * The form for one new chore: what it is, what it is worth, when in the day, and which days.
@@ -16,6 +16,9 @@
   let period = $state<Period>('any');
   let once = $state(false);
   let days = $state(EVERY_DAY);
+  let every = $state(1);
+  // svelte-ignore state_referenced_locally
+  let from = $state(weekStart(day));
   // svelte-ignore state_referenced_locally
   let date = $state(day);
 
@@ -49,6 +52,10 @@
   let active = $state(-1);
   const listId = `chore-suggest-${uid}`;
   const suggestions = $derived(focused ? choreSuggestions(routines, person, title, day) : []);
+  // Typing offers the text itself first ("Add “taco”", with the points and schedule below), then matching chores from other lists.
+  const typed = $derived(focused ? title.trim() : '');
+  const offset = $derived(typed ? 1 : 0);
+  const rows = $derived(offset + suggestions.length);
 
   // The list is a popover (the top layer) so the section's scrolling card cannot clip it, and it floats instead of moving the form.
   let input = $state<HTMLInputElement>();
@@ -74,38 +81,50 @@
     window.visualViewport?.addEventListener('resize', place);
     return () => { window.removeEventListener('scroll', place, true); window.removeEventListener('resize', place); window.visualViewport?.removeEventListener('resize', place); };
   });
-  $effect(() => { if (suggestions.length) place(); }); // the list grew or shrank, or just appeared
+  $effect(() => { if (rows) place(); }); // the list grew or shrank, or just appeared
 
   async function pick(c: ChoreTemplate) {
-    if (await send({ action: 'item_add', person, title: c.title, points: c.points, period: c.period, days: c.days, onceDate: c.onceDate })) { title = ''; active = -1; input?.focus(); } // the list stays open (minus what was just added), ready for the next one
+    if (await send({ action: 'item_add', person, title: c.title, points: c.points, period: c.period, days: c.days, onceDate: c.onceDate, everyWeeks: c.everyWeeks, weekAnchor: c.weekAnchor })) { title = ''; active = -1; input?.focus(); } // the list stays open (minus what was just added), ready for the next one
   }
   function keys(e: KeyboardEvent) {
     if (e.key === 'Escape') { focused = false; return; }
-    if (!suggestions.length) return;
+    if (!rows) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       focused = true;
-      active = (active + (e.key === 'ArrowDown' ? 1 : -1) + suggestions.length + 1) % (suggestions.length + 1) - 1;
-    } else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); const s = suggestions[active]; if (s) void pick(s); }
+      active = (active + (e.key === 'ArrowDown' ? 1 : -1) + rows + 1) % (rows + 1) - 1;
+    } else if (e.key === 'Enter' && active >= offset) { e.preventDefault(); const s = suggestions[active - offset]; if (s) void pick(s); }
   }
 
-  async function submit(e: SubmitEvent) {
+  function submit(e: SubmitEvent) {
     e.preventDefault();
+    void add();
+  }
+  async function add() {
     const t = title.trim();
     if (!t) return;
-    const schedule = once ? { days: null, onceDate: date } : { days: normalizeDays(days), onceDate: null };
+    const schedule = once ? { days: null, onceDate: date } : { days: normalizeDays(days), onceDate: null, everyWeeks: every, weekAnchor: every > 1 ? from : null };
     if (await send({ action: 'item_add', person, title: t, points: Number(points) || 0, period, ...schedule })) { title = ''; input?.focus(); }
   }
 </script>
 
 <form class="grid grid-cols-2 items-end gap-2 my-3 p-3 rounded-[var(--radius-sm)] border border-dashed border-line " onsubmit={submit}>
   <div class="col-span-2">
-    <input class="m-0" bind:this={input} bind:value={title} maxlength="80" placeholder="Add a chore" aria-label="New chore" autocomplete="off"
-      role="combobox" aria-expanded={suggestions.length > 0} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
+    <input class="m-0" bind:this={input} bind:value={title} maxlength="80" placeholder="Add a chore" aria-label="New chore" autocomplete="off" autocapitalize="sentences" enterkeyhint="done"
+      role="combobox" aria-expanded={rows > 0} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
       onfocus={() => (focused = true)} onblur={() => (focused = false)} oninput={() => { focused = true; active = -1; }} onkeydown={keys} />
-    {#if suggestions.length > 0}
+    {#if rows > 0}
       <ul bind:this={list} popover="manual" id={listId} role="listbox" aria-label="Chores already on other lists" class="m-0 p-1 list-none overflow-auto text-fg rounded-[var(--radius-sm)] border border-solid border-line bg-card shadow-[var(--shadow-md)] [inset:auto]">
-        {#each suggestions as c, i (c.title)}
+        {#if typed}
+          <!-- svelte-ignore a11y_click_events_have_key_events -- as below: keyboards use the input itself, where Enter adds the typed chore -->
+          <li id="{listId}-0" role="option" aria-selected={active === 0} class="flex items-center gap-2 px-2 py-2 rounded-[var(--radius-sm)] cursor-pointer pointer-coarse:min-h-11 {active === 0 ? 'bg-line' : ''}" onmousedown={(e) => e.preventDefault()} onclick={() => void add()}>
+            <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">Add “{typed}”<span class="note block text-[.85rem]">{PERIOD_LABEL[period]} · {describeSchedule(once ? { days: null, onceDate: date } : { days: normalizeDays(days), onceDate: null, everyWeeks: every })}</span></span>
+            <span class="text-[.9rem] [font-weight:650] tabular-nums">+{Number(points) || 0}</span>
+            <span class="text-[.85rem] text-accent">Add</span>
+          </li>
+        {/if}
+        {#each suggestions as c, j (c.title)}
+          {@const i = j + offset}
           <!-- svelte-ignore a11y_click_events_have_key_events -- keyboards pick through the input (arrows and Enter), as in any combobox; mousedown keeps it focused so its blur does not close the list before the click lands, and picking on click means scrolling by touch never adds a chore -->
           <li id="{listId}-{i}" role="option" aria-selected={i === active} class="flex items-baseline gap-2 px-2 py-2 rounded-[var(--radius-sm)] cursor-pointer pointer-coarse:min-h-11 {i === active ? 'bg-line' : ''}" onmousedown={(e) => e.preventDefault()} onclick={() => void pick(c)}>
             <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">{c.title}<span class="note block text-[.85rem]">{PERIOD_LABEL[c.period]} · {describeSchedule(c)}</span></span>
@@ -118,6 +137,6 @@
   </div>
   <Stepper caption="Points" bind:value={points} min={0} max={100} label="Points" />
   <label class="cap-field">Time of day <select class="m-0" bind:value={period} aria-label="Time of day">{#each PERIODS as p (p)}<option value={p}>{PERIOD_LABEL[p]}</option>{/each}</select></label>
-  <ScheduleFields class="col-span-2" bind:once bind:days bind:date />
+  <ScheduleFields class="col-span-2" {day} bind:once bind:days bind:date bind:every bind:from />
   <button class="small col-span-2 [&&&]:w-full" type="submit" disabled={busy || !title.trim()}>Add chore</button>
 </form>

@@ -1,5 +1,5 @@
 // Browser-safe: the chores components import this, so it must stay free of zod and other server-side code.
-import { formatDay, weekdayOf } from './dates';
+import { addDays, formatDay, parseKey, weekdayOf } from './dates';
 
 export type Period = 'morning' | 'afternoon' | 'evening' | 'any';
 export const PERIODS: readonly Period[] = ['morning', 'afternoon', 'evening', 'any'];
@@ -20,6 +20,10 @@ export interface ChoreItem {
   days: number | null;
   /** YYYY-MM-DD for a one-off chore. */
   onceDate: string | null;
+  /** 1 for every week, 2 for every other week, and so on up to MAX_EVERY_WEEKS. Always 1 for a one-off. */
+  everyWeeks: number;
+  /** The Sunday that starts the first week it is on, when `everyWeeks` is more than 1; otherwise null. */
+  weekAnchor: string | null;
   /** Whether it is on the schedule for `ChoreState.day`. */
   due: boolean;
   /** Whether a manager skipped it for `ChoreState.day`. It is then left out of the day's list, points and bonus. */
@@ -99,9 +103,27 @@ export interface ChoreState {
 
 export const hasDay = (days: number, weekday: number): boolean => ((days >> weekday) & 1) === 1;
 
-/** Whether a chore is on for `day`: its one-off date, or else its weekdays (null is every day). */
-export const itemDue = (s: { days: number | null; onceDate: string | null }, day: string): boolean =>
-  s.onceDate !== null ? s.onceDate === day : s.days === null || hasDay(s.days, weekdayOf(day));
+export const MAX_EVERY_WEEKS = 4;
+type Rotation = { everyWeeks?: number; weekAnchor?: string | null };
+
+/** The Sunday that starts the week `key` falls in (weeks run Sunday to Saturday, as the weekday buttons do). */
+export const weekStart = (key: string): string => addDays(key, -weekdayOf(key));
+
+/** Whole weeks from the week of `from` to the week of `to`; negative when `to` is earlier. */
+export function weeksApart(from: string, to: string): number {
+  const ms = (k: string) => { const { y, m, d } = parseKey(weekStart(k)); return Date.UTC(y, m - 1, d); };
+  return Math.round((ms(to) - ms(from)) / (7 * 86_400_000));
+}
+
+/** Whether `day` is in a week the chore is on: every week, or every Nth week counted from its anchor. */
+export const inRotation = (s: Rotation, day: string): boolean => {
+  const n = s.everyWeeks ?? 1;
+  return n <= 1 || !s.weekAnchor || (((weeksApart(s.weekAnchor, day) % n) + n) % n) === 0;
+};
+
+/** Whether a chore is on for `day`: its one-off date, or else its weekdays (null is every day) in the weeks it is on. */
+export const itemDue = (s: { days: number | null; onceDate: string | null } & Rotation, day: string): boolean =>
+  s.onceDate !== null ? s.onceDate === day : (s.days === null || hasDay(s.days, weekdayOf(day))) && inRotation(s, day);
 
 /** A one-off whose day is before `day`: finished with, unless it is moved to another date. */
 export const isPastOnce = (s: { onceDate: string | null }, day: string): boolean => s.onceDate !== null && s.onceDate < day;
@@ -119,13 +141,18 @@ export const ownerKey = (id: string | null): string => id ?? 'anyone';
 export const WEEKDAY_SHORT: readonly string[] = Array.from({ length: 7 }, (_, i) => formatDay(`2023-01-0${1 + i}`, { weekday: 'short' }));
 export const toggleDay = (days: number, weekday: number): number => days ^ (1 << weekday);
 
-/** "Every day", "Weekdays", "Mon, Wed", or the date for a one-off. `names` default to the seven short weekday names from Sunday. */
-export function describeSchedule(s: { days: number | null; onceDate: string | null }, names: readonly string[] = WEEKDAY_SHORT): string {
+/** "Every day", "Weekdays", "Mon, Wed", or the date for a one-off; with ", every other week" or ", every 3 weeks" when it skips weeks. `names` default to the seven short weekday names from Sunday. */
+export function describeSchedule(s: { days: number | null; onceDate: string | null } & Rotation, names: readonly string[] = WEEKDAY_SHORT): string {
   if (s.onceDate !== null) return `Once, ${s.onceDate}`;
-  if (s.days === null || s.days === EVERY_DAY) return 'Every day';
-  if (s.days === WEEKDAYS_MASK) return 'Weekdays';
-  if (s.days === WEEKENDS_MASK) return 'Weekends';
-  const { days } = s; // not null here: that case returned above
+  const n = s.everyWeeks ?? 1;
+  const base = describeDays(s.days, names);
+  return n > 1 ? `${base}, ${n === 2 ? 'every other week' : `every ${n} weeks`}` : base;
+}
+
+function describeDays(days: number | null, names: readonly string[]): string {
+  if (days === null || days === EVERY_DAY) return 'Every day';
+  if (days === WEEKDAYS_MASK) return 'Weekdays';
+  if (days === WEEKENDS_MASK) return 'Weekends';
   const picked = names.filter((_, i) => hasDay(days, i));
   return picked.length > 0 ? picked.join(', ') : 'Never';
 }
@@ -141,7 +168,7 @@ export const todaysRoutines = (routines: readonly Routine[]): Routine[] =>
   routines.map((r) => ({ ...r, items: r.items.filter(onToday) })).filter((r) => r.items.length > 0);
 
 /** A chore already set up for someone, offered again when adding one to another person's list. */
-export type ChoreTemplate = Pick<ChoreItem, 'title' | 'points' | 'period' | 'days' | 'onceDate'>;
+export type ChoreTemplate = Pick<ChoreItem, 'title' | 'points' | 'period' | 'days' | 'onceDate' | 'everyWeeks' | 'weekAnchor'>;
 
 /**
  * The chores in the household that could be added to `person`'s list: those on other lists (or earlier on none), matching `query`,
@@ -157,7 +184,7 @@ export function choreSuggestions(routines: readonly Routine[], person: string | 
       const t = i.title.toLowerCase();
       if (have.has(t) || (q && !t.includes(q)) || isPastOnce(i, day)) continue;
       have.add(t);
-      out.push({ title: i.title, points: i.points, period: i.period, days: i.days, onceDate: i.onceDate });
+      out.push({ title: i.title, points: i.points, period: i.period, days: i.days, onceDate: i.onceDate, everyWeeks: i.everyWeeks, weekAnchor: i.weekAnchor });
     }
   }
   // Titles starting with the query read as the better match, then alphabetical.

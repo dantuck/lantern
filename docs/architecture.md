@@ -42,7 +42,8 @@ Every request goes through `src/middleware.ts`, in this order:
    `locals.session` and `locals.disabled` (the features a manager has switched off) on the request.
 5. **Default deny.** A path that is not in the public list (`src/lib/http.ts`) needs a session. Signed out, `/api/*` gets
    `401`, `/` goes to `/welcome`, and everything else goes to `/login`.
-6. **Roles.** `/admin` and `/chores/manage` need the `manager` role. Pages and endpoints check again themselves.
+6. **Roles.** `/admin` needs the `manager` role. `/chores/manage` also admits a member's device a manager has unlocked
+   (`locals.elevation`, `isManager`); `isAdmin` is the manager-only check for account-level things. Pages and endpoints check again themselves.
 7. **Security headers** are added to the response (CSP, HSTS, `nosniff`, `Referrer-Policy: same-origin`, and so on).
    Responses are `Cache-Control: no-store` unless a route says otherwise.
 
@@ -74,9 +75,11 @@ files the browser needs before it has signed in (manifest, service worker, offli
 | `/` | signed in | Dashboard: a card per enabled widget, then Chores and Lists. |
 | `/p/<id>` | signed in | A widget's full page (the calendar's Day, Week, Month and Agenda views live here). |
 | `/chores`, `/chores/<person>` | signed in | Everyone's routines; one person's routine, points, rewards and screen time. |
-| `/chores/manage` | manager | Edit chores, bonuses, rewards, goals and approve requests. |
+| `/chores/manage` | manager | Edit chores, bonuses, rewards, goals. |
+| `/inbox` | manager | Approve or deny reward requests, and read the activity feed (`inbox`, `inbox_seen`). |
 | `/lists` | signed in | Shared lists. |
 | `/devices` | signed in | Your own signed-in devices. |
+| `/elevate` | signed in | A member's device asks for manager access and shows the code; a manager enters it to approve. `/elevate/status` is polled while waiting. |
 | `/admin` | manager | Members, invites, people, features, notifications, all devices, audit log. |
 | `/login`, `/auth/*` | public | Request a link, open it, confirm, enter a code, join by invite, sign out. |
 | `/welcome`, `/demo/*` | public | The product page for signed-out visitors, and the sample-data demo. |
@@ -84,7 +87,7 @@ files the browser needs before it has signed in (manifest, service worker, offli
 | `/api/lists` | signed in | Lists (GET) and actions (POST). |
 | `/api/push` | signed in | Whether alerts are on (GET), and device sign-up (POST). Manager actions return `403` otherwise. |
 | `/api/plugins/<id>/data` | signed in | A plugin's loader result as JSON. GET only. |
-| `/admin/action`, `/devices/action` | manager / signed in | Form posts that redirect back with a fixed message code. |
+| `/admin/action`, `/devices/action`, `/elevate/action` | manager / signed in | Form posts that redirect back with a fixed message code. |
 
 JSON endpoints take a discriminated union of actions, validated with zod and read with a hard byte cap
 (`readJson` in `src/lib/http.ts`). They answer with the new state, so the page updates without a reload.
@@ -96,7 +99,7 @@ id and the row in `people` can be renamed freely.
 
 | Area | Tables | Notes |
 |---|---|---|
-| Access | `users`, `invites`, `login_tokens`, `sessions`, `rate_limits`, `audit_log` | Tokens, codes and session ids are stored as SHA-256 digests only. |
+| Access | `users`, `invites`, `login_tokens`, `sessions` (with `elevated_by`/`elevated_until`), `elevation_requests`, `rate_limits`, `audit_log` | Tokens, codes and session ids are stored as SHA-256 digests only. |
 | People | `people` | Managed on the Admin page. While empty, the `people` list in `dashboard.config.ts` is used. |
 | Chores | `chore_lists` (one row per person, plus "Anyone"), `chore_items`, `chore_checks`, `chore_skips`, `chore_bonus` | A chore carries its own time of day, weekdays and optional one-off date. Ticks are one row per chore per day. |
 | Points | `reward_ledger`, `rewards`, `reward_people`, `redemptions`, `goals` | A person's balance is the sum of ledger `delta`. Automatic entries are idempotent through a unique `(kind, ref)`. A goal's progress is computed from the ledger, not stored. |

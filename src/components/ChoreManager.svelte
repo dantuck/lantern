@@ -6,7 +6,7 @@
   import ConfirmButton from './ConfirmButton.svelte';
   import Stepper from './Stepper.svelte';
   import { toggleIn } from '../lib/arrays';
-  import { formatWhen, LEDGER_LABEL, ownerKey, periodRecord, ptsLabel, type ChoreItem, type ChoreState, type LedgerEntry, type Reward } from '../lib/choreTypes';
+  import { LEDGER_LABEL, ownerKey, periodRecord, ptsLabel, type ChoreItem, type ChoreState, type LedgerEntry, type Reward } from '../lib/choreTypes';
   import { chorePipe } from '../lib/chorePipe.svelte';
   import type { Person } from '../lib/people';
 
@@ -168,32 +168,6 @@
 {#if error}<p class="notice error sticky top-2 z-30" role="alert">{error}</p>{/if}
 {#key pipe.saved}{#if pipe.saved > 0 && !error}<p class="notice toast" role="status">Saved</p>{/if}{/key}
 
-{#if choreState.pending.length > 0}
-  <section class="card" aria-labelledby="pending-h">
-    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-      <h2 class="m-0" id="pending-h">Waiting for approval <span class="inline-block min-w-[1.4rem] px-[.45rem] rounded-full bg-accent text-white text-[.85rem] font-semibold text-center align-middle">{choreState.pending.length}</span></h2>
-      {#if choreState.pending.length > 1}<button type="button" class="small" disabled={busy} onclick={() => send({ action: 'decide_all' })}>Approve all that can be afforded</button>{/if}
-    </div>
-    <ul class="list-none m-0 p-0 grid gap-x-3 min-[40rem]:grid-cols-2 min-[64rem]:grid-cols-3">
-      {#each choreState.pending as r (r.id)}
-        {@const left = (choreState.balances[r.person] ?? 0) - r.cost}
-        {@const who = people.find((p) => p.id === r.person)}
-        <li class="edit-card" style:--c={who?.color ?? 'var(--muted)'}>
-          <div><strong class="text-[color:var(--c)]">{nameOf(r.person)}</strong> <span class="note">asked for</span> <strong class="break-words">{r.rewardName}</strong></div>
-          <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span class="pill"><span aria-hidden="true">★</span> {ptsLabel(r.cost)}</span>
-            {#if r.minutes > 0}<span class="pill"><span aria-hidden="true">⏱</span> +{r.minutes} min<span class="sr-only"> of screen time</span></span>{/if}
-          </div>
-          <div class="note">{#if left < 0}<span class="text-danger">Not enough points now</span>{:else}{left} left after{/if} · {formatWhen(r.requestedAt)}</div>
-          <div class="flex justify-end gap-2">
-            <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'decide', id: r.id, approve: false })}>Deny</button>
-            <button type="button" class="small" disabled={busy || left < 0} onclick={() => send({ action: 'decide', id: r.id, approve: true })}>Approve</button>
-          </div>
-        </li>
-      {/each}
-    </ul>
-  </section>
-{/if}
 
 <nav class="sticky top-0 z-20 pt-2 pb-2 bg-bg" aria-label="Manage sections">
   <div class="seg-group w-full max-[40rem]:flex min-[40rem]:w-auto">
@@ -350,7 +324,7 @@
     <h2 class="m-0">Rewards</h2>
     <button type="button" id="add-reward" class="small" aria-expanded={adding === 'reward'} onclick={() => (adding = adding === 'reward' ? null : 'reward')}>+ Add reward</button>
   </div>
-  {@render help('rewards', 'What points can be spent on. Anyone can ask for a reward they can afford, unless you limit it to certain people, in which case only they see it; nothing is deducted until you approve it, in the waiting list at the top of this page (or on the Chores page).')}
+  {@render help('rewards', 'What points can be spent on. Anyone can ask for a reward they can afford, unless you limit it to certain people, in which case only they see it; nothing is deducted until you approve it, in the inbox.')}
   {#if adding === 'reward'}
     <Panel title="Add a reward" onclose={() => closeAdd('reward')}>{@render rewardForm()}</Panel>
   {/if}

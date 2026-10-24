@@ -10,7 +10,7 @@
   import Confetti from './Confetti.svelte';
   import type { Person } from '../lib/people';
 
-  let { initial, people, intro = '', demo = false, manageHref = '/chores/manage', personBase = '/chores' }: { initial: ChoreState; people: Person[]; intro?: string; demo?: boolean; manageHref?: string; personBase?: string } = $props();
+  let { initial, people, intro = '', demo = false, manageHref = '/chores/manage', inboxHref = '/inbox', personBase = '/chores' }: { initial: ChoreState; people: Person[]; intro?: string; demo?: boolean; manageHref?: string; inboxHref?: string; personBase?: string } = $props();
 
   // Rendered once from the server, then replaced by whatever the API answers after each change.
   // svelte-ignore state_referenced_locally
@@ -115,11 +115,13 @@
     {#if intro}<p class="m-0 text-muted">{intro}</p>{/if}
   </div>
   {#if choreState.manager}
-    <a class="inline-flex items-center gap-[.55rem] py-[.45rem] px-4 rounded-full bg-accent text-accent-fg [font-weight:650] no-underline shadow-[var(--shadow-sm)] hover:brightness-[1.08] [&_svg]:size-5 [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:2] [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]" href={manageHref} title="Create routines, set what chores are worth, and approve rewards.">
+    <div class="flex flex-wrap items-center gap-2">
+    {#if choreState.pending.length > 0}<a class="inline-flex items-center gap-2 py-[.45rem] px-4 rounded-full border border-accent text-accent [font-weight:650] no-underline" href={inboxHref}>Inbox <span class="count-badge font-semibold bg-accent text-white" aria-label={`${choreState.pending.length} waiting for approval`}>{choreState.pending.length}</span></a>{/if}
+    <a class="inline-flex items-center gap-[.55rem] py-[.45rem] px-4 rounded-full bg-accent text-accent-fg [font-weight:650] no-underline shadow-[var(--shadow-sm)] hover:brightness-[1.08] [&_svg]:size-5 [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:[stroke-width:2] [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]" href={manageHref} title="Create routines and set what chores and rewards are worth.">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
       Manage
-      {#if choreState.pending.length > 0}<span class="count-badge font-semibold bg-white text-accent" aria-label={`${choreState.pending.length} waiting for approval`}>{choreState.pending.length}</span>{/if}
     </a>
+    </div>
   {/if}
 </header>
 
@@ -263,10 +265,7 @@
           {#each pendingFor(who.id) as r (r.id)}
             <div class="flex flex-wrap items-center gap-x-[.6rem] gap-y-[.4rem] py-2">
               <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.05rem] font-medium">{r.rewardName} <span class="text-muted text-[.88rem] font-normal">({pts(r.cost)}{r.minutes > 0 ? `, ${mins(r.minutes)}` : ''}), waiting</span></span>
-              {#if choreState.manager}
-                <button type="button" class="small" disabled={busy} onclick={() => send({ action: 'decide', id: r.id, approve: true })}>Approve</button>
-                <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'decide', id: r.id, approve: false })}>Deny</button>
-              {/if}
+              {#if choreState.manager}<a class="small" href={inboxHref}>Review in inbox</a>{/if}
             </div>
           {/each}
           <ul class="list-none m-0 p-0">

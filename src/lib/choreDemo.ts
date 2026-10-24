@@ -1,5 +1,5 @@
 // Browser-safe. The demo has no database, so this applies the same actions as /api/chores to a copy of the state held in the page.
-import { allowanceFor, allowanceLeft, isSound, itemDue, onToday, periodRecord, PERIODS, type ChoreState, type Period } from './choreTypes';
+import { allowanceFor, allowanceLeft, isSound, itemDue, onToday, periodRecord, PERIODS, weekStart, type ChoreState, type Period } from './choreTypes';
 
 let seq = 0;
 /** Where each demo timer's minutes came from, so stopping one early can give them back the way the server does. */
@@ -117,7 +117,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
     case 'item_add':
     case 'items_add':
       for (const i of p.action === 'items_add' ? p.items : [p]) {
-        routineOf(i.person ?? null).items.push({ id: uid('c'), title: i.title, points: i.points, done: false, period: i.period, days: i.onceDate ? null : i.days ?? null, onceDate: i.onceDate ?? null, due: false, skipped: false });
+        routineOf(i.person ?? null).items.push({ id: uid('c'), title: i.title, points: i.points, done: false, period: i.period, days: i.onceDate ? null : i.days ?? null, onceDate: i.onceDate ?? null, everyWeeks: i.onceDate ? 1 : i.everyWeeks ?? 1, weekAnchor: !i.onceDate && (i.everyWeeks ?? 1) > 1 ? weekStart(i.weekAnchor ?? s.day) : null, due: false, skipped: false });
       }
       refresh();
       break;
@@ -128,7 +128,10 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
         if (p.period !== undefined) i.period = p.period;
         if (p.days !== undefined) i.days = p.days;
         if (p.onceDate !== undefined) i.onceDate = p.onceDate;
-        if (i.onceDate !== null) i.days = null;
+        if (p.everyWeeks !== undefined) i.everyWeeks = p.everyWeeks;
+        if (p.weekAnchor !== undefined) i.weekAnchor = p.weekAnchor;
+        if (i.onceDate !== null) { i.days = null; i.everyWeeks = 1; }
+        if (i.everyWeeks > 1) i.weekAnchor = weekStart(i.weekAnchor ?? s.day); else i.weekAnchor = null;
       }
       refresh();
       break;

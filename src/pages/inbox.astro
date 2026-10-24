@@ -1,0 +1,28 @@
+---
+import { env } from 'cloudflare:workers';
+import Base from '../layouts/Base.astro';
+import Inbox from '../components/Inbox.svelte';
+import { choreState } from '../lib/chores';
+import { dayKey } from '../lib/dates';
+import { householdZone } from '../lib/household';
+import { loadPeople } from '../lib/peopleStore';
+import { isOn } from '../lib/features';
+import { isManager, managerActor } from '../lib/http';
+import { listInbox, markSeen, seenAt } from '../lib/inbox';
+
+// Middleware already limits this path to managers (requiredRole in src/lib/http.ts); check again so the page is safe on its own.
+if (!isManager(Astro.locals)) return new Response('Forbidden', { status: 403 });
+const me = managerActor(Astro.locals)!;
+const chores = isOn(Astro.locals.disabled, 'chores');
+
+const [state, people, entries, seen] = await Promise.all([
+  chores ? choreState(env.DB, dayKey(Date.now(), householdZone), true) : null,
+  loadPeople(env.DB), listInbox(env.DB), seenAt(env.DB, me.id),
+]);
+// Opening the inbox is what reads it. The "New" marks use the time it was last opened, taken above.
+await markSeen(env.DB, me.id);
+---
+<Base title="Inbox" wide>
+  <h1>Inbox</h1>
+  {state ? <Inbox client:load initial={state} people={people} entries={entries} seenAt={seen} /> : <p class="note">Chores are switched off, so there is nothing to approve.</p>}
+</Base>

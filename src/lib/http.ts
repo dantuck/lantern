@@ -1,3 +1,5 @@
+import type { User } from './auth/users';
+
 const PUBLIC_EXACT = new Set([
   '/welcome', '/demo', '/theme-init.js', '/login', '/auth/request', '/auth/verify', '/auth/confirm', '/auth/code',
   '/auth/invite', '/auth/invite/confirm',
@@ -52,10 +54,16 @@ export const json = (data: unknown, status = 200) =>
 
 export const clientIp = (request: Request) => request.headers.get('cf-connecting-ip') ?? 'unknown';
 
-/** Role a canonical path demands beyond being signed in. Enforced in middleware so new admin pages can't forget it. */
-const MANAGER_PATHS = ['/admin', '/chores/manage'];
-export function requiredRole(path: string): 'manager' | null {
-  return MANAGER_PATHS.some((p) => path === p || path.startsWith(`${p}/`)) ? 'manager' : null;
+/**
+ * What a canonical path demands beyond being signed in. Enforced in middleware so new manager pages can't forget it.
+ * 'admin' is a manager signed in as themselves (people, invites, devices); 'manager' also admits a member's device that a
+ * manager has temporarily unlocked (see src/lib/auth/elevation.ts).
+ */
+const ADMIN_PATHS = ['/admin'];
+const MANAGER_PATHS = ['/chores/manage', '/inbox'];
+const under = (paths: string[], path: string) => paths.some((p) => path === p || path.startsWith(`${p}/`));
+export function requiredRole(path: string): 'admin' | 'manager' | null {
+  return under(ADMIN_PATHS, path) ? 'admin' : under(MANAGER_PATHS, path) ? 'manager' : null;
 }
 
 /**
@@ -75,8 +83,17 @@ export function canonicalPath(pathname: string): string {
   return path;
 }
 
-/** Whether the signed-in user is a manager. Pages and APIs that vary by role use this one check. */
-export const isManager = (locals: { user?: { role: string } | undefined }): boolean => locals.user?.role === 'manager';
+type RoleLocals = { user?: { role: string } | undefined; elevation?: unknown };
+
+/** Whether this request may manage the dashboard (chores, rewards, points): a manager, or a member's device a manager has unlocked. */
+export const isManager = (locals: RoleLocals): boolean => locals.user?.role === 'manager' || !!locals.elevation;
+
+/** Whether the signed-in user is a manager themselves. Account-level pages (people, invites, devices, alerts) use this, never `isManager`. */
+export const isAdmin = (locals: RoleLocals): boolean => locals.user?.role === 'manager';
+
+/** The manager responsible for this request's manager actions: the user, or the manager who unlocked this device. */
+export const managerActor = (locals: { user?: User | undefined; elevation?: { by: User } | null | undefined }): User | undefined =>
+  locals.user?.role === 'manager' ? locals.user : locals.elevation?.by;
 
 /**
  * Reads a request body with a hard byte cap, returning null if it is exceeded. Content-Length is only a hint

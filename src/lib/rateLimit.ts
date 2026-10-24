@@ -12,6 +12,9 @@ export const LIMITS = {
   invite: { max: 20, windowMs: DAY },
   codeIp: { max: 20, windowMs: 15 * MINUTE },
   confirmIp: { max: 20, windowMs: 15 * MINUTE },
+  // Per device asking, and per manager approving, so a code cannot be ground through.
+  elevateRequest: { max: 10, windowMs: 15 * MINUTE },
+  elevateApprove: { max: 10, windowMs: 15 * MINUTE },
   inviteLinkIp: { max: 20, windowMs: 15 * MINUTE },
 } satisfies Record<string, Limit>;
 
