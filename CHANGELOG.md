@@ -7,6 +7,14 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.18.0](https://github.com/dantuck/lantern/compare/v0.17.1...v0.18.0) (2026-10-25)
+
+
+### Added
+
+* **manage:** overview landing page, chore planner and add-chore drawer ([2237cc2](https://github.com/dantuck/lantern/commit/2237cc2b6a85d1b23aefe599da3e3871a2bc759b))
+* **rewards:** spend points on instant screen time, with per-section locks and renamable times of day ([5abd94c](https://github.com/dantuck/lantern/commit/5abd94c5bd427c65e9f539991258e3ee2b129ebc))
+
 ## [0.17.1](https://github.com/dantuck/lantern/compare/v0.17.0...v0.17.1) (2026-10-24)
 
 
