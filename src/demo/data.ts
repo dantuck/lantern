@@ -1,6 +1,6 @@
 // Fixture data for /demo. Everything here is invented; nothing is fetched, stored, or tied to a real household.
 // Dates are relative to "now" so the demo always looks current. The demo runs in UTC so "today" matches its clock times.
-import { allowanceFor, periodRecord } from '../lib/choreTypes';
+import { allowanceFor, PERIOD_LABEL, periodRecord } from '../lib/choreTypes';
 import { DAY_MS, addDays, dayKey, startOfDayMs } from '../lib/dates';
 import type { CalEvent, CalendarData } from '../plugins/calendar/types';
 import type { WeatherData } from '../plugins/calendar/weatherView';
@@ -178,7 +178,7 @@ export function demoChores(now = Date.now()): import('../lib/choreTypes').ChoreS
   const balances: Record<string, number> = { agnes: 14, margo: 31, edith: 8, gru: 3, minions: 22 };
   for (const r of routines) if (r.person) for (const i of r.items) if (i.done) balances[r.person] = (balances[r.person] ?? 0) + i.points;
   return {
-    day, manager: true, routines, balances, minutes: { agnes: 45, margo: 20, minions: 15 }, now, timers: {}, sounds: { agnes: 'bubbles' },
+    day, manager: true, periodLabels: { ...PERIOD_LABEL }, routines, balances, minutes: { agnes: 45, margo: 20, minions: 15 }, now, timers: {}, sounds: { agnes: 'bubbles' },
     allowance: {
       agnes: { weekday: 60, weekend: 90, today: allowanceFor(day, 60, 90), used: 20 },
       margo: { weekday: 45, weekend: null, today: 45, used: 0 },
@@ -193,7 +193,7 @@ export function demoChores(now = Date.now()): import('../lib/choreTypes').ChoreS
       { id: 'g1', name: 'Family movie night out', target: 150, progress: 96, claimed: false },
       { id: 'g2', name: 'Pizza Friday', target: 60, progress: 60, claimed: false },
     ],
-    pending: [{ id: 'req1', person: 'margo', rewardName: 'Extra screen time', cost: 20, minutes: 30, requestedAt: now - 20 * 60_000 }],
+    pending: [{ id: 'req1', person: 'margo', rewardName: 'Pick the movie', cost: 10, minutes: 0, requestedAt: now - 20 * 60_000 }],
     recent: [
       { id: 'e1', person: 'margo', delta: 2, kind: 'chore', note: 'Walk the dog', at: now - 60 * 60_000 },
       { id: 'e2', person: 'minions', delta: 1, kind: 'chore', note: 'Peel the bananas', at: now - 2 * 60 * 60_000 },

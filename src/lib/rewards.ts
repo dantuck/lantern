@@ -1,5 +1,7 @@
 import { audit, type User } from './auth/users';
-import { allowanceFor, isSound, type Allowance, type ChoreState, type Goal, type LedgerEntry, type Redemption, type Reward, type Sound, type Timer } from './choreTypes';
+import { dayKey } from './dates';
+import { householdZone } from './household';
+import { allowanceFor, isSound, itemDue, lockedPoints, type Allowance, type ChoreState, type Goal, type LedgerEntry, type Period, type Redemption, type Reward, type Sound, type Timer } from './choreTypes';
 
 export const MAX_REWARDS = 40;
 export const MAX_GOALS = 20;
@@ -18,6 +20,21 @@ async function sumFor(db: D1Database, table: 'reward_ledger' | 'screentime_ledge
 }
 
 export const balanceOf = (db: D1Database, person: string): Promise<number> => sumFor(db, 'reward_ledger', person);
+
+/** The points held back on `day` by times of day a person has not finished (see `lockedPoints`). */
+export async function lockedFor(db: D1Database, person: string, day: string): Promise<number> {
+  const { results } = await db
+    .prepare(`SELECT i.points, i.period, i.days, i.once_date, i.every_weeks, i.week_anchor, c.item_id IS NOT NULL AS done, s.item_id IS NOT NULL AS skipped
+      FROM chore_items i JOIN chore_lists l ON l.id = i.list_id
+      LEFT JOIN chore_checks c ON c.item_id = i.id AND c.day = ? LEFT JOIN chore_skips s ON s.item_id = i.id AND s.day = ?
+      WHERE l.person = ?`)
+    .bind(day, day, person)
+    .all<{ points: number; period: Period; days: number | null; once_date: string | null; every_weeks: number; week_anchor: string | null; done: number; skipped: number }>();
+  return lockedPoints(results.map((r) => ({
+    period: r.period, points: r.points, done: r.done === 1, skipped: r.skipped === 1,
+    due: itemDue({ days: r.days, onceDate: r.once_date, everyWeeks: r.every_weeks, weekAnchor: r.week_anchor }, day),
+  })));
+}
 
 export async function rewardState(db: D1Database, day: string, now = Date.now()): Promise<Pick<ChoreState, 'rewards' | 'goals' | 'balances' | 'minutes' | 'allowance' | 'now' | 'timers' | 'sounds' | 'pending' | 'recent'>> {
   const [rows, links, ledger, pendingRows, recentRows, goalRows, bankRows, allowanceRows, usedRows, timerRows, soundRows] = await Promise.all([
@@ -87,10 +104,14 @@ export async function removeReward(db: D1Database, id: string): Promise<boolean>
   return (r.meta.changes ?? 0) > 0;
 }
 
-/** Asks to spend points. Nothing is deducted until a manager approves; points already promised to other requests do not count twice. */
+/**
+ * Asks to spend points. Points a time of day is still holding back (see `lockedPoints`) cannot be spent, nor can points already
+ * promised to other requests. Screen time is granted at once, within the points, with nothing for a manager to approve; any other
+ * reward waits for a manager, and nothing is deducted until they approve it.
+ */
 export async function requestRedemption(
-  db: D1Database, person: string, rewardId: string, now = Date.now(),
-): Promise<'ok' | 'not_found' | 'not_eligible' | 'insufficient' | 'limit'> {
+  db: D1Database, person: string, rewardId: string, now = Date.now(), day = dayKey(now, householdZone),
+): Promise<'ok' | 'not_found' | 'not_eligible' | 'insufficient' | 'locked' | 'limit'> {
   const reward = await db.prepare('SELECT name, cost, minutes, scoped, hidden FROM rewards WHERE id = ?').bind(rewardId).first<{ name: string; cost: number; minutes: number; scoped: number; hidden: number }>();
   if (!reward || reward.hidden) return 'not_found';
   if (reward.scoped) {
@@ -100,30 +121,28 @@ export async function requestRedemption(
       .first();
     if (!mine) return 'not_eligible';
   }
-  const open = await db
-    .prepare("SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN person = ? THEN cost END), 0) AS mine FROM redemptions WHERE status = 'pending'")
-    .bind(person)
-    .first<{ n: number; mine: number }>();
-  if ((open?.n ?? 0) >= MAX_PENDING) return 'limit';
-  if ((await balanceOf(db, person)) - (open?.mine ?? 0) < reward.cost) return 'insufficient';
+  const instant = reward.minutes > 0;
+  const [open, points, held] = await Promise.all([
+    db.prepare("SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN person = ? THEN cost END), 0) AS mine FROM redemptions WHERE status = 'pending'").bind(person).first<{ n: number; mine: number }>(),
+    balanceOf(db, person),
+    lockedFor(db, person, day),
+  ]);
+  if (!instant && (open?.n ?? 0) >= MAX_PENDING) return 'limit';
+  const balance = points - (open?.mine ?? 0);
+  if (balance < reward.cost) return 'insufficient';
+  if (balance - held < reward.cost) return 'locked';
+  const id = crypto.randomUUID();
   await db
     .prepare('INSERT INTO redemptions (id, person, reward_name, cost, minutes, requested_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(crypto.randomUUID(), person, reward.name, reward.cost, reward.minutes, now)
+    .bind(id, person, reward.name, reward.cost, reward.minutes, now)
     .run();
+  if (instant) await settle(db, id, { person, reward_name: reward.name, cost: reward.cost, minutes: reward.minutes }, true, now);
   return 'ok';
 }
 
-/** A manager approves (deducting the points) or denies a request. Safe to repeat: only a pending request can be decided. */
-export async function decideRedemption(
-  db: D1Database, manager: User, id: string, approve: boolean, now = Date.now(),
-): Promise<'ok' | 'not_found' | 'insufficient'> {
-  const r = await db
-    .prepare("SELECT person, reward_name, cost, minutes FROM redemptions WHERE id = ? AND status = 'pending'")
-    .bind(id)
-    .first<{ person: string; reward_name: string; cost: number; minutes: number }>();
-  if (!r) return 'not_found';
+/** Pays out a pending request (points off, minutes on; a retry cannot do it twice) and marks it decided. */
+async function settle(db: D1Database, id: string, r: { person: string; reward_name: string; cost: number; minutes: number }, approve: boolean, now: number): Promise<void> {
   if (approve) {
-    if ((await balanceOf(db, r.person)) < r.cost) return 'insufficient';
     // The unique (kind, ref) key means a retry after a failure cannot deduct twice.
     await db
       .prepare("INSERT INTO reward_ledger (id, person, delta, kind, ref, note, at) VALUES (?, ?, ?, 'redeem', ?, ?, ?) ON CONFLICT (kind, ref) DO NOTHING")
@@ -137,6 +156,19 @@ export async function decideRedemption(
     }
   }
   await db.prepare("UPDATE redemptions SET status = ?, decided_at = ? WHERE id = ? AND status = 'pending'").bind(approve ? 'approved' : 'denied', now, id).run();
+}
+
+/** A manager approves (deducting the points) or denies a request. Safe to repeat: only a pending request can be decided. */
+export async function decideRedemption(
+  db: D1Database, manager: User, id: string, approve: boolean, now = Date.now(),
+): Promise<'ok' | 'not_found' | 'insufficient'> {
+  const r = await db
+    .prepare("SELECT person, reward_name, cost, minutes FROM redemptions WHERE id = ? AND status = 'pending'")
+    .bind(id)
+    .first<{ person: string; reward_name: string; cost: number; minutes: number }>();
+  if (!r) return 'not_found';
+  if (approve && (await balanceOf(db, r.person)) < r.cost) return 'insufficient';
+  await settle(db, id, r, approve, now);
   await audit(db, manager.id, approve ? 'reward.approved' : 'reward.denied', { person: r.person, reward: r.reward_name, cost: r.cost, minutes: r.minutes }, now);
   return 'ok';
 }

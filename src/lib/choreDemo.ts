@@ -1,5 +1,5 @@
 // Browser-safe. The demo has no database, so this applies the same actions as /api/chores to a copy of the state held in the page.
-import { allowanceFor, allowanceLeft, isSound, itemDue, onToday, periodRecord, PERIODS, weekStart, type ChoreState, type Period } from './choreTypes';
+import { allowanceFor, allowanceLeft, isPeriod, isSound, itemDue, MAX_PERIOD_LABEL, onToday, PERIOD_LABEL, periodRecord, spendable, weekStart, type ChoreState, type Period } from './choreTypes';
 
 let seq = 0;
 /** Where each demo timer's minutes came from, so stopping one early can give them back the way the server does. */
@@ -60,7 +60,10 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
     }
     case 'redeem': {
       const r = s.rewards.find((x) => x.id === p.rewardId);
-      if (r && !r.hidden) s.pending.push({ id: uid('req'), person: p.person, rewardName: r.name, cost: r.cost, minutes: r.minutes, requestedAt: now });
+      // Like the server: only unlocked points count, and screen time is granted at once while anything else waits for a manager.
+      if (!r || r.hidden || spendable(s, p.person) < r.cost) break;
+      if (r.minutes > 0) { log(p.person, -r.cost, 'redeem', r.name); s.minutes[p.person] = (s.minutes[p.person] ?? 0) + r.minutes; }
+      else s.pending.push({ id: uid('req'), person: p.person, rewardName: r.name, cost: r.cost, minutes: r.minutes, requestedAt: now });
       break;
     }
     case 'use_time': {
@@ -89,6 +92,12 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
       if (a) a.used = Math.max(0, a.used - toAllowance);
       break;
     }
+    case 'period_labels_set':
+      for (const [k, v] of Object.entries(p.labels ?? {})) {
+        const label = String(v).trim().slice(0, MAX_PERIOD_LABEL);
+        if (isPeriod(k)) s.periodLabels[k] = label || PERIOD_LABEL[k];
+      }
+      break;
     case 'sound_set': if (isSound(p.sound)) s.sounds[p.person] = p.sound; break;
     case 'allowance_set':
       if (p.weekday <= 0 && (p.weekend === null || p.weekend <= 0)) delete s.allowance[p.person];
@@ -136,7 +145,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
       refresh();
       break;
     case 'item_remove': for (const r of s.routines) r.items = r.items.filter((i) => i.id !== p.id); break;
-    case 'bonus_set': if (PERIODS.includes(p.period)) routineOf(p.person).bonuses[p.period as Period] = p.bonus; break;
+    case 'bonus_set': if (isPeriod(p.period)) routineOf(p.person).bonuses[p.period as Period] = p.bonus; break;
     case 'reward_save': {
       const r = p.id ? s.rewards.find((x) => x.id === p.id) : undefined;
       if (r) { r.name = p.name; r.cost = p.cost; if (p.minutes !== undefined) r.minutes = p.minutes; if (p.people !== undefined) r.people = p.people; if (p.hidden !== undefined) r.hidden = p.hidden; }

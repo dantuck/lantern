@@ -1,6 +1,6 @@
 import { addDays, dayKey, weekdayOf } from './dates';
 import { householdZone } from './household';
-import { itemDue, MAX_EVERY_WEEKS, periodRecord, PERIODS, weekStart, type ChoreState, type Period, type Routine } from './choreTypes';
+import { isPeriod, itemDue, MAX_EVERY_WEEKS, MAX_PERIOD_LABEL, PERIOD_LABEL, periodRecord, PERIODS, weekStart, type ChoreState, type Period, type Routine } from './choreTypes';
 import { rewardState } from './rewards';
 
 export const MAX_ITEMS_PER_ROUTINE = 60;
@@ -14,15 +14,18 @@ interface ItemRow { id: string; list_id: string; title: string; points: number; 
 
 export async function choreState(db: D1Database, day: string, manager: boolean, now = Date.now()): Promise<ChoreState> {
   // Independent reads, so they go out together rather than one round-trip after another.
-  const [routineRows, itemRows, checkRows, skipRows, paidRows, bonusRows, rewards] = await Promise.all([
+  const [routineRows, itemRows, checkRows, skipRows, paidRows, bonusRows, labelRows, rewards] = await Promise.all([
     db.prepare('SELECT id, person FROM chore_lists ORDER BY created_at, id').all<RoutineRow>(),
     db.prepare('SELECT id, list_id, title, points, period, days, once_date, every_weeks, week_anchor FROM chore_items ORDER BY created_at, id').all<ItemRow>(),
     db.prepare('SELECT item_id FROM chore_checks WHERE day = ?').bind(day).all<{ item_id: string }>(),
     db.prepare('SELECT item_id FROM chore_skips WHERE day = ?').bind(day).all<{ item_id: string }>(),
     db.prepare("SELECT ref FROM reward_ledger WHERE kind = 'bonus' AND ref LIKE ?").bind(`%:${day}`).all<{ ref: string }>(),
     db.prepare('SELECT person, period, bonus FROM chore_bonus').all<{ person: string; period: Period; bonus: number }>(),
+    db.prepare('SELECT period, label FROM period_labels').all<{ period: Period; label: string }>(),
     rewardState(db, day, now),
   ]);
+  const periodLabels = { ...PERIOD_LABEL };
+  for (const l of labelRows.results) if (l.period in periodLabels) periodLabels[l.period] = l.label;
   const done = new Set(checkRows.results.map((r) => r.item_id));
   const skipped = new Set(skipRows.results.map((r) => r.item_id));
   const paid = new Set(paidRows.results.map((r) => r.ref));
@@ -49,7 +52,7 @@ export async function choreState(db: D1Database, day: string, manager: boolean, 
       })),
     };
   });
-  return { day, manager, routines, ...rewards };
+  return { day, manager, periodLabels, routines, ...rewards };
 }
 
 /** The routine row for a person (or null for "Anyone"), created the first time they are given a chore. */
@@ -122,6 +125,18 @@ export async function removeItem(db: D1Database, id: string): Promise<boolean> {
 export async function setBonus(db: D1Database, person: string, period: Period, bonus: number): Promise<void> {
   if (bonus <= 0) await db.prepare('DELETE FROM chore_bonus WHERE person = ? AND period = ?').bind(person, period).run();
   else await db.prepare('INSERT INTO chore_bonus (person, period, bonus) VALUES (?, ?, ?) ON CONFLICT (person, period) DO UPDATE SET bonus = excluded.bonus').bind(person, period, bonus).run();
+}
+
+/** Renames times of day. A name left blank, or the built-in one, goes back to the default. */
+export async function setPeriodLabels(db: D1Database, labels: Partial<Record<Period, string>>): Promise<'ok' | 'bad_request'> {
+  for (const [period, raw] of Object.entries(labels)) {
+    if (!isPeriod(period)) return 'bad_request';
+    const label = raw.trim();
+    if (label.length > MAX_PERIOD_LABEL) return 'bad_request';
+    if (label === '' || label === PERIOD_LABEL[period]) await db.prepare('DELETE FROM period_labels WHERE period = ?').bind(period).run();
+    else await db.prepare('INSERT INTO period_labels (period, label) VALUES (?, ?) ON CONFLICT (period) DO UPDATE SET label = excluded.label').bind(period, label).run();
+  }
+  return 'ok';
 }
 
 /**

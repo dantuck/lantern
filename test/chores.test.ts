@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { readdirSync, readFileSync } from 'node:fs';
 import { createTestDb } from './d1shim';
-import { addItem, choreState, MAX_ITEMS_PER_ROUTINE, removeItem, setBonus, setCheck, setSkip, updateItem, type ChoreInput } from '../src/lib/chores';
+import { addItem, choreState, MAX_ITEMS_PER_ROUTINE, removeItem, setBonus, setCheck, setPeriodLabels, setSkip, updateItem, type ChoreInput } from '../src/lib/chores';
 import { adjustPoints, approveAffordable, adjustMinutes, balanceOf, claimGoal, decideRedemption, MAX_GOALS, MAX_PENDING, removeGoal, removeReward, requestRedemption, saveGoal, saveReward, setAllowance, useMinutes } from '../src/lib/rewards';
-import { canAsk, choreSuggestions, describeSchedule, itemDue, sections, toggleDay, WEEKDAYS_MASK, type ChoreItem, type Routine } from '../src/lib/choreTypes';
+import { canAsk, choreSuggestions, describeSchedule, itemDue, holdingLabel, lockedPoints, sections, spendable, suggestedCost, typicalDailyPoints, toggleDay, WEEKDAYS_MASK, type ChoreItem, type Routine } from '../src/lib/choreTypes';
 import { requiredRole } from '../src/lib/http';
 
 const T = 1_700_000_000_000;
@@ -471,30 +471,28 @@ describe('screen time bank', () => {
   });
   const bank = async () => (await choreState(db, WED, true)).minutes;
 
-  it('adds the minutes when a request is approved, not when it is denied or asked for', async () => {
+  it('grants screen time at once, with no approval, and takes the points', async () => {
     await adjustPoints(db, manager, 'agnes', 40, '', T);
     await saveReward(db, { name: 'Screen time', cost: 20, minutes: 30 }, undefined, T);
     const r = (await choreState(db, WED, true)).rewards[0]!;
     expect(r.minutes).toBe(30);
-    await requestRedemption(db, 'agnes', r.id, T);
-    await requestRedemption(db, 'agnes', r.id, T + 1);
-    const [a, b] = (await choreState(db, WED, true)).pending;
-    expect(a).toMatchObject({ minutes: 30 });
-    expect(await bank()).toEqual({});
-    await decideRedemption(db, manager, a!.id, true, T + 2);
-    await decideRedemption(db, manager, a!.id, true, T + 3); // repeating changes nothing
-    await decideRedemption(db, manager, b!.id, false, T + 4);
-    expect(await bank()).toEqual({ agnes: 30 });
+    expect(await requestRedemption(db, 'agnes', r.id, T, WED)).toBe('ok');
+    const s = await choreState(db, WED, true);
+    expect(s.pending).toEqual([]);
+    expect(s.minutes).toEqual({ agnes: 30 });
+    expect(s.balances.agnes).toBe(20);
+    expect(await requestRedemption(db, 'agnes', r.id, T + 1, WED)).toBe('ok');
+    expect(await requestRedemption(db, 'agnes', r.id, T + 2, WED)).toBe('insufficient');
+    expect(await bank()).toEqual({ agnes: 60 });
   });
 
-  it('keeps the minutes on a request even if the reward is edited later', async () => {
-    await adjustPoints(db, manager, 'agnes', 20, '', T);
-    await saveReward(db, { name: 'Screen time', cost: 10, minutes: 30 }, undefined, T);
+  it('still waits for a manager when the reward has no screen time', async () => {
+    await adjustPoints(db, manager, 'agnes', 40, '', T);
+    await saveReward(db, { name: 'Ice cream', cost: 20 }, undefined, T);
     const r = (await choreState(db, WED, true)).rewards[0]!;
-    await requestRedemption(db, 'agnes', r.id, T);
-    await saveReward(db, { name: 'Screen time', cost: 10, minutes: 5 }, r.id);
-    await decideRedemption(db, manager, (await choreState(db, WED, true)).pending[0]!.id, true, T + 1);
-    expect((await bank()).agnes).toBe(30);
+    await requestRedemption(db, 'agnes', r.id, T, WED);
+    expect((await choreState(db, WED, true)).pending).toHaveLength(1);
+    expect((await choreState(db, WED, true)).balances.agnes).toBe(40);
   });
 
   it('spends minutes without going below zero, and a manager can adjust by hand', async () => {
@@ -613,5 +611,110 @@ describe('choreSuggestions', () => {
   });
   it('carries the points and schedule over', () => {
     expect(choreSuggestions(routines, 'c', 'dish', '2026-10-18')).toEqual([{ title: 'Dishes', points: 5, period: 'morning', days: null, onceDate: null, everyWeeks: 1, weekAnchor: null }]);
+  });
+});
+
+describe('time of day locks', () => {
+  let db: D1Database;
+  beforeEach(async () => {
+    db = createTestDb();
+    await db.prepare("INSERT INTO users (id, email, role, created_at) VALUES ('u1', 'm@example.com', 'manager', 0)").run();
+    await saveReward(db, { name: 'Screen time', cost: 3, minutes: 15 }, undefined, T);
+    await saveReward(db, { name: 'Ice cream', cost: 3 }, undefined, T);
+  });
+  const reward = async (name: string) => (await choreState(db, WED, true)).rewards.find((r) => r.name === name)!;
+  const tick = async (title: string, done = true) => {
+    const i = (await choreState(db, WED, false)).routines.flatMap((r) => r.items).find((x) => x.title === title)!;
+    await setCheck(db, i.id, WED, done, T + 1);
+  };
+
+  it('holds back the points of a time of day until every chore in it is done', async () => {
+    await give(db, 'agnes', chore('Teeth', 3, { period: 'morning' }), chore('Bag', 2, { period: 'morning' }), chore('Reading', 5, { period: 'afternoon' }));
+    await tick('Teeth');
+    expect(await requestRedemption(db, 'agnes', (await reward('Screen time')).id, T, WED)).toBe('locked');
+    await tick('Bag'); // morning is finished: its 5 points are free, afternoon holds nothing yet
+    expect(await requestRedemption(db, 'agnes', (await reward('Screen time')).id, T, WED)).toBe('ok');
+  });
+
+  it('gives each time of day its own lock', async () => {
+    await give(db, 'agnes', chore('Teeth', 3, { period: 'morning' }), chore('Reading', 5, { period: 'afternoon' }), chore('Tidy', 1, { period: 'afternoon' }));
+    await tick('Teeth');
+    await tick('Reading'); // afternoon is not finished, so its 5 are held; morning's 3 are free
+    const id = (await reward('Ice cream')).id;
+    expect(await requestRedemption(db, 'agnes', id, T, WED)).toBe('ok');
+    expect(await requestRedemption(db, 'agnes', id, T, WED)).toBe('locked'); // the 3 free points are spent; the 5 left are held
+    await tick('Tidy');
+    expect(await requestRedemption(db, 'agnes', id, T, WED)).toBe('ok'); // afternoon is finished, so its points are free
+  });
+
+  it('opens a lock when the chore holding it is skipped, and does not hold points from earlier days', async () => {
+    await give(db, 'agnes', chore('Teeth', 3, { period: 'morning' }), chore('Bag', 1, { period: 'morning' }));
+    await tick('Teeth');
+    const bag = (await choreState(db, WED, false)).routines[0]!.items.find((i) => i.title === 'Bag')!;
+    const id = (await reward('Screen time')).id;
+    expect(await requestRedemption(db, 'agnes', id, T, WED)).toBe('locked');
+    await setSkip(db, bag.id, WED, true, T + 2);
+    expect(await requestRedemption(db, 'agnes', id, T, WED)).toBe('ok');
+    await adjustPoints(db, manager, 'agnes', 3, 'gift', T);
+    expect(await requestRedemption(db, 'agnes', (await reward('Ice cream')).id, T, THU)).toBe('ok'); // another day: yesterday's chores hold nothing
+  });
+
+  it('is not bypassed by a hand adjustment: only chore points are held', async () => {
+    await give(db, 'agnes', chore('Teeth', 2, { period: 'morning' }), chore('Bag', 1, { period: 'morning' }));
+    await adjustPoints(db, manager, 'agnes', 3, 'gift', T);
+    await tick('Teeth');
+    expect(await requestRedemption(db, 'agnes', (await reward('Screen time')).id, T, WED)).toBe('ok'); // the 3 gifted points are free
+  });
+});
+
+describe('time of day names', () => {
+  it('starts with the usual names, can be renamed, and goes back when cleared', async () => {
+    const db = createTestDb();
+    expect((await choreState(db, WED, true)).periodLabels).toEqual({ morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening', any: 'Any time' });
+    expect(await setPeriodLabels(db, { morning: '  Before school ', afternoon: 'After school' })).toBe('ok');
+    expect((await choreState(db, WED, false)).periodLabels).toMatchObject({ morning: 'Before school', afternoon: 'After school', evening: 'Evening' });
+    await setPeriodLabels(db, { morning: '', afternoon: 'Afternoon' });
+    expect((await choreState(db, WED, false)).periodLabels).toMatchObject({ morning: 'Morning', afternoon: 'Afternoon' });
+    expect(await db.prepare('SELECT COUNT(*) AS n FROM period_labels').first()).toEqual({ n: 0 });
+  });
+  it('refuses a name that is too long or a time of day that does not exist', async () => {
+    const db = createTestDb();
+    expect(await setPeriodLabels(db, { morning: 'x'.repeat(25) })).toBe('bad_request');
+    expect(await setPeriodLabels(db, { midnight: 'Late' } as never)).toBe('bad_request');
+  });
+});
+
+describe('spendable points on the client', () => {
+  const item = (period: ChoreItem['period'], points: number, done: boolean, extra: Partial<ChoreItem> = {}) => ({ period, points, done, due: true, skipped: false, ...extra });
+  it('holds the points of an unfinished time of day and nothing else', () => {
+    expect(lockedPoints([item('morning', 3, true), item('morning', 1, false), item('evening', 4, true)])).toBe(3);
+    expect(lockedPoints([item('morning', 3, true), item('morning', 1, false, { skipped: true })])).toBe(0);
+    expect(lockedPoints([item('morning', 3, true), item('morning', 1, false, { due: false })])).toBe(0);
+  });
+  it('takes held points and waiting requests off the balance', () => {
+    const items = [item('morning', 3, true), item('morning', 1, false)] as ChoreItem[];
+    const state = { routines: [{ id: 'r', person: 'agnes', bonuses: {}, bonusEarned: {}, items }] as unknown as Routine[], balances: { agnes: 10 }, pending: [{ id: 'p', person: 'agnes', rewardName: 'x', cost: 2, minutes: 0, requestedAt: 0 }] };
+    expect(spendable(state, 'agnes')).toBe(5);
+    expect(spendable(state, 'margo')).toBe(0);
+  });
+  it('names the unfinished times of day that hold points', () => {
+    const labels = { morning: 'Before school', afternoon: 'After school', evening: 'Evening', any: 'Any time' };
+    expect(holdingLabel([item('morning', 3, true), item('morning', 1, false), item('afternoon', 0, true), item('afternoon', 1, false)], labels)).toBe('Before school');
+    expect(holdingLabel([item('morning', 3, true), item('morning', 1, true)], labels)).toBe('');
+  });
+});
+
+describe('reward cost calculator', () => {
+  const at = (title: string, points: number, days: number | null, period: ChoreItem['period'] = 'morning') => ({ id: title, title, points, done: false, period, days, onceDate: null, everyWeeks: 1, weekAnchor: null, due: true, skipped: false }) as ChoreItem;
+  it('averages the week, counting bonuses and ignoring one-offs', () => {
+    const bonuses = { morning: 7, afternoon: 0, evening: 0, any: 0 };
+    const items = [at('Daily', 2, null), at('Weekdays', 5, WEEKDAYS_MASK), { ...at('Once', 50, null), onceDate: WED }];
+    expect(typicalDailyPoints({ items, bonuses })).toBeCloseTo((7 * 2 + 5 * 5 + 7 * 7) / 7); // the bonus is earned on every day the time of day has chores
+    expect(typicalDailyPoints(undefined)).toBe(0);
+  });
+  it('prices by days of effort or by minutes per point, within the allowed range', () => {
+    expect(suggestedCost({ perDay: 6.4, days: 3 })).toBe(19);
+    expect(suggestedCost({ minutes: 30, minutesPerPoint: 2 })).toBe(15);
+    expect(suggestedCost({ perDay: 0, days: 1 })).toBe(1);
   });
 });
