@@ -7,7 +7,7 @@ Cloudflare Workers, with data in your own D1 database.
 - **Self-hosted.** You deploy it to your own Cloudflare account. Nobody else, including its author, runs it or sees its data.
 - **Sign-in is by emailed link only.** There is no self sign-up and no passwords. **Managers** invite everyone else, as
   members or managers. An address that has not been invited gets exactly the same response as one that has.
-- **Members take part, managers run it.** Any signed-in member can tick chores, ask for rewards, use screen time and edit
+- **Members take part, managers run it.** Any signed-in member can tick chores, get rewards, use screen time and edit
   lists. Only managers change chores, rewards, people, invites and settings. Calendar and meal plan are read-only: nothing
   is ever written to Google or MealQ.
 - **Widgets are plugins** (Google Calendar and the MealQ meal plan today), each limited to the hosts and secrets it declares.

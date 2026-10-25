@@ -3,7 +3,9 @@ import { addDays, formatDay, parseKey, weekdayOf } from './dates';
 
 export type Period = 'morning' | 'afternoon' | 'evening' | 'any';
 export const PERIODS: readonly Period[] = ['morning', 'afternoon', 'evening', 'any'];
+/** What each time of day is called until a manager renames it. */
 export const PERIOD_LABEL: Record<Period, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening', any: 'Any time' };
+export const MAX_PERIOD_LABEL = 24;
 
 export const EVERY_DAY = 127;
 export const WEEKDAYS_MASK = 0b0111110; // Monday to Friday (bit 0 is Sunday)
@@ -71,6 +73,7 @@ export const SOUNDS = ['chime', 'bell', 'bubbles', 'fanfare', 'gentle'] as const
 export type Sound = (typeof SOUNDS)[number];
 export const DEFAULT_SOUND: Sound = 'chime';
 export const SOUND_LABEL: Record<Sound, string> = { chime: 'Chime', bell: 'Bell', bubbles: 'Bubbles', fanfare: 'Fanfare', gentle: 'Gentle' };
+export const isPeriod = (p: unknown): p is Period => (PERIODS as readonly unknown[]).includes(p);
 export const isSound = (s: unknown): s is Sound => (SOUNDS as readonly unknown[]).includes(s);
 export interface Redemption { id: string; person: string; rewardName: string; cost: number; minutes: number; requestedAt: number }
 export interface LedgerEntry { id: string; person: string; delta: number; kind: 'chore' | 'bonus' | 'redeem' | 'adjust'; note: string; at: number }
@@ -78,6 +81,8 @@ export interface LedgerEntry { id: string; person: string; delta: number; kind: 
 export interface ChoreState {
   /** The household's "today" (YYYY-MM-DD) this state was computed for. */
   day: string;
+  /** What each time of day is called in this household (a manager's names, or the built-in ones). */
+  periodLabels: Record<Period, string>;
   /** Whether the signed-in user is a manager and may change chores, rewards and points. */
   manager: boolean;
   routines: Routine[];
@@ -198,6 +203,49 @@ export const sections = <T extends { period: Period }>(items: readonly T[]): { p
 
 /** Whether `person` may ask for `reward`: it is open to everyone, or they are among the people it is limited to. */
 export const canAsk = (reward: Pick<Reward, 'people'>, person: string): boolean => reward.people === null || reward.people.includes(person);
+
+type Lockable = Pick<ChoreItem, 'period' | 'points' | 'done' | 'due' | 'skipped'>;
+
+/** The times of day that still have a chore due and not done today. Each is its own lock. */
+const openPeriods = (items: readonly Lockable[]): Set<Period> => new Set(items.filter((i) => onToday(i) && !i.done).map((i) => i.period));
+
+/**
+ * Points still locked today: the points earned from chores in a time of day that is not finished yet cannot be spent until it is.
+ * A skipped chore is not due, so skipping can open a lock.
+ */
+export function lockedPoints(items: readonly Lockable[]): number {
+  const open = openPeriods(items);
+  return items.reduce((n, i) => (onToday(i) && i.done && open.has(i.period) ? n + i.points : n), 0);
+}
+
+/** "Before school and After school" for the unfinished times of day that hold points back, or '' when nothing is held. */
+export function holdingLabel(items: readonly Lockable[], labels: Record<Period, string>): string {
+  const open = openPeriods(items);
+  return PERIODS.filter((p) => open.has(p) && items.some((i) => onToday(i) && i.done && i.points > 0 && i.period === p)).map((p) => labels[p]).join(' and ');
+}
+
+/** Points a person earns on a typical day: the chores scheduled each weekday (and each time of day's all-done bonus) averaged over the week. */
+export function typicalDailyPoints(routine: Pick<Routine, 'items' | 'bonuses'> | undefined): number {
+  if (!routine) return 0;
+  const items = routine.items.filter((i) => i.onceDate === null); // a one-off is not part of the routine
+  let week = 0;
+  for (let d = 0; d < 7; d++) {
+    const today = items.filter((i) => itemDueOnWeekday(i, d));
+    week += today.reduce((n, i) => n + i.points, 0) + PERIODS.reduce((n, p) => n + (today.some((i) => i.period === p) ? routine.bonuses[p] : 0), 0);
+  }
+  return week / 7;
+}
+
+/** A starting price for a reward: `days` of a typical day's points, or, for screen time, the minutes at `minutesPerPoint`. */
+export const suggestedCost = (basis: { perDay: number; days: number } | { minutes: number; minutesPerPoint: number }): number =>
+  Math.min(100_000, Math.max(1, Math.round('days' in basis ? basis.perDay * basis.days : basis.minutes / Math.max(1, basis.minutesPerPoint))));
+
+/** What a person can spend now: their points, less what is promised to waiting requests and what an unfinished time of day holds back. */
+export function spendable(s: Pick<ChoreState, 'routines' | 'balances' | 'pending'>, person: string): number {
+  const held = lockedPoints(s.routines.filter((r) => r.person === person).flatMap((r) => r.items));
+  const waiting = s.pending.filter((r) => r.person === person).reduce((n, r) => n + r.cost, 0);
+  return Math.max(0, (s.balances[person] ?? 0) - held - waiting);
+}
 
 /** Minutes of today's allowance still unused. */
 export const allowanceLeft = (a: Allowance | undefined): number => (a ? Math.max(0, a.today - a.used) : 0);

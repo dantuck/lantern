@@ -138,7 +138,8 @@ whose meals have details expand to show them. Needs `MEALQ_API_TOKEN`; the API i
 
 ## Chores
 
-Each person has **one routine**, split by time of day (morning, afternoon, evening, any time). **Anyone** has one too, for
+Each person has **one routine**, split by time of day (morning, afternoon, evening, any time). A manager can **rename** them at
+**Chores → Manage** (for example "Before school" and "After school"). **Anyone** has one too, for
 shared chores. A manager adds chores at **Chores → Manage** (`/chores/manage`), giving each:
 
 - a **time of day**;
@@ -162,7 +163,12 @@ day with a bonus). It is skipped for devices set to reduce motion.
   A manager can also set an **all-done bonus** for each time of day, paid when every chore due then is ticked.
 - **Rewards.** Managers add rewards with a point cost (up to 40). A reward can be limited to certain people, and can be
   hidden to pause it without deleting it.
-- **Asking.** Anyone can ask for a reward the person can afford, from that person's column. Nothing is deducted until a
+- **Locks.** Each time of day is its own lock: the points earned from its chores cannot be spent until every chore due in
+  it is done (a skipped chore does not count). Points from a manager's adjustment, from a finished time of day or from an
+  earlier day are free. The lock applies to every reward, screen time included.
+- **Spending is deliberate.** A screen-time reward asks for a second tap ("Spend 20?") before it takes the points. A tick shows at once and saves behind it; if the save fails it is put back and the error is shown.
+- **Asking.** Anyone can get a reward the person can afford, from that person's column. A reward that carries **screen time**
+  is granted at once, with nothing for a manager to approve. Any other reward waits: nothing is deducted until a
   manager approves; **Approve all that can be afforded** handles a batch. Managers can be told about requests (see
   [Manager notifications](#manager-notifications)), and the **Inbox** badge shows how many are waiting. Requests are approved or denied in the [Inbox](#manager-notifications), not on the Chores board.
 - **Adjusting.** Managers can add or remove points by hand, with a note. Recent activity is shown as a ledger.
@@ -174,7 +180,7 @@ and screen time, and where managers manage them.
 
 ## Screen time
 
-A reward can add minutes to a person's **bank**. A manager can also give each person a **daily allowance**, optionally
+Screen time is just another reward: a reward with minutes adds them to a person's **bank** as soon as the person spends the points on it. A manager can also give each person a **daily allowance**, optionally
 different on weekends, from their page. The allowance returns each day and is not saved up; earned minutes are kept.
 
 - **Spending** ("Use 15") takes the day's allowance first, then the bank, and starts a **countdown timer**. Spending more

@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { z } from 'zod';
-import { addItem, choreState, removeItem, setBonus, setCheck, setSkip, updateItem } from '../../lib/chores';
-import { MAX_EVERY_WEEKS, PERIODS, SOUNDS, type Period } from '../../lib/choreTypes';
+import { addItem, choreState, removeItem, setBonus, setCheck, setPeriodLabels, setSkip, updateItem } from '../../lib/chores';
+import { MAX_EVERY_WEEKS, MAX_PERIOD_LABEL, PERIODS, SOUNDS, type Period } from '../../lib/choreTypes';
 import { adjustMinutes, adjustPoints, approveAffordable, claimGoal, decideRedemption, removeGoal, removeReward, requestRedemption, saveGoal, saveReward, setAllowance } from '../../lib/rewards';
 import { setSound, startTimer, stopTimer, timersNow } from '../../lib/timers';
 import { householdZone } from '../../lib/household';
@@ -23,10 +23,11 @@ const itemDays = z.number().int().min(1).max(127).nullable().optional(); // week
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const period = z.enum(PERIODS as [string, ...string[]]);
+const periodLabel = z.string().trim().max(MAX_PERIOD_LABEL); // blank goes back to the built-in name
 const everyWeeks = z.number().int().min(1).max(MAX_EVERY_WEEKS).optional();
 const newItem = { title, points, period, days: itemDays, onceDate: date.nullable().optional(), everyWeeks, weekAnchor: date.nullable().optional() };
 
-/** What anyone signed in may do: tick chores and ask to spend points. */
+/** What anyone signed in may do: tick chores, and spend points on rewards (screen time at once, anything else once a manager approves). */
 const memberBody = z.discriminatedUnion('action', [
   z.object({ action: z.literal('check'), id, done: z.boolean() }),
   z.object({ action: z.literal('redeem'), person, rewardId: id }),
@@ -42,6 +43,7 @@ const managerBody = z.discriminatedUnion('action', [
   z.object({ action: z.literal('item_update'), id, title: title.optional(), points: points.optional(), period: period.optional(), days: itemDays, onceDate: date.nullable().optional(), everyWeeks, weekAnchor: date.nullable().optional() }),
   z.object({ action: z.literal('item_remove'), id }),
   z.object({ action: z.literal('item_skip'), id, skipped: z.boolean() }),
+  z.object({ action: z.literal('period_labels_set'), labels: z.object({ morning: periodLabel.optional(), afternoon: periodLabel.optional(), evening: periodLabel.optional(), any: periodLabel.optional() }) }),
   z.object({ action: z.literal('bonus_set'), person, period, bonus: z.number().int().min(0).max(1000) }),
   z.object({ action: z.literal('reward_save'), id: id.optional(), name: z.string().trim().min(1).max(60), cost: z.number().int().min(1).max(100_000), minutes: z.number().int().min(0).max(1440).optional(), people: z.array(person).max(40).nullable().optional(), hidden: z.boolean().optional() }),
   z.object({ action: z.literal('reward_remove'), id }),
@@ -80,18 +82,19 @@ async function activityFor(db: D1Database, b: z.infer<typeof memberBody>): Promi
   const [people, timers, reward] = await Promise.all([
     loadPeople(db),
     timersNow(db),
-    b.action === 'redeem' ? db.prepare('SELECT name FROM rewards WHERE id = ?').bind(b.rewardId).first<{ name: string }>() : null,
+    b.action === 'redeem' ? db.prepare('SELECT name, cost, minutes FROM rewards WHERE id = ?').bind(b.rewardId).first<{ name: string; cost: number; minutes: number }>() : null,
   ]);
   const name = people.find((p) => p.id === b.person)?.name ?? 'Someone';
   const path = `/chores/${encodeURIComponent(b.person)}`;
   const running = (timers.timers[b.person]?.endsAt ?? 0) > timers.now;
+  if (b.action === 'redeem' && reward && reward.minutes > 0) return () => ({ kind: 'timers', headline: `${name} got screen time`, detail: `${name} spent ${reward.cost} ${reward.cost === 1 ? 'point' : 'points'} on "${reward.name}" (${reward.minutes} ${reward.minutes === 1 ? 'minute' : 'minutes'}).`, path });
   if (b.action === 'redeem') return () => ({ kind: 'rewards', headline: `${name} asked for a reward`, detail: `${name} would like "${reward?.name ?? 'a reward'}". It is waiting for you to approve or deny it.`, path: '/inbox' });
   if (b.action === 'use_time') return () => ({ kind: 'timers', headline: running ? `${name} added screen time` : `${name} started a timer`, detail: `${name} ${running ? 'added' : 'started'} ${b.minutes} ${b.minutes === 1 ? 'minute' : 'minutes'} of screen time.`, path });
   if (!timers.timers[b.person]) return null;
   return () => ({ kind: 'timers', headline: `${name} stopped their timer`, detail: `${name} stopped their screen time timer${running ? ' early' : ''}.`, path });
 }
 
-const STATUS: Record<string, number> = { not_found: 404, not_due: 409, limit: 409, insufficient: 409, not_eligible: 409, bad_request: 400 };
+const STATUS: Record<string, number> = { not_found: 404, not_due: 409, limit: 409, insufficient: 409, locked: 409, not_eligible: 409, bad_request: 400 };
 
 export const GET: APIRoute = async ({ locals, url }) => {
   if (off(locals)) return json({ error: 'not_found' }, 404);
@@ -116,7 +119,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       : b.action === 'use_time' ? await startTimer(db, b.person, b.minutes, today())
       : b.action === 'timer_stop' ? (await stopTimer(db, b.person), 'ok')
       : b.action === 'sound_set' ? await setSound(db, b.person, b.sound)
-      : await requestRedemption(db, b.person, b.rewardId);
+      : await requestRedemption(db, b.person, b.rewardId, Date.now(), today());
     if (result === 'ok' && activity) locals.cfContext.waitUntil(notifyManagers(db, via, activity(), locals.user?.id));
   } else {
     const parsed = managerBody.safeParse(raw);
@@ -140,6 +143,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
       case 'item_remove': if (!(await removeItem(db, b.id))) result = 'not_found'; break;
       case 'item_skip': result = await setSkip(db, b.id, today(), b.skipped); break;
+      case 'period_labels_set': result = await setPeriodLabels(db, Object.fromEntries(Object.entries(b.labels).filter(([, v]) => v !== undefined)) as Partial<Record<Period, string>>); break;
       case 'bonus_set': await setBonus(db, b.person, b.period as Period, b.bonus); break;
       case 'reward_save': result = await saveReward(db, { name: b.name, cost: b.cost, ...(b.minutes !== undefined ? { minutes: b.minutes } : {}), ...(b.people !== undefined ? { people: b.people } : {}), ...(b.hidden !== undefined ? { hidden: b.hidden } : {}) }, b.id); break;
       case 'reward_remove': if (!(await removeReward(db, b.id))) result = 'not_found'; break;
