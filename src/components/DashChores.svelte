@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeatherIcon from './FeatherIcon.svelte';
   import { holdRefresh } from '../lib/holdRefresh.svelte';
   import { runChores } from '../lib/choreClient';
   import { timeAvailable, todaysRoutines, type ChoreItem, type ChoreState } from '../lib/choreTypes';
@@ -72,7 +73,7 @@
         <span class="mini-n">{done}/{g.items.length}</span>
         <div class="mini-sub">
           {#if todo.length === 0}
-            <span class="text-accent font-semibold">All done ✓</span>
+            <span class="text-accent font-semibold">All done <FeatherIcon name="check" /></span>
           {:else}
             <span class="mini-todo">
               {#each todo.slice(0, SHOWN) as item (item.id)}
@@ -83,8 +84,8 @@
           {/if}
           {#if pts !== undefined || mins > 0}
             <span class="mini-stats">
-              {#if pts !== undefined}<span title="Points">★ {pts}</span>{/if}
-              {#if mins > 0}<span title="Screen time available">⏱ {mins} min</span>{/if}
+              {#if pts !== undefined}<span title="Points"><FeatherIcon name="star" /> {pts}</span>{/if}
+              {#if mins > 0}<span title="Screen time available"><FeatherIcon name="clock" /> {mins} min</span>{/if}
             </span>
           {/if}
         </div>

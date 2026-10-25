@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeatherIcon from './FeatherIcon.svelte';
   import { hold } from '../lib/holdRefresh.svelte';
   import { untrack } from 'svelte';
   import { formatCountdown, timeLeftMs, type Sound, type Timer } from '../lib/choreTypes';
@@ -80,7 +81,7 @@
 {#if timer}
   <section class="timer-card {done ? 'is-done' : ''}" aria-label={`${name}'s screen time timer`}>
     <div class="flex items-center gap-3">
-      <span class="text-[1.6rem]" aria-hidden="true">{done ? '⏰' : '⏳'}</span>
+      <span class="text-[1.6rem]" aria-hidden="true"><FeatherIcon name={done ? 'bell' : 'clock'} /></span>
       <div class="min-w-0 flex-1">
         {#if done}
           <p class="m-0 text-[1.35rem] font-bold" role="status">Time's up, {name}!</p>

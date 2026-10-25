@@ -1,13 +1,14 @@
 <script lang="ts">
+  import FeatherIcon from './FeatherIcon.svelte';
   import { onDestroy, tick } from 'svelte';
-  import Masonry from './Masonry.svelte';
   import { mediaQuery } from '../lib/media.svelte';
+  import { keep, text } from '../lib/choreClient';
   import AddChore from './AddChore.svelte';
   import BonusEditor from './BonusEditor.svelte';
   import CopyChores from './CopyChores.svelte';
   import Panel from './Panel.svelte';
   import Sheet from './Sheet.svelte';
-  import { describeSchedule, inRotation, isPastOnce, itemDueOnWeekday, PERIOD_LABEL, PERIODS, plural, ptsLabel, sections, WEEKDAY_SHORT, type ChoreItem, type Owner, type Period, type Routine } from '../lib/choreTypes';
+  import { EVERY_DAY, hasDay, inRotation, MAX_PERIOD_LABEL, isPastOnce, itemDueOnWeekday, normalizeDays, PERIOD_LABEL, PERIODS, plural, ptsLabel, sections, toggleDay, WEEKDAY_SHORT, type ChoreItem, type Owner, type Period, type Routine } from '../lib/choreTypes';
   import { addDays, dayLabel, weekdayOf } from '../lib/dates';
   import ItemEditor from './ItemEditor.svelte';
 
@@ -15,9 +16,17 @@
    * Everything a manager changes about one person's routine: a summary header, a day filter, each chore as a read-only card
    * ("Edit" opens just that one; in a sheet on a phone), the all-done bonus beside each time of day, and tools to add or copy chores.
    */
-  let { person, name, color = 'var(--accent)', items, bonuses, day, busy, send, routines = [], others = [] }: {
-    person: string | null; name: string; color?: string; items: ChoreItem[]; bonuses: Record<Period, number>; day: string; busy: boolean; send: (payload: Record<string, unknown>) => Promise<boolean>; routines?: Routine[]; others?: Owner[];
+  let { person, name, color = 'var(--accent)', items, bonuses, day, busy, send, routines = [], others = [], labels = PERIOD_LABEL }: {
+    labels?: Record<Period, string>; person: string | null; name: string; color?: string; items: ChoreItem[]; bonuses: Record<Period, number>; day: string; busy: boolean; send: (payload: Record<string, unknown>) => Promise<boolean>; routines?: Routine[]; others?: Owner[];
   } = $props();
+
+  /** The time of day being renamed from its heading, and the name as typed. */
+  let renaming = $state<Period | null>(null);
+  let newName = $state('');
+  async function rename(e: SubmitEvent) {
+    e.preventDefault();
+    if (renaming && (await send({ action: 'period_labels_set', labels: { [renaming]: newName.trim() } }))) renaming = null;
+  }
 
   let openId = $state<string | null>(null);
   /** Closes the open chore and returns focus to the button that opened it. */
@@ -26,9 +35,16 @@
     openId = null;
     if (id) { await tick(); document.getElementById(`edit-chore-${id}`)?.focus(); }
   }
-  let panel = $state<'add' | 'copy' | null>(null);
-  let dayPick = $state<number | null>(null);
-  let periodPick = $state<Period | 'all'>('all');
+  let copying = $state(false);
+  /** The "add a chore" drawer, and what has been added since it opened (it stays open for the next one). */
+  let adding = $state(false);
+  let added = $state<string[]>([]);
+  const openAdd = () => { added = []; adding = true; };
+  async function sendAdd(payload: Record<string, unknown>): Promise<boolean> {
+    const ok = await send(payload);
+    if (ok && payload.action === 'item_add') added = [...added, String(payload.title)];
+    return ok;
+  }
 
   // Phones get a bottom sheet for editing; wider screens edit in place.
   const phone = mediaQuery('(max-width: 39.999rem)');
@@ -51,12 +67,21 @@
   /** Chore points on the busiest day: what the most a person can earn from chores alone. */
   const dayPoints = $derived(perDay.map((cs) => cs.reduce((n, c) => n + c.points, 0)));
   const busiest = $derived(Math.max(0, ...dayPoints));
-  const today = $derived(weekdayOf(day));
-  const manyChores = $derived(live.length > 8);
-  const shownItems = $derived(live.filter((c) => (dayPick === null || (!isPast(c) && itemDueOnWeekday(c, dayPick) && inRotation(c, day))) && (periodPick === 'all' || c.period === periodPick)));
-  const groups = $derived(sections(shownItems));
+  const groups = $derived(sections(live));
   const openItem = $derived(live.find((c) => c.id === openId));
 
+  /** Saves one change to a chore straight from its row. */
+  const patch = (c: ChoreItem, changes: Record<string, unknown>) => send({ action: 'item_update', id: c.id, ...changes });
+  const setDay = (c: ChoreItem, weekday: number) => {
+    const next = toggleDay(c.days ?? EVERY_DAY, weekday);
+    return next === 0 ? Promise.resolve(false) : patch(c, { days: normalizeDays(next) }); // the last day cannot be turned off
+  };
+  const setPoints = (c: ChoreItem, e: Event) => keep(e, patch(c, { points: Math.min(100, Math.max(0, Math.round(Number((e.currentTarget as HTMLInputElement).value) || 0))) }));
+  const setTitle = (c: ChoreItem, e: Event) => { const t = text(e); if (!t) { (e.currentTarget as HTMLInputElement).value = c.title; return; } if (t !== c.title) keep(e, patch(c, { title: t })); };
+
+  /** The planner's columns on a wide screen (chore, time of day, seven days, points, actions); on a phone each chore stacks in three. */
+  const COLS = 'min-[56rem]:grid min-[56rem]:grid-cols-[minmax(10rem,1fr)_9.5rem_repeat(7,2.1rem)_4.5rem_auto]';
+  const COLS_PHONE = 'grid-cols-[minmax(0,1fr)_5.5rem_auto]';
   /** Moves a one-off to another day, so a chore that came up once can be done again without retyping it. */
   const reuse = (c: ChoreItem, date: string) => send({ action: 'item_update', id: c.id, onceDate: date });
 
@@ -88,107 +113,109 @@
   onDestroy(() => { for (const w of waiting) void commit(w.c.id); });
 </script>
 
-{#snippet panelBody()}
-  {#if panel === 'add'}
-    <AddChore {person} {day} {busy} {send} {routines} />
-    <div class="flex justify-end"><button type="button" class="small" onclick={() => (panel = null)}>Done</button></div>
-  {:else if panel === 'copy'}
-    <CopyChores items={live} targets={others} {routines} {send} onclose={() => (panel = null)} />
-  {/if}
-{/snippet}
-
 <header class="flex flex-wrap items-center gap-3 mb-3">
-  <span class="avatar size-11 text-[1.2rem]" style:--c={color} aria-hidden="true">{person === null ? '★' : name.charAt(0).toUpperCase()}</span>
+  <span class="avatar size-11 text-[1.2rem]" style:--c={color} aria-hidden="true">{#if person === null}<FeatherIcon name="star" />{:else}{name.charAt(0).toUpperCase()}{/if}</span>
   <div class="min-w-0 flex-[1_1_9rem]">
     <strong class="block text-[1.15rem] [overflow-wrap:anywhere]" style:color={color}>{name}</strong>
     <span class="note">{plural(live.length, 'chore')}{person !== null && busiest > 0 ? ` · up to ${ptsLabel(busiest)} a day` : ''}{person === null ? ' · no points' : ''}</span>
   </div>
-  <div class="flex gap-2">
-    {#if others.length > 0 && live.length > 0}<button type="button" class="ghost small" aria-expanded={panel === 'copy'} onclick={() => (panel = panel === 'copy' ? null : 'copy')}>Copy to…</button>{/if}
-    <button type="button" class="small" aria-expanded={panel === 'add'} onclick={() => (panel = panel === 'add' ? null : 'add')}>+ Add chore</button>
-  </div>
+  {#if others.length > 0 && live.length > 0}<button type="button" class="ghost small" aria-expanded={copying} onclick={() => (copying = !copying)}>Copy to…</button>{/if}
+  <button type="button" class="small" onclick={openAdd}><FeatherIcon name="plus" /> Add chore</button>
 </header>
 
-{#if panel !== null}
-  <Panel title={panel === 'add' ? 'Add a chore' : `Copy ${name}'s chores`} onclose={() => (panel = null)}>{@render panelBody()}</Panel>
+{#if copying}
+  <Panel title={`Copy ${name}'s chores`} onclose={() => (copying = false)}><CopyChores items={live} targets={others} {routines} {send} onclose={() => (copying = false)} /></Panel>
 {/if}
 
-{#if live.length > 0}
-  <div class="grid gap-1 mb-3" role="group" aria-label="Show a day">
-    <span class="cap">This week</span>
-    <div class="grid grid-cols-7 gap-1 min-[40rem]:gap-2 max-w-[34rem]">
-      {#each WEEKDAY_SHORT as d, i (i)}
-        {@const n = perDay[i]!.length}
-        <button type="button" aria-pressed={dayPick === i} aria-label={`${d}${i === today ? ' (today)' : ''}: ${plural(n, 'chore')}`}
-          onclick={() => (dayPick = dayPick === i ? null : i)}
-          class="relative grid justify-items-center gap-1 [&&]:m-0 [&&]:w-full [&&]:px-0 [&&]:pt-[.45rem] [&&]:pb-[.5rem] [&&]:min-h-0 rounded-[var(--radius-sm)] border border-solid shadow-none text-fg [&&:hover]:filter-none [&&:active]:transform-none transition-colors
-          {dayPick === i ? 'bg-accent border-accent [&&]:text-white' : 'bg-card2 border-line [&&:hover]:bg-accent-soft'} {n === 0 && dayPick !== i ? 'opacity-55' : ''}">
-          <span class="text-[.7rem] font-semibold uppercase tracking-[.06em] {dayPick === i ? '' : 'text-muted'}">{d}</span>
-          <span class="text-[1.25rem] [font-weight:750] leading-none tabular-nums">{n}</span>
-          {#if i === today}<span class="absolute top-[.3rem] right-[.3rem] size-[.4rem] rounded-full {dayPick === i ? 'bg-white' : 'bg-accent'}" aria-hidden="true"></span>{/if}
-        </button>
-      {/each}
-    </div>
-  </div>
-  {#if manyChores}
-    <div class="seg-group mb-3 justify-self-start max-[40rem]:flex max-[40rem]:justify-self-stretch" role="group" aria-label="Show a time of day">
-      <button type="button" class="seg-btn" aria-pressed={periodPick === 'all'} onclick={() => (periodPick = 'all')}>All</button>
-      {#each PERIODS as p (p)}<button type="button" class="seg-btn" aria-pressed={periodPick === p} onclick={() => (periodPick = p)}>{PERIOD_LABEL[p]}</button>{/each}
-    </div>
-  {/if}
+{#if adding}
+  <Sheet title={`Add a chore for ${name}`} drawer onclose={() => (adding = false)}>
+    <AddChore bare {person} {day} {busy} send={sendAdd} {routines} {labels} />
+    {#if added.length > 0}
+      <p class="note m-0 mt-3" role="status"><FeatherIcon name="check" /> Added {added.length === 1 ? added[0] : `${added.length} chores: ${added.slice(-3).join(', ')}`}</p>
+    {/if}
+    <button type="button" class="ghost w-full mt-3" onclick={() => (adding = false)}>{added.length > 0 ? 'Done' : 'Cancel'}</button>
+  </Sheet>
+{/if}
+
+<!-- On a phone the button in the header scrolls away, so a round one stays in reach above the tab bar. -->
+{#if !adding}
+  <button type="button" class="md:!hidden fixed z-30 right-4 bottom-[calc(5.2rem+env(safe-area-inset-bottom))] size-14 [&&]:p-0 [&&]:m-0 rounded-full shadow-[var(--shadow-md)] inline-flex items-center justify-center [&_svg]:size-6" aria-label={`Add a chore for ${name}`} onclick={openAdd}><FeatherIcon name="plus" /></button>
+{/if}
+
+{#if live.length === 0}
+  <p class="note">No chores yet. Type one above to start {name}'s list.</p>
 {:else}
-  <p class="note">No chores yet. Tap <strong>+ Add chore</strong> to start this list.</p>
+  <div class="hidden {COLS} items-end gap-2 pb-1 text-[.7rem] font-semibold uppercase tracking-[.06em] text-muted" aria-hidden="true">
+    <span>Chore</span><span>When</span>
+    {#each WEEKDAY_SHORT as d (d)}<span class="text-center">{d.charAt(0)}</span>{/each}
+    <span>Points</span><span></span>
+  </div>
 {/if}
 
 {#each groups as sec (sec.period)}
-  <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mt-[1.1rem] mb-[.4rem]">
-    <h4 class="m-0 text-[.95rem]">{PERIOD_LABEL[sec.period]} <span class="note">· {sec.items.length}</span></h4>
-    {#if person !== null}<BonusEditor {person} {name} period={sec.period} bonus={bonuses[sec.period]} {busy} {send} />{/if}
+  <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mt-4 mb-1 py-1 [border-bottom:2px_solid_var(--border)]">
+    {#if renaming === sec.period}
+      <form class="flex flex-wrap items-center gap-2" onsubmit={rename}>
+        <input class="m-0 w-48" bind:value={newName} maxlength={MAX_PERIOD_LABEL} placeholder={PERIOD_LABEL[sec.period]} aria-label={`New name for ${labels[sec.period]}`} autocomplete="off" />
+        <button type="submit" class="small" disabled={busy}>Save</button>
+        <button type="button" class="ghost small" onclick={() => (renaming = null)}>Cancel</button>
+      </form>
+    {:else}
+      <h4 class="m-0 text-[.95rem]">{labels[sec.period]} <span class="note">· {sec.items.length}</span>
+        <button type="button" class="ghost small ml-1" disabled={busy} aria-label={`Rename ${labels[sec.period]}`} onclick={() => { newName = labels[sec.period]; renaming = sec.period; }}>Rename</button></h4>
+    {/if}
+    {#if person !== null}<BonusEditor {person} {name} period={sec.period} bonus={bonuses[sec.period]} {busy} {send} {labels} />{/if}
   </div>
-  <Masonry items={sec.items} key={(c) => c.id}>
-    {#snippet row(c)}
-      {@const inline = openId === c.id && !narrow}
-      <li class="edit-card {inline ? '' : '!grid-cols-[minmax(0,1fr)_auto] items-center'} {isPast(c) && !inline ? 'opacity-70' : ''}">
-        {#if inline}
-          <ItemEditor {c} {day} {busy} {send} onremove={() => gone(c)} onclose={closeEdit} />
-        {:else}
-          <div class="min-w-0">
-            <strong class="break-words">{c.title}</strong>
-            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-              <span class="pill"><span aria-hidden="true">★</span> +{ptsLabel(c.points)}</span>
-              {#if c.onceDate !== null}
-                <span class="note">Just once · {dayLabel(c.onceDate, day)}{isPast(c) ? ' (past)' : ''}</span>
-              {:else}
-                <span class="note">{describeSchedule(c)}</span>
-              {/if}
-            </div>
-            {#if isPast(c)}
-              <div class="flex flex-wrap items-center gap-2 mt-2">
-                <span class="note">Do again:</span>
-                <button type="button" class="ghost small m-0" disabled={busy} aria-label={`Do ${c.title} today`} onclick={() => reuse(c, day)}>Today</button>
-                <button type="button" class="ghost small m-0" disabled={busy} aria-label={`Do ${c.title} tomorrow`} onclick={() => reuse(c, addDays(day, 1))}>Tomorrow</button>
-                <button type="button" class="ghost small m-0" disabled={busy || openId !== null} onclick={() => (openId = c.id)}>Pick a day…</button>
-              </div>
-            {/if}
-          </div>
-          <div class="flex flex-wrap items-center justify-end gap-1">
-            {#if c.due}
-              <!-- Skipping hides a chore for today only; it is back on its normal schedule tomorrow. Removing for good is under Edit. -->
-              <button type="button" class="ghost small m-0 pointer-coarse:min-h-11" disabled={busy || openId !== null} aria-label={c.skipped ? `Put ${c.title} back on today's list` : `Skip ${c.title} today`} onclick={() => (c.skipped ? send({ action: 'item_skip', id: c.id, skipped: false }) : skip(c))}>{c.skipped ? 'Put back' : 'Skip'}</button>
-            {/if}
-            <button type="button" id={`edit-chore-${c.id}`} class="small m-0 pointer-coarse:min-h-11 pointer-coarse:px-5" disabled={busy || openId !== null} aria-label={`Edit ${c.title}`} onclick={() => (openId = c.id)}>Edit</button>
-          </div>
+  {#each sec.items as c (c.id)}
+    {@const inline = openId === c.id && !narrow}
+    <div class="grid {COLS_PHONE} {COLS} items-center gap-x-2 gap-y-2 py-2 [border-bottom:1px_solid_var(--border)] {isPast(c) ? 'opacity-70' : ''}">
+      <input class="m-0 col-span-3 min-[56rem]:col-span-1 font-medium" value={c.title} data-v={c.title} maxlength="80" aria-label="Chore" autocomplete="off" onchange={(e) => setTitle(c, e)} />
+      <select class="m-0" value={c.period} data-v={c.period} aria-label={`Time of day for ${c.title}`} onchange={(e) => keep(e, patch(c, { period: e.currentTarget.value }))}>
+        {#each PERIODS as p (p)}<option value={p}>{labels[p]}</option>{/each}
+      </select>
+      {#if c.onceDate !== null}
+        <div class="col-span-3 min-[56rem]:col-span-7 max-[56rem]:order-last flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span class="note">Just once · {dayLabel(c.onceDate, day)}{isPast(c) ? ' (past)' : ''}</span>
+          {#if isPast(c)}
+            <span class="note">Do again:</span>
+            <button type="button" class="ghost small m-0" disabled={busy} aria-label={`Do ${c.title} today`} onclick={() => reuse(c, day)}>Today</button>
+            <button type="button" class="ghost small m-0" disabled={busy} aria-label={`Do ${c.title} tomorrow`} onclick={() => reuse(c, addDays(day, 1))}>Tomorrow</button>
+          {/if}
+        </div>
+      {:else}
+        <div class="col-span-3 grid grid-cols-7 gap-1 max-[56rem]:order-last min-[56rem]:contents" role="group" aria-label={`Days for ${c.title}${c.everyWeeks > 1 ? `, every ${c.everyWeeks} weeks` : ''}`}>
+          {#each WEEKDAY_SHORT as d, i (i)}
+            {@const on = c.days === null || hasDay(c.days, i)}
+            <button type="button" class="day-chip [&&&]:w-full [&&&]:px-0 [&&&]:min-h-9" aria-pressed={on} aria-label={d} disabled={busy || (on && (c.days ?? EVERY_DAY) === 1 << i)} onclick={() => setDay(c, i)}>{d.charAt(0)}</button>
+          {/each}
+        </div>
+      {/if}
+      <input class="m-0 w-full text-center tabular-nums" type="number" min="0" max="100" value={c.points} data-v={c.points} aria-label={`Points for ${c.title}`} disabled={person === null} title={person === null ? 'Chores for Anyone earn no points' : undefined} onchange={(e) => setPoints(c, e)} />
+      <div class="flex items-center justify-end gap-1 max-[56rem]:[grid-column:3]">
+        {#if c.due}
+          <!-- Skipping hides a chore for today only; it is back on its normal schedule tomorrow. Removing for good is under More. -->
+          <button type="button" class="ghost small m-0" disabled={busy || openId !== null} aria-label={c.skipped ? `Put ${c.title} back on today's list` : `Skip ${c.title} today`} onclick={() => (c.skipped ? send({ action: 'item_skip', id: c.id, skipped: false }) : skip(c))}>{c.skipped ? 'Put back' : 'Skip'}</button>
         {/if}
-      </li>
-    {/snippet}
-  </Masonry>
-{:else}
-  {#if live.length > 0}<p class="note">Nothing matches that filter. <button type="button" class="link" onclick={() => { dayPick = null; periodPick = 'all'; }}>Show everything</button></p>{/if}
+        <button type="button" id={`edit-chore-${c.id}`} class="ghost small m-0" disabled={busy || openId !== null} aria-label={`More for ${c.title}: repeat, date, remove`} onclick={() => (openId = c.id)}>More</button>
+      </div>
+      {#if inline}
+        <div class="col-span-full edit-card"><ItemEditor {c} {day} {busy} {send} {labels} onremove={() => gone(c)} onclose={closeEdit} /></div>
+      {/if}
+    </div>
+  {/each}
 {/each}
+
+{#if live.length > 0}
+  <div class="hidden {COLS} items-center gap-2 pt-2 text-[.8rem] text-muted tabular-nums" aria-label="Points on each day">
+    <span class="col-span-2 text-right pr-1">{person === null ? 'Chores a day' : 'Points a day'}</span>
+    {#each WEEKDAY_SHORT as d, i (i)}<span class="text-center font-semibold {i === weekdayOf(day) ? 'text-accent' : ''}" title={d}>{person === null ? perDay[i]!.length : dayPoints[i]}</span>{/each}
+    <span></span><span></span>
+  </div>
+{/if}
 
 {#if narrow && openItem}
   <Sheet title={`Edit ${openItem.title}`} onclose={closeEdit}>
-    <ItemEditor c={openItem} {day} {busy} {send} onremove={() => gone(openItem)} onclose={closeEdit} />
+    <ItemEditor c={openItem} {day} {busy} {send} {labels} onremove={() => gone(openItem)} onclose={closeEdit} />
   </Sheet>
 {/if}
 

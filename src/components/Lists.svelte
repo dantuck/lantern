@@ -80,7 +80,7 @@
         <span class="text-muted text-[.9rem] font-semibold">{open.length} to go</span>
       </header>
       {#if l.items.length === 0}<p class="my-2 mx-0">Nothing here yet.</p>{/if}
-      <ul class="list-none m-0 p-0">
+      <ul class="plain-list">
         {#each [...open, ...done] as i (i.id)}
           <li class="flex items-center gap-[.8rem] py-[.45rem] [li+&]:[border-top:1px_solid_var(--border)]">
             <button type="button" class="tick size-11 [--tick-fg:var(--accent-fg)] [&_svg]:size-[1.3rem]" aria-pressed={i.done} aria-label={`${i.text}${i.done ? ', done' : ''}`} disabled={busy} onclick={() => send({ action: 'done', id: i.id, done: !i.done })}>

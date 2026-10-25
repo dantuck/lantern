@@ -7,7 +7,7 @@
    * The form for one new chore: what it is, what it is worth, when in the day, and which days.
    * While typing the title, chores already on other lists are offered; picking one adds it with the same points and schedule.
    */
-  let { person, day, busy, send, routines = [] }: { person: string | null; day: string; busy: boolean; send: (payload: Record<string, unknown>) => Promise<boolean>; routines?: Routine[] } = $props();
+  let { person, day, busy, send, routines = [], labels = PERIOD_LABEL, bare = false }: { bare?: boolean; labels?: Record<Period, string>; person: string | null; day: string; busy: boolean; send: (payload: Record<string, unknown>) => Promise<boolean>; routines?: Routine[] } = $props();
 
   const uid = $props.id();
 
@@ -48,10 +48,19 @@
 
   /** Flips one weekday. The last day cannot be turned off. */
 
+  // Opened in a drawer, the name is ready to type. A moment's wait lets the drawer settle its own focus first.
+  $effect(() => {
+    if (!bare) return;
+    const t = setTimeout(() => input?.focus(), 80);
+    return () => clearTimeout(t);
+  });
+
   let focused = $state(false);
   let active = $state(-1);
   const listId = `chore-suggest-${uid}`;
-  const suggestions = $derived(focused ? choreSuggestions(routines, person, title, day) : []);
+  // In the drawer nothing is offered until something is typed, so it opens clean; the inline form also lists chores to pick from on focus.
+  const browsing = $derived(focused && (!bare || title.trim() !== ''));
+  const suggestions = $derived(browsing ? choreSuggestions(routines, person, title, day) : []);
   // Typing offers the text itself first ("Add “taco”", with the points and schedule below), then matching chores from other lists.
   const typed = $derived(focused ? title.trim() : '');
   const offset = $derived(typed ? 1 : 0);
@@ -108,7 +117,7 @@
   }
 </script>
 
-<form class="grid grid-cols-2 items-end gap-2 my-3 p-3 rounded-[var(--radius-sm)] border border-dashed border-line " onsubmit={submit}>
+<form class="grid grid-cols-2 items-end gap-2 {bare ? '' : 'my-3 p-3 rounded-[var(--radius-sm)] border border-dashed border-line'}" onsubmit={submit}>
   <div class="col-span-2">
     <input class="m-0" bind:this={input} bind:value={title} maxlength="80" placeholder="Add a chore" aria-label="New chore" autocomplete="off" autocapitalize="sentences" enterkeyhint="done"
       role="combobox" aria-expanded={rows > 0} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
@@ -118,7 +127,7 @@
         {#if typed}
           <!-- svelte-ignore a11y_click_events_have_key_events -- as below: keyboards use the input itself, where Enter adds the typed chore -->
           <li id="{listId}-0" role="option" aria-selected={active === 0} class="flex items-center gap-2 px-2 py-2 rounded-[var(--radius-sm)] cursor-pointer pointer-coarse:min-h-11 {active === 0 ? 'bg-line' : ''}" onmousedown={(e) => e.preventDefault()} onclick={() => void add()}>
-            <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">Add “{typed}”<span class="note block text-[.85rem]">{PERIOD_LABEL[period]} · {describeSchedule(once ? { days: null, onceDate: date } : { days: normalizeDays(days), onceDate: null, everyWeeks: every })}</span></span>
+            <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">Add “{typed}”<span class="note block text-[.85rem]">{labels[period]} · {describeSchedule(once ? { days: null, onceDate: date } : { days: normalizeDays(days), onceDate: null, everyWeeks: every })}</span></span>
             <span class="text-[.9rem] [font-weight:650] tabular-nums">+{Number(points) || 0}</span>
             <span class="text-[.85rem] text-accent">Add</span>
           </li>
@@ -127,7 +136,7 @@
           {@const i = j + offset}
           <!-- svelte-ignore a11y_click_events_have_key_events -- keyboards pick through the input (arrows and Enter), as in any combobox; mousedown keeps it focused so its blur does not close the list before the click lands, and picking on click means scrolling by touch never adds a chore -->
           <li id="{listId}-{i}" role="option" aria-selected={i === active} class="flex items-baseline gap-2 px-2 py-2 rounded-[var(--radius-sm)] cursor-pointer pointer-coarse:min-h-11 {i === active ? 'bg-line' : ''}" onmousedown={(e) => e.preventDefault()} onclick={() => void pick(c)}>
-            <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">{c.title}<span class="note block text-[.85rem]">{PERIOD_LABEL[c.period]} · {describeSchedule(c)}</span></span>
+            <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">{c.title}<span class="note block text-[.85rem]">{labels[c.period]} · {describeSchedule(c)}</span></span>
             <span class="text-[.9rem] [font-weight:650] tabular-nums">+{c.points}</span>
             <span class="text-[.85rem] text-accent">Add</span>
           </li>
@@ -136,7 +145,7 @@
     {/if}
   </div>
   <Stepper caption="Points" bind:value={points} min={0} max={100} label="Points" />
-  <label class="cap-field">Time of day <select class="m-0" bind:value={period} aria-label="Time of day">{#each PERIODS as p (p)}<option value={p}>{PERIOD_LABEL[p]}</option>{/each}</select></label>
+  <label class="cap-field">Time of day <select class="m-0" bind:value={period} aria-label="Time of day">{#each PERIODS as p (p)}<option value={p}>{labels[p]}</option>{/each}</select></label>
   <ScheduleFields class="col-span-2" {day} bind:once bind:days bind:date bind:every bind:from />
   <button class="small col-span-2 [&&&]:w-full" type="submit" disabled={busy || !title.trim()}>Add chore</button>
 </form>

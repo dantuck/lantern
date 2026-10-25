@@ -1,8 +1,8 @@
 <script lang="ts">
   /** A number field with big − and + buttons (44px, easy to hit on a phone) around a typeable value.
    *  Bind `value` in a form, or pass `onchange` to save: taps are gathered for a moment and sent once, and the value goes back if the save fails. */
-  let { value = $bindable(0), min = 0, max = 1000, step = 1, label, caption, class: klass = '', onchange }: {
-    value?: number; min?: number; max?: number; step?: number; label: string; caption?: string; class?: string; onchange?: (n: number) => Promise<boolean> | boolean | void;
+  let { value = $bindable(0), min = 0, max = 1000, step = 1, label, caption, class: klass = '', onchange, presets }: {
+    presets?: number[]; value?: number; min?: number; max?: number; step?: number; label: string; caption?: string; class?: string; onchange?: (n: number) => Promise<boolean> | boolean | void;
   } = $props();
 
   // svelte-ignore state_referenced_locally
@@ -40,4 +40,9 @@
     <input class="stepper-in" type="number" {min} {max} {step} value={draft} oninput={(e) => (draft = e.currentTarget.value)} aria-label={label} onchange={() => set(Number(draft), false)} onfocus={(e) => e.currentTarget.select()} />
     <button type="button" class="ghost stepper-btn" aria-label={`Increase ${label}`} disabled={cur >= max} onclick={() => nudge(1)}>+</button>
   </div>
+  {#if presets}
+    <div class="flex flex-wrap gap-1" role="group" aria-label={`Quick picks for ${label}`}>
+      {#each presets as n (n)}<button type="button" class="ghost small" aria-pressed={cur === n} onclick={() => set(n, false)}>{n}</button>{/each}
+    </div>
+  {/if}
 </div>
