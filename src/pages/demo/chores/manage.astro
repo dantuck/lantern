@@ -3,11 +3,11 @@ import Base from '../../../layouts/Base.astro';
 import ChoreManager from '../../../components/ChoreManager.svelte';
 import { demoChores, demoPeople } from '../../../demo/data';
 ---
-<Base title="Manage chores · Demo" wide demo feature="chores">
+<Base title="Manage · Demo" wide demo feature="chores">
   <header data-demo-back class="page-head flex items-center gap-1 mb-2">
     <a class="icon-btn -ml-2 text-fg" href="/demo/chores" aria-label="Back to chores"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg></a>
-    <h1 class="m-0 text-[1.5rem]">Manage chores</h1>
+    <h1 class="m-0 text-[1.5rem]">Manage</h1>
   </header>
-  <p>This is what a manager sees. Add a chore to someone's routine, change what it is worth, add a reward, or see the reward request waiting in the inbox. In the demo nothing is saved.</p>
+  <p>This is what a manager sees: a landing page with what needs you and how everyone's day is going, then tabs for chores, rewards, people and goals. Agnes has finished only part of her morning, so you can see her points held back. In the demo nothing is saved.</p>
   <ChoreManager client:load initial={demoChores()} people={demoPeople} demo />
 </Base>

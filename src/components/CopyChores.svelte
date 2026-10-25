@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeatherIcon from './FeatherIcon.svelte';
   import { ownerKey, plural, type ChoreItem, type Owner, type Routine } from '../lib/choreTypes';
   import { toggleIn } from '../lib/arrays';
 
@@ -46,7 +47,7 @@
       {#each targets as t (ownerKey(t.id))}
         {@const on = who.includes(ownerKey(t.id))}
         <button type="button" class="person-chip {on ? '' : 'opacity-60'}" style:--c={t.color} aria-pressed={on} onclick={() => (who = toggleIn(who, ownerKey(t.id)))}>
-          <span class="avatar size-[1.6rem] text-[.78rem]" aria-hidden="true">{t.id === null ? '★' : t.name.charAt(0).toUpperCase()}</span><span class="pr-[.7rem]">{t.name}</span>
+          <span class="avatar size-[1.6rem] text-[.78rem]" aria-hidden="true">{#if t.id === null}<FeatherIcon name="star" />{:else}{t.name.charAt(0).toUpperCase()}{/if}</span><span class="pr-[.7rem]">{t.name}</span>
         </button>
       {/each}
     </div>

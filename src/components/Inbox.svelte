@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeatherIcon from './FeatherIcon.svelte';
   import { formatWhen, ptsLabel, type ChoreState } from '../lib/choreTypes';
   import { chorePipe } from '../lib/chorePipe.svelte';
   import type { InboxEntry } from '../lib/inbox';
@@ -25,15 +26,15 @@
   {#if choreState.pending.length === 0}
     <p class="note m-0">Nothing is waiting. Reward requests show up here.</p>
   {:else}
-    <ul class="list-none m-0 p-0 grid gap-x-3 min-[40rem]:grid-cols-2 min-[64rem]:grid-cols-3">
+    <ul class="plain-list grid gap-x-3 grid-cols-[repeat(auto-fill,minmax(17rem,1fr))]">
       {#each choreState.pending as r (r.id)}
         {@const left = (choreState.balances[r.person] ?? 0) - r.cost}
         {@const who = people.find((p) => p.id === r.person)}
         <li class="edit-card" style:--c={who?.color ?? 'var(--muted)'}>
           <div><strong class="text-[color:var(--c)]">{nameOf(r.person)}</strong> <span class="note">asked for</span> <strong class="break-words">{r.rewardName}</strong></div>
           <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span class="pill"><span aria-hidden="true">★</span> {ptsLabel(r.cost)}</span>
-            {#if r.minutes > 0}<span class="pill"><span aria-hidden="true">⏱</span> +{r.minutes} min<span class="sr-only"> of screen time</span></span>{/if}
+            <span class="pill"><FeatherIcon name="star" /> {ptsLabel(r.cost)}</span>
+            {#if r.minutes > 0}<span class="pill"><FeatherIcon name="clock" /> +{r.minutes} min<span class="sr-only"> of screen time</span></span>{/if}
           </div>
           <div class="note">{#if left < 0}<span class="text-danger">Not enough points now</span>{:else}{left} left after{/if} · {formatWhen(r.requestedAt)}</div>
           <div class="flex justify-end gap-2">
@@ -51,7 +52,7 @@
   {#if entries.length === 0}
     <p class="note m-0">Nothing yet. Reward requests and screen time timers are listed here for two weeks.</p>
   {:else}
-    <ul class="list-none m-0 p-0">
+    <ul class="plain-list">
       {#each entries as e (e.id)}
         <li class="list-row">
           <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">

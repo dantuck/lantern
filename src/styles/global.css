@@ -139,7 +139,7 @@ html[data-wall] .page-pin, html[data-wall] main.wide > h1, html[data-wall] .page
 html[data-wall] { font-size: 125%; }
 @media (min-width: 90rem) { html[data-wall] { font-size: 150%; } }
 html[data-wall] body.has-rail { padding-left: 0; padding-bottom: 0; }
-html[data-wall] .tabbar, html[data-wall] .sheet,
+html[data-wall] .tabbar, html[data-wall] .sheet, html[data-wall] .shelf,
 html[data-wall] .nav, html[data-wall] .demo-pill { display: none; }
 html[data-wall] main.wide { max-width: none; padding: 1rem 1.25rem 2rem; }
 html[data-wall] main.wide > h1 { display: none; }
@@ -408,7 +408,7 @@ input.use-range, input.use-range:hover, input.use-range:focus-visible { border: 
 .use-dot.spent { background: color-mix(in srgb, var(--k) 35%, var(--card)); margin-left: .5rem; }
 @media (prefers-reduced-motion: reduce) { .use-menu, .use-menu::backdrop { transition: none; } .use-hooray .use-big { animation: none; } .use-left, .use-range::-webkit-slider-thumb, .use-range::-moz-range-thumb { transition: none; } }
 
-@media print { .display-menu, .nav, .tabbar, .sheet, .jump, .wall-exit, .toast, .skip, .theme-float { display: none !important; } body.has-rail { padding-left: 0; } body { background: #fff; color: #000; } .card { box-shadow: none; break-inside: avoid; } }
+@media print { .display-menu, .nav, .tabbar, .sheet, .shelf, .jump, .wall-exit, .toast, .skip, .theme-float { display: none !important; } body.has-rail { padding-left: 0; } body { background: #fff; color: #000; } .card { box-shadow: none; break-inside: avoid; } }
 
 /* Install banner (src/scripts/pwa.ts): touch devices, signed in, dismissible. Sits above the tab bar on phones, bottom-left of the page beside the rail on tablets. */
 .install { position: fixed; z-index: 15; left: .6rem; right: .6rem; bottom: calc(4.6rem + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: .75rem;
@@ -430,6 +430,7 @@ html[data-wall] .install { display: none; }
 @keyframes expand { from { opacity: 0; transform: scale(.94) translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes fade { from { opacity: 0; } }
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes shelf-in { from { transform: translateX(100%); } to { transform: none; } }
 /* Screen time timer (person page): a card under the header that counts down, then pulses gently once time is up. It follows the person's colour (--c). */
 .timer-card { margin: 0 0 1.25rem; padding: 1rem 1.25rem; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--c) 40%, var(--border)); background: color-mix(in srgb, var(--c) 10%, var(--card)); box-shadow: var(--shadow-sm); }
 .timer-card.is-done { border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 18%, var(--card)); }

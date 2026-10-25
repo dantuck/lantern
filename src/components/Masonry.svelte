@@ -20,7 +20,7 @@
 
 <div class="flex items-start gap-3">
   {#each lanes as lane, c (c)}
-    <ul class="list-none m-0 p-0 min-w-0 flex-1">
+    <ul class="plain-list min-w-0 flex-1">
       {#each lane as item (key(item))}{@render row(item)}{/each}
     </ul>
   {/each}

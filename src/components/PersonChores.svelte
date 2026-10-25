@@ -1,11 +1,14 @@
 <script lang="ts">
   import { holdRefresh } from '../lib/holdRefresh.svelte';
   import Confetti from './Confetti.svelte';
+  import FeatherIcon from './FeatherIcon.svelte';
   import RoutineEditor from './RoutineEditor.svelte';
   import Stepper from './Stepper.svelte';
   import TimerCard from './TimerCard.svelte';
   import AlarmSettings from './AlarmSettings.svelte';
-  import { allowanceLeft, canAsk, DEFAULT_SOUND, formatWhen, LEDGER_LABEL, onToday, PERIOD_LABEL, periodRecord, plural, sections, skippedToday, timeAvailable, timerRunning, type ChoreState, type Sound } from '../lib/choreTypes';
+  import RewardList from './RewardList.svelte';
+  import AllowanceForm from './AllowanceForm.svelte';
+  import { allowanceLeft, canAsk, DEFAULT_SOUND, formatWhen, holdingLabel, LEDGER_LABEL, lockedPoints, onToday, periodRecord, plural, sections, skippedToday, spendable, timeAvailable, timerRunning, type ChoreState, type Sound } from '../lib/choreTypes';
   import { unlockAudio } from '../lib/chime';
   import { liveTimers } from '../lib/timerClient.svelte';
   import { celebrate } from '../lib/celebrate.svelte';
@@ -33,7 +36,9 @@
   const left = $derived(allowanceLeft(allowance));
   const minutes = $derived(timeAvailable(choreState, who)); // what can be spent now
   const pending = $derived(choreState.pending.filter((r) => r.person === who));
-  const available = $derived(points - pending.reduce((n, r) => n + r.cost, 0));
+  const available = $derived(spendable(choreState, who)); // points that are free: not promised to a request, not held by an unfinished time of day
+  const holding = $derived(holdingLabel(routine?.items ?? [], choreState.periodLabels)); // the unfinished times of day holding points back, or ''
+  const waiting = $derived(pending.reduce((n, r) => n + r.cost, 0)); // points promised to requests a manager has not decided
   const shop = $derived(choreState.rewards.filter((r) => !r.hidden && canAsk(r, who)));
   const history = $derived(choreState.recent.filter((e) => e.person === who));
   const done = $derived(chores.filter((i) => i.done).length);
@@ -100,14 +105,6 @@
 
   // --- Manager tools for this person ---
   let editing = $state(false);
-  let allowDaily = $state(0);
-  let allowWeekend = $state(0);
-  let splitWeekend = $state(false); // weekends get their own allowance
-  $effect(() => { allowDaily = allowance?.weekday ?? 0; splitWeekend = allowance?.weekend != null; allowWeekend = allowance?.weekend ?? allowance?.weekday ?? 0; }); // follows what was saved
-  async function saveAllowance(e: SubmitEvent) {
-    e.preventDefault();
-    await send({ action: 'allowance_set', person: who, weekday: Number(allowDaily) || 0, weekend: splitWeekend ? Number(allowWeekend) || 0 : null });
-  }
   let pointsDelta = $state(5);
   let timeDelta = $state(15);
   let note = $state('');
@@ -146,16 +143,16 @@
     <h1 class="m-0 text-[2rem] flex-[1_1_8rem] max-[34rem]:text-[1.5rem] max-[34rem]:basis-0 max-[34rem]:min-w-0">{me.name}</h1>
     <!-- On phones the wrapper dissolves: points and chores become pills beside the name, screen time a slim full-width row. -->
     <div class="flex flex-wrap gap-3 max-[34rem]:contents">
-      <div class="stat {pill}"><span class="stat-n max-[34rem]:text-[1rem]"><span aria-hidden="true">★</span> {points}</span><span class="text-muted text-[.9rem] max-[34rem]:sr-only">points</span></div>
-      <div class="stat {pill}"><span class="stat-n max-[34rem]:text-[1rem]"><span aria-hidden="true">✓</span> {done}/{total}</span><span class="text-muted text-[.9rem] max-[34rem]:sr-only">chores today</span></div>
+      <div class="stat {pill}"><span class="stat-n max-[34rem]:text-[1rem]"><FeatherIcon name="star" /> {points}</span><span class="text-muted text-[.9rem] max-[34rem]:sr-only">points</span></div>
+      <div class="stat {pill}"><span class="stat-n max-[34rem]:text-[1rem]"><FeatherIcon name="check" /> {done}/{total}</span><span class="text-muted text-[.9rem] max-[34rem]:sr-only">chores today</span></div>
       <div class="stat max-[34rem]:order-last max-[34rem]:basis-full max-[34rem]:grid-cols-[1fr_auto] max-[34rem]:items-center max-[34rem]:gap-x-3 max-[34rem]:py-[.5rem]">
-        <span class="stat-n max-[34rem]:text-[1.3rem]"><span aria-hidden="true">⏱</span> {minutes}</span><span class="text-muted text-[.9rem] max-[34rem]:text-[.8rem] max-[34rem]:[grid-column:1]">{allowance ? `min: ${left} left today + ${banked} banked` : 'min screen time'}</span>
+        <span class="stat-n max-[34rem]:text-[1.3rem]"><FeatherIcon name="clock" /> {minutes}</span><span class="text-muted text-[.9rem] max-[34rem]:text-[.8rem] max-[34rem]:[grid-column:1]">{allowance ? `min: ${left} left today + ${banked} banked` : 'min screen time'}</span>
         {#if minutes > 0}
           <div class="mt-[.35rem] max-[34rem]:mt-0 max-[34rem]:[grid-column:2] max-[34rem]:[grid-row:1/span_2]">
             <button type="button" class="small use-btn" disabled={busy} popovertarget="use-menu">Use</button>
             <div id="use-menu" class="use-menu" popover bind:this={menu} ontoggle={menuToggled}>
               {#if used}
-                <div class="use-hooray" role="status"><span class="use-big" aria-hidden="true">🎉</span><p class="m-0 text-[1.2rem] font-bold">Enjoy your screen time, {me.name}!</p><p class="note m-0">{picked} minutes of screen time, {extended ? 'added to your timer' : 'starting now'}.</p></div>
+                <div class="use-hooray" role="status"><span class="use-big" aria-hidden="true"><FeatherIcon name="award" /></span><p class="m-0 text-[1.2rem] font-bold">Enjoy your screen time, {me.name}!</p><p class="note m-0">{picked} minutes of screen time, {extended ? 'added to your timer' : 'starting now'}.</p></div>
               {:else if picked === null}
                 <p class="use-title">How much screen time do you want to use?</p>
                 <p class="use-big-n">{chosen}<span> min</span></p>
@@ -176,7 +173,7 @@
                 <p class="m-0 mt-2 text-center font-semibold">{minutes - picked > 0 ? `You'll still have ${minutes - picked} min left!` : "That's all your time. Make it count!"}</p>
                 <p class="note m-0 text-center">{#if fromAllowance > 0}{fromAllowance} from today's time{/if}{#if fromAllowance > 0 && picked > fromAllowance}, {/if}{#if picked > fromAllowance}{picked - fromAllowance} from your saved-up time{/if}</p>
                 <div class="grid gap-2 mt-3 justify-items-center">
-                  <button type="button" class="use-go" disabled={busy} onclick={confirmUse}>Let's go! 🚀</button>
+                  <button type="button" class="use-go" disabled={busy} onclick={confirmUse}>Let's go!</button>
                   <button type="button" class="ghost small use-back" onclick={() => (picked = null)}>Not yet</button>
                 </div>
               {/if}
@@ -194,7 +191,7 @@
   {#if choreState.manager && editing}
   <section class="card" aria-labelledby="today-h">
     <h2 class="card-h" id="today-h">Routine <span class="note">{plural(routine?.items.length ?? 0, 'chore')}, tap one to edit</span></h2>
-    <RoutineEditor person={who} name={me.name} color={me.color} items={routine?.items ?? []} bonuses={routine?.bonuses ?? periodRecord(0)} day={choreState.day} {busy} {send} routines={choreState.routines} />
+    <RoutineEditor person={who} name={me.name} color={me.color} items={routine?.items ?? []} bonuses={routine?.bonuses ?? periodRecord(0)} day={choreState.day} {busy} {send} routines={choreState.routines} labels={choreState.periodLabels} />
   </section>
   {:else}
   <section class="card" aria-labelledby="today-h">
@@ -203,12 +200,14 @@
     {#each groups as g (g.period)}
       {@const bonus = routine?.bonuses[g.period] ?? 0}
       {@const earned = routine?.bonusEarned[g.period] ?? false}
+      {@const locked = lockedPoints(g.items)}
       <div class="mt-4">
-        {#if g.period !== 'any' || groups.length > 1}<h3 class="m-0 text-[1rem]">{PERIOD_LABEL[g.period]} <span class="note">{g.items.filter((i) => i.done).length}/{g.items.length}</span></h3>{/if}
-        <ul class="list-none m-0 p-0">
+        {#if g.period !== 'any' || groups.length > 1}<h3 class="m-0 text-[1rem]">{choreState.periodLabels[g.period]} <span class="note">{g.items.filter((i) => i.done).length}/{g.items.length}</span>{#if locked > 0}<span class="note"> · <FeatherIcon name="lock" /> {locked} points unlock when all done</span>{/if}</h3>{/if}
+        {#if locked > 0}<div class="track h-[.35rem] mt-1" role="progressbar" aria-label={`${choreState.periodLabels[g.period]} done`} aria-valuemin={0} aria-valuemax={g.items.length} aria-valuenow={g.items.filter((i) => i.done).length}><span class="fill bg-[var(--c)]" style:width={`${(g.items.filter((i) => i.done).length / g.items.length) * 100}%`}></span></div>{/if}
+        <ul class="plain-list">
           {#each g.items as c (c.id)}
             <li class="list-row">
-              <button type="button" class="tick size-12 [&_svg]:size-6" aria-pressed={c.done} aria-label={`${c.title}${c.done ? ', done' : ''}`} disabled={busy} onclick={() => send({ action: 'check', id: c.id, done: !c.done })}>
+              <button type="button" class="tick size-12 [&_svg]:size-6" aria-pressed={c.done} aria-label={`${c.title}${c.done ? ', done' : ''}`} onclick={() => send({ action: 'check', id: c.id, done: !c.done })}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
               </button>
               <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.1rem] font-medium {c.done ? 'text-muted line-through' : ''}">{c.title}</span>
@@ -227,7 +226,7 @@
     {#if choreState.manager && skipped.length > 0}
       <div class="mt-4">
         <h3 class="m-0 text-[1rem]">Skipped today <span class="note">{skipped.length}</span></h3>
-        <ul class="list-none m-0 p-0">
+        <ul class="plain-list">
           {#each skipped as c (c.id)}
             <li class="list-row">
               <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.1rem] font-medium text-muted">{c.title}</span>
@@ -245,20 +244,7 @@
           <h2 class="card-h" id="manage-h">Screen time and points</h2>
           <h3 class="mt-2 mb-1 mx-0 text-[1rem]">Daily screen time</h3>
           <p class="note">A base allowance that comes back every day. It is not saved up: whatever is left at midnight is gone. Time they earn from rewards is kept in the bank and used after the allowance.</p>
-          <form class="flex flex-wrap items-end gap-x-[.9rem] gap-y-[.6rem] mt-[.6rem]" onsubmit={saveAllowance}>
-            <div class="grid gap-1">
-              <span class="text-[.85rem] font-semibold text-muted">{splitWeekend ? 'Weekdays' : 'Minutes a day'}</span>
-              <Stepper class="w-[9.75rem]" bind:value={allowDaily} min={0} max={1440} step={5} label={splitWeekend ? 'Weekday minutes' : 'Minutes a day'} />
-            </div>
-            {#if splitWeekend}
-              <div class="grid gap-1">
-                <span class="text-[.85rem] font-semibold text-muted">Weekends</span>
-                <Stepper class="w-[9.75rem]" bind:value={allowWeekend} min={0} max={1440} step={5} label="Weekend minutes" />
-              </div>
-            {/if}
-            <button type="submit" class="small [&&&]:mb-[.1rem]" disabled={busy}>Save</button>
-            <label class="flex-[1_1_100%] flex items-center gap-2 text-[.9rem] font-medium text-fg"><input class="w-auto m-0" type="checkbox" bind:checked={splitWeekend} onchange={() => { if (splitWeekend) allowWeekend = allowDaily; }} /> Different on weekends</label>
-          </form>
+          <div class="mt-[.6rem]"><AllowanceForm person={who} {allowance} {busy} {send} /></div>
 
           <h3 class="mt-6 mb-1 mx-0 text-[1rem]">Points and screen time</h3>
           <p class="note">Add or take away by hand, for a bonus or a correction.</p>
@@ -283,7 +269,7 @@
   {#if choreState.goals.length > 0}
     <section class="card" aria-label="Household goals">
       <h2 class="card-h">Together</h2>
-      <ul class="list-none m-0 p-0">
+      <ul class="plain-list">
         {#each choreState.goals as g (g.id)}
           <li class="block py-2 [li+&]:[border-top:1px_solid_var(--border)] {g.claimed ? 'opacity-60' : ''}">
             <div class="flex flex-wrap justify-between gap-x-3 gap-y-[.2rem]"><strong>{g.name}</strong><span class="note">{g.claimed ? 'Enjoyed!' : g.progress >= g.target ? 'Goal reached!' : `${g.progress} / ${g.target} points`}</span></div>
@@ -297,7 +283,7 @@
   <section class="card" aria-labelledby="shop-h">
     <h2 class="card-h" id="shop-h">Rewards</h2>
     {#if pending.length > 0}
-      <ul class="list-none m-0 p-0">
+      <ul class="plain-list">
         {#each pending as r (r.id)}
           <li class="list-row">
             <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.1rem] font-medium">{r.rewardName} <span class="note">({r.cost} points{r.minutes > 0 ? `, ${r.minutes} min` : ''}), waiting for a manager</span></span>
@@ -309,25 +295,13 @@
         {/each}
       </ul>
     {/if}
-    <ul class="list-none m-0 p-0">
-      {#each shop as r (r.id)}
-        {@const short = r.cost - available}
-        <li class="list-row">
-          <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.1rem] font-medium">{r.name}{#if r.minutes > 0}<span class="block"><span class="pill mt-1"><span aria-hidden="true">⏱</span> +{r.minutes} min<span class="sr-only"> of screen time</span></span></span>{/if}
-            {#if short > 0}<span class="note block">{short} more {short === 1 ? 'point' : 'points'} to go</span>{/if}
-          </span>
-          <button type="button" class="w-auto m-0" disabled={busy || short > 0} onclick={() => send({ action: 'redeem', person: who, rewardId: r.id })}><span aria-hidden="true">★</span> {r.cost}<span class="sr-only"> points, ask for {r.name}</span></button>
-        </li>
-      {:else}
-        <li class="note list-row">No rewards to ask for yet.</li>
-      {/each}
-    </ul>
+    <RewardList rewards={shop} free={available} owned={points - waiting} {holding} {busy} get={(r) => send({ action: 'redeem', person: who, rewardId: r.id })} />
   </section>
 
   {#if history.length > 0}
     <section class="card" aria-labelledby="hist-h">
       <h2 class="card-h" id="hist-h">Recent</h2>
-      <ul class="list-none m-0 p-0">
+      <ul class="plain-list">
         {#each history as e (e.id)}
           <li class="flex flex-wrap items-center gap-x-[.6rem] gap-y-[.1rem] py-[.3rem] text-[.92rem] [li+&]:[border-top:1px_solid_var(--border)]"><span class="text-muted tabular-nums">{formatWhen(e.at)}</span> <strong class={e.delta < 0 ? 'text-danger' : ''}>{e.delta > 0 ? '+' : ''}{e.delta}</strong> <span class="note">{LEDGER_LABEL[e.kind]}{e.note ? `: ${e.note}` : ''}</span></li>
         {/each}

@@ -15,6 +15,8 @@ export default defineConfig({
     card: 'bg-card border border-solid border-line rounded-[var(--radius)] p-[1.1rem] shadow-[var(--shadow-sm)] sm:p-6 [section&]:mb-5 [section&]:overflow-x-auto [details&]:mb-5 [details&]:overflow-x-auto [&[id]]:scroll-mt-[4.5rem] md:[&[id]]:scroll-mt-4',
     notice: 'flex gap-[.6rem] py-3 px-4 mb-5 text-fg bg-accent-soft border border-solid border-[color-mix(in_srgb,var(--accent)_30%,transparent)] rounded-[var(--radius-sm)] text-[.95rem]',
     // Button variants. The bare `button` defaults (filled accent) stay in global.css; these override them.
+    // A list with the browser's bullets and spacing removed.
+    'plain-list': 'list-none m-0 p-0',
     link: 'bg-transparent text-muted w-auto p-0 m-0 border-0 shadow-none font-medium no-underline hover:text-fg hover:filter-none',
     danger: 'bg-danger text-white',
     ghost: 'bg-transparent text-fg border-line shadow-none [&:hover:not(:disabled)]:bg-card2 [&:hover:not(:disabled)]:filter-none',
@@ -80,6 +82,8 @@ export default defineConfig({
     'cal-toggle': 'inline-flex items-center gap-[.35rem] w-auto m-0 py-[.3rem] px-[.7rem] rounded-full text-[.8rem] font-semibold text-muted shadow-none bg-transparent [border:1px_dashed_var(--border)] hover:filter-none hover:text-fg [&[aria-pressed=true]]:text-fg [&[aria-pressed=true]]:bg-[color-mix(in_srgb,var(--c)_16%,var(--card))] [&[aria-pressed=true]]:[border:1px_solid_var(--c)] pointer-coarse:min-h-11',
     'cal-dialog': 'overflow-auto p-0 m-auto border border-solid border-line rounded-[var(--radius)] bg-card text-fg shadow-[var(--shadow-md),0_24px_60px_-20px_rgb(0_0_0/.45)] open:animate-[expand_.18s_cubic-bezier(.2,.8,.2,1)] motion-reduce:open:animate-none backdrop:bg-[rgb(20_15_10/.45)] backdrop:backdrop-blur-[3px] open:backdrop:animate-[fade_.18s_ease-out] motion-reduce:open:backdrop:animate-none',
     'dialog-head': 'sticky top-0 z-[1] flex items-center gap-2 py-4 px-[1.1rem] bg-card [border-bottom:1px_solid_var(--border)]',
+    // The same dialog as a drawer on wide screens: full height, against the right edge.
+    'shelf': 'outline-none m-0 top-0 bottom-0 left-auto right-0 h-dvh max-h-none w-[min(28rem,100vw)] p-0 overflow-auto border-0 border-l border-solid border-line bg-card text-fg shadow-[var(--shadow-md)] motion-safe:open:animate-[shelf-in_.24s_cubic-bezier(.2,.8,.2,1)] backdrop:bg-[rgb(20_15_10/.45)] backdrop:backdrop-blur-[3px] motion-safe:open:backdrop:animate-[fade_.2s_ease-out]',
     'sheet': 'outline-none m-0 mt-auto p-0 w-full max-w-none max-h-[90dvh] overflow-auto border border-solid border-line border-b-0 rounded-t-[var(--radius)] bg-card text-fg shadow-[var(--shadow-md),0_-16px_50px_-20px_rgb(0_0_0/.45)] motion-safe:open:animate-[sheet-up_.24s_cubic-bezier(.2,.8,.2,1)] backdrop:bg-[rgb(20_15_10/.45)] backdrop:backdrop-blur-[3px] motion-safe:open:backdrop:animate-[fade_.2s_ease-out]',
     'routine-row': 'ghost flex items-center gap-[.85rem] w-[calc(100%+1.5rem)] -mx-3 m-0 py-[.55rem] px-3 min-h-12 text-left rounded-[var(--radius-sm)] border-0 shadow-none bg-transparent text-fg [&&&:hover]:bg-[color-mix(in_srgb,var(--c,var(--accent))_10%,var(--card))] [&&&:active]:bg-[color-mix(in_srgb,var(--c,var(--accent))_16%,var(--card))] [&&&:hover]:filter-none transition-colors',
     'cal-label': 'm-0 mb-1 text-[.72rem] [font-weight:650] uppercase tracking-[.07em] text-muted',

@@ -5,7 +5,7 @@
   import Stepper from './Stepper.svelte';
 
   /** The edit form for one chore (title, points, time of day, schedule). Nothing is saved until "Save"; the parent supplies the card around it. */
-  let { c, day, busy, send, onremove, onclose }: { c: ChoreItem; day: string; busy: boolean; send: (payload: Record<string, unknown>) => Promise<boolean>; onremove: () => void; onclose: () => void } = $props();
+  let { c, day, busy, send, onremove, onclose, labels = PERIOD_LABEL }: { c: ChoreItem; day: string; labels?: Record<Period, string>; busy: boolean; send: (payload: Record<string, unknown>) => Promise<boolean>; onremove: () => void; onclose: () => void } = $props();
 
   // A draft of the chore as it was when editing started; the card only ever edits one chore, so reading `c` once is right.
   // svelte-ignore state_referenced_locally
@@ -27,7 +27,7 @@
     <Stepper caption="Points" class="w-[9.75rem]" bind:value={draft.points} min={0} max={100} label={`Points for ${c.title}`} />
     <label class="cap-field">Time of day
       <select class="m-0" bind:value={draft.period} aria-label={`Time of day for ${c.title}`}>
-        {#each PERIODS as p (p)}<option value={p}>{PERIOD_LABEL[p]}</option>{/each}
+        {#each PERIODS as p (p)}<option value={p}>{labels[p]}</option>{/each}
       </select></label>
   </div>
   <ScheduleFields class="text-[.85rem]" subject={c.title} {day} bind:once={draft.once} bind:days={draft.days} bind:date={draft.date} bind:every={draft.every} bind:from={draft.from} />

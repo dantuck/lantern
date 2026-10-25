@@ -1,12 +1,17 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { flushSync, tick } from 'svelte';
   import Masonry from './Masonry.svelte';
   import Panel from './Panel.svelte';
   import RoutineEditor from './RoutineEditor.svelte';
   import ConfirmButton from './ConfirmButton.svelte';
   import Stepper from './Stepper.svelte';
+  import AllowanceForm from './AllowanceForm.svelte';
+  import Disclosure from './Disclosure.svelte';
+  import CostCalculator from './CostCalculator.svelte';
+  import FeatherIcon from './FeatherIcon.svelte';
+  import ManageOverview from './ManageOverview.svelte';
   import { toggleIn } from '../lib/arrays';
-  import { LEDGER_LABEL, ownerKey, periodRecord, ptsLabel, type ChoreItem, type ChoreState, type LedgerEntry, type Reward } from '../lib/choreTypes';
+  import { holdingLabel, LEDGER_LABEL, lockedPoints, MAX_PERIOD_LABEL, ownerKey, PERIOD_LABEL, PERIODS, periodRecord, ptsLabel, type ChoreItem, type ChoreState, type LedgerEntry, type Period, type Reward } from '../lib/choreTypes';
   import { chorePipe } from '../lib/chorePipe.svelte';
   import type { Person } from '../lib/people';
 
@@ -22,17 +27,22 @@
   /** After a card closes, puts focus back on the button that opened it, so keyboard and screen-reader users keep their place. */
   const focusBack = async (id: string) => { await tick(); document.getElementById(id)?.focus(); };
 
-  const TABS = [['goals', 'Goals'], ['chores', 'Chores'], ['rewards', 'Rewards'], ['points', 'Points']] as const;
+  const TABS = [['overview', 'Overview'], ['chores', 'Chores'], ['rewards', 'Rewards'], ['people', 'People'], ['goals', 'Goals']] as const;
   type Tab = (typeof TABS)[number][0];
   /** Which section is on show. The address keeps it (#rewards), so links and reloads land on the same section. */
-  let tab = $state<Tab>('chores');
+  let tab = $state<Tab>('overview');
   $effect(() => {
-    const fromAddress = () => { const h = location.hash.slice(1); if (TABS.some(([id]) => id === h)) tab = h as Tab; };
+    const fromAddress = () => { const h = location.hash.slice(1) === 'points' ? 'people' : location.hash.slice(1); if (TABS.some(([id]) => id === h)) tab = h as Tab; };
     fromAddress();
     addEventListener('hashchange', fromAddress);
     return () => removeEventListener('hashchange', fromAddress);
   });
-  const show = (t: Tab) => { tab = t; try { window.history.replaceState(null, '', `#${t}`); } catch { /* the section still changes */ } };
+  /** Switches section with a cross-fade where the browser supports view transitions (and the person has not asked for less motion). */
+  const swap = (t: Tab) => {
+    if (typeof document.startViewTransition === 'function' && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(() => flushSync(() => { tab = t; }));
+    else tab = t;
+  };
+  const show = (t: Tab) => { swap(t); try { window.history.replaceState(null, '', `#${t}`); } catch { /* the section still changes */ } };
 
   /** Which "add" form is open: it opens beside the list on wide screens and in a sheet on phones. */
   let adding = $state<'goal' | 'reward' | null>(null);
@@ -69,7 +79,19 @@
   });
   const current = $derived(shown.find((o) => ownerKey(o.id) === picked));
   const itemsOf = (id: string | null): ChoreItem[] => choreState.routines.find((r) => r.person === id)?.items ?? [];
+  /** Why a person's points are held back right now, or '' when none are. */
+  const holdingFor = (id: string) => holdingLabel(itemsOf(id), choreState.periodLabels);
+  const heldFor = (id: string) => lockedPoints(itemsOf(id));
   const bonusesOf = (id: string | null) => choreState.routines.find((r) => r.person === id)?.bonuses ?? periodRecord(0);
+
+  /** The names of the times of day as typed; saved with "Save names". A blank name goes back to the built-in one. */
+  // svelte-ignore state_referenced_locally
+  let names = $state<Record<Period, string>>({ ...initial.periodLabels });
+  const namesChanged = $derived(PERIODS.some((p) => names[p].trim() !== choreState.periodLabels[p]));
+  async function saveNames(e: SubmitEvent) {
+    e.preventDefault();
+    await send({ action: 'period_labels_set', labels: Object.fromEntries(PERIODS.map((p) => [p, names[p].trim()])) });
+  }
 
   /** Who a reward's scope lets ask: everyone, or the people picked. */
   function scopeLabel(ids: string[] | null): string {
@@ -159,10 +181,7 @@
 </script>
 
 {#snippet help(id: string, text: string)}
-  <details id={`help-${id}`} class="group mb-3 text-[.9rem]">
-    <summary class="flex w-fit cursor-pointer items-center gap-1 list-none text-muted min-h-8 pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden"><span class="inline-block text-[1.1rem] leading-none transition-transform group-open:rotate-90" aria-hidden="true">›</span>How this works</summary>
-    <p class="note mt-1 mb-0">{text}</p>
-  </details>
+  <Disclosure id={`help-${id}`} summary="How this works" class="mb-3"><p class="note mt-1 mb-0">{text}</p></Disclosure>
 {/snippet}
 
 {#if error}<p class="notice error sticky top-2 z-30" role="alert">{error}</p>{/if}
@@ -170,7 +189,7 @@
 
 
 <nav class="sticky top-0 z-20 pt-2 pb-2 bg-bg" aria-label="Manage sections">
-  <div class="seg-group w-full max-[40rem]:flex min-[40rem]:w-auto">
+  <div class="seg-group w-full max-[40rem]:flex min-[40rem]:w-auto overflow-x-auto">
     {#each TABS as [id, label] (id)}
       <button type="button" class="seg-btn [&[aria-current=true]]:bg-card [&[aria-current=true]]:text-accent [&[aria-current=true]]:shadow-[var(--shadow-sm)]" aria-current={tab === id ? 'true' : undefined} onclick={() => show(id)}>{label}</button>
     {/each}
@@ -187,8 +206,14 @@
   </div>
 {/snippet}
 
+{#if tab === 'overview'}
+<div id="overview" class="grid gap-0">
+  <ManageOverview chores={choreState} {people} {demo} inboxHref={demo ? '/demo/inbox' : '/inbox'} go={show} openChores={(id) => { picked = ownerKey(id); show('chores'); }} />
+</div>
+{/if}
+
 {#if tab === 'goals'}
-<section class="card motion-safe:animate-[fade_.18s_ease-out]" id="goals">
+<section class="card" id="goals">
   <div class="flex items-center justify-between gap-2 mb-1">
     <h2 class="m-0">Household goals</h2>
     <button type="button" id="add-goal" class="small" aria-expanded={adding === 'goal'} onclick={() => (adding = adding === 'goal' ? null : 'goal')}>+ Add goal</button>
@@ -198,7 +223,7 @@
     <Panel title="Add a goal" onclose={() => closeAdd('goal')}>{@render goalForm()}</Panel>
   {/if}
   {#if choreState.goals.length === 0}<p class="note">No goals yet. Set a target the whole household works toward, like a family pizza night.</p>{/if}
-  <ul class="list-none m-0 p-0 grid gap-3 min-[40rem]:grid-cols-2 min-[64rem]:grid-cols-3 {edit ? 'items-start' : ''}">
+  <ul class="plain-list grid gap-3 grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] {edit ? 'items-start' : ''}">
     {#each choreState.goals as g (g.id)}
 
         {#if edit?.kind === 'goal' && edit.id === g.id}
@@ -217,8 +242,8 @@
             </div>
             <div class="track h-2 [&&]:bg-line" role="img" aria-label={`${g.progress} of ${g.target} points`}><span class="fill bg-accent" style:width={`${Math.min(100, (g.progress / g.target) * 100)}%`}></span></div>
             <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-              {#if g.progress >= g.target}<span class="font-semibold text-accent whitespace-nowrap"><span aria-hidden="true">★</span> Goal reached</span>
-              {:else}<span class="note whitespace-nowrap"><span aria-hidden="true">★</span> {g.progress} of {ptsLabel(g.target)} · {Math.floor((g.progress / g.target) * 100)}%</span>{/if}
+              {#if g.progress >= g.target}<span class="font-semibold text-accent whitespace-nowrap"><FeatherIcon name="star" /> Goal reached</span>
+              {:else}<span class="note whitespace-nowrap"><FeatherIcon name="star" /> {g.progress} of {ptsLabel(g.target)} · {Math.floor((g.progress / g.target) * 100)}%</span>{/if}
               {#if g.claimed}<span class="pill">Enjoyed</span>
               {:else if g.progress >= g.target}<button type="button" class="small" disabled={busy} onclick={() => send({ action: 'goal_claim', id: g.id })}>Mark as enjoyed</button>{/if}
             </div>
@@ -230,16 +255,30 @@
 {/if}
 
 {#if tab === 'chores'}
-<section class="card motion-safe:animate-[fade_.18s_ease-out]" id="chores">
+<section class="card" id="chores">
   <h2 class="mt-0">Chores</h2>
   <p class="note mt-0 mb-3">One routine for each person, split by time of day. Each chore has its own days, or can be a one-off. Chores are ticked off on the Chores page and start fresh every day they are scheduled. The all-done bonus is paid when every chore due in that time of day is ticked.</p>
+
+  <Disclosure id="period-names" summary="Rename the times of day" class="mb-3">
+    <form class="grid gap-3 mt-2 max-w-[34rem]" onsubmit={saveNames}>
+      <p class="note m-0">Call them what suits your household, like "Before school" and "After school". Leave one blank for the usual name. Points earned in a time of day can be spent once every chore in it is done.</p>
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-2">
+        {#each PERIODS as p (p)}
+          <label class="cap-field">{PERIOD_LABEL[p]} <input class="m-0" bind:value={names[p]} maxlength={MAX_PERIOD_LABEL} placeholder={PERIOD_LABEL[p]} autocomplete="off" /></label>
+        {/each}
+      </div>
+      <span class="flex justify-end gap-2">
+        <button type="submit" class="small" disabled={busy || !namesChanged}>Save names</button>
+      </span>
+    </form>
+  </Disclosure>
 
   <label class="cap-field max-w-[22rem] mb-3">Find a person or chore <input class="m-0" type="search" bind:value={query} maxlength="80" autocomplete="off" placeholder="Name or chore" /></label>
   <div class="flex flex-wrap gap-2 mb-3" role="group" aria-label="Whose chores">
     {#each shown as o (ownerKey(o.id))}
       {@const n = itemsOf(o.id).length}
       <button type="button" class="person-chip" style:--c={o.color} aria-pressed={current !== undefined && ownerKey(current.id) === ownerKey(o.id)} onclick={() => (picked = picked === ownerKey(o.id) ? '' : ownerKey(o.id))}>
-        <span class="avatar size-[1.6rem] text-[.78rem]" aria-hidden="true">{o.id === null ? '★' : o.name.charAt(0).toUpperCase()}</span><span>{o.name}</span><span class="note pr-[.7rem]">{n}</span>
+        <span class="avatar size-[1.6rem] text-[.78rem]" aria-hidden="true">{#if o.id === null}<FeatherIcon name="star" />{:else}{o.name.charAt(0).toUpperCase()}{/if}</span><span>{o.name}</span><span class="note pr-[.7rem]">{n}</span>
       </button>
     {:else}
       <p class="note m-0">Nobody or no chore matches "{query.trim()}".</p>
@@ -247,7 +286,7 @@
   </div>
   {#if current}
     {#key ownerKey(current.id)}
-      <RoutineEditor person={current.id} name={current.name} color={current.color} others={owners.filter((o) => ownerKey(o.id) !== ownerKey(current.id) && (o.id === null || people.some((p) => p.id === o.id)))} items={itemsOf(current.id)} bonuses={bonusesOf(current.id)} day={choreState.day} {busy} {send} routines={choreState.routines} />
+      <RoutineEditor person={current.id} name={current.name} color={current.color} others={owners.filter((o) => ownerKey(o.id) !== ownerKey(current.id) && (o.id === null || people.some((p) => p.id === o.id)))} items={itemsOf(current.id)} bonuses={bonusesOf(current.id)} day={choreState.day} {busy} {send} routines={choreState.routines} labels={choreState.periodLabels} />
     {/key}
   {:else if shown.length > 0}
     <div class="grid justify-items-center gap-1 py-8 px-4 text-center rounded-[var(--radius-sm)] border border-dashed border-line bg-card2">
@@ -286,7 +325,8 @@
   <form class="grid grid-cols-2 gap-3" onsubmit={addReward}>
             <input class="m-0 col-span-2" bind:value={rewardName} maxlength="60" required placeholder="New reward, e.g. Movie night pick" aria-label="New reward" autocomplete="off" />
             <Stepper caption="Cost (points)" bind:value={rewardCost} min={1} max={100000} label="Cost in points" />
-            <Stepper caption="Screen time (min)" bind:value={rewardMinutes} min={0} max={1440} step={5} label="Screen time minutes it adds (0 for none)" />
+            <Stepper caption="Screen time it gives (min)" presets={[15, 30, 60]} bind:value={rewardMinutes} min={0} max={1440} step={5} label="Screen time minutes it gives (0 for none)" />
+            <div class="col-span-2"><CostCalculator routines={choreState.routines} {people} minutes={rewardMinutes} apply={(n) => (rewardCost = n)} open /></div>
             <div class="col-span-2">{@render scope(rewardScope, (ids) => (rewardScope = ids))}</div>
             <span class="col-span-2 flex justify-end gap-2">
               <button type="button" class="ghost small" onclick={() => closeAdd('reward')}>Cancel</button>
@@ -319,17 +359,17 @@
 {/snippet}
 
 {#if tab === 'rewards'}
-<section class="card motion-safe:animate-[fade_.18s_ease-out]" id="rewards">
+<section class="card" id="rewards">
   <div class="flex items-center justify-between gap-2 mb-1">
     <h2 class="m-0">Rewards</h2>
     <button type="button" id="add-reward" class="small" aria-expanded={adding === 'reward'} onclick={() => (adding = adding === 'reward' ? null : 'reward')}>+ Add reward</button>
   </div>
-  {@render help('rewards', 'What points can be spent on. Anyone can ask for a reward they can afford, unless you limit it to certain people, in which case only they see it; nothing is deducted until you approve it, in the inbox.')}
+  {@render help('rewards', 'What points can be spent on. Anyone can get a reward they can afford, unless you limit it to certain people, in which case only they see it. A reward with screen time is given at once, with nothing for you to approve; any other reward waits in the inbox, and nothing is deducted until you approve it. Points earned in a time of day (like before school) can only be spent once every chore in it is done.')}
   {#if adding === 'reward'}
     <Panel title="Add a reward" onclose={() => closeAdd('reward')}>{@render rewardForm()}</Panel>
   {/if}
   {#if choreState.rewards.length === 0}<p class="note">No rewards yet. Add something points can be spent on, like a movie night pick or extra screen time.</p>{/if}
-  <ul class="list-none m-0 p-0 grid gap-3 min-[40rem]:grid-cols-2 min-[64rem]:grid-cols-3 {edit ? 'items-start' : ''}">
+  <ul class="plain-list grid gap-3 grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] {edit ? 'items-start' : ''}">
     {#each choreState.rewards as r (r.id)}
 
         {#if edit?.kind === 'reward' && edit.id === r.id}
@@ -339,8 +379,9 @@
                 <input class="m-0" bind:value={edit.name} maxlength="60" required aria-label="Reward" autocomplete="off" />
                 <div class="grid grid-cols-2 gap-2">
                   <Stepper caption="Cost (points)" bind:value={edit.cost} min={1} max={100000} label={`Cost of ${r.name}`} />
-                  <div title="Minutes of screen time it adds to the bank (0 for none)"><Stepper caption="Screen time (min)" bind:value={edit.minutes} min={0} max={1440} step={5} label={`Screen time minutes for ${r.name}`} /></div>
+                  <div title="Minutes of screen time it gives at once (0 for none)"><Stepper caption="Screen time it gives (min)" presets={[15, 30, 60]} bind:value={edit.minutes} min={0} max={1440} step={5} label={`Screen time minutes for ${r.name}`} /></div>
                 </div>
+                <CostCalculator routines={choreState.routines} {people} minutes={edit.minutes} apply={(n) => { if (edit?.kind === 'reward') edit.cost = n; }} />
               </div>
               {@render scope(edit.people, (ids) => { if (edit?.kind === 'reward') edit.people = ids; })}
               <div class="flex items-center justify-between gap-3 pointer-coarse:min-h-11">
@@ -357,8 +398,9 @@
             <div class="min-w-0">
               <strong class="break-words">{r.name}</strong>{#if r.hidden}<span class="note"> · Hidden</span>{/if}
               <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-                <span class="note whitespace-nowrap"><span aria-hidden="true">★</span> {ptsLabel(r.cost)}</span>
-                {#if r.minutes > 0}<span class="pill"><span aria-hidden="true">⏱</span> +{r.minutes} min<span class="sr-only"> of screen time</span></span>{/if}
+                <span class="note whitespace-nowrap"><FeatherIcon name="star" /> {ptsLabel(r.cost)}</span>
+                {#if r.minutes > 0}<span class="pill"><FeatherIcon name="clock" /> +{r.minutes} min<span class="sr-only"> of screen time</span></span>{/if}
+                <span class="note whitespace-nowrap">{r.minutes > 0 ? 'Given at once' : 'Needs your approval'}</span>
               </div>
               <div class="note">{scopeLabel(r.people)}</div>
             </div>
@@ -370,9 +412,9 @@
 </section>
 {/if}
 
-{#if tab === 'points'}
-<section class="card motion-safe:animate-[fade_.18s_ease-out]" id="points">
-  <h2 class="mt-0">Points</h2>
+{#if tab === 'people'}
+<section class="card" id="people">
+  <h2 class="mt-0">People</h2>
   {#if people.length === 0}
     <p class="note">Add the people in your household first, then you can hand out points. <a href={demo ? '/demo/admin#people' : '/admin#people'}>Add people</a>.</p>
   {:else}
@@ -382,7 +424,7 @@
           {#if adjPerson === p.id}
             <div class="flex items-center justify-between gap-2">
               <strong class="text-[color:var(--c)]">Adjust {p.name}</strong>
-              <span class="note whitespace-nowrap">★ {choreState.balances[p.id] ?? 0}{#if choreState.minutes[p.id]} · ⏱ {choreState.minutes[p.id]} min{/if}</span>
+              <span class="note whitespace-nowrap"><FeatherIcon name="star" /> {choreState.balances[p.id] ?? 0}{#if choreState.minutes[p.id]} · <FeatherIcon name="clock" /> {choreState.minutes[p.id]} min{/if}</span>
             </div>
             <form class="grid gap-3" onsubmit={adjust}>
               <div class="seg-group justify-self-start max-[40rem]:justify-self-stretch">
@@ -393,7 +435,7 @@
                 {#if adjKind === 'points'}
                   <Stepper caption="Points" class="w-[9.75rem]" bind:value={adjDelta} min={-1000} max={1000} label="Points to add (negative to take away)" />
                 {:else}
-                  <Stepper caption="Minutes" class="w-[9.75rem]" bind:value={timeDelta} min={-1440} max={1440} step={5} label="Minutes of screen time to add (negative to take away)" />
+                  <Stepper caption="Minutes" presets={[15, 30, 60]} class="w-[9.75rem]" bind:value={timeDelta} min={-1440} max={1440} step={5} label="Minutes of screen time to add (negative to take away)" />
                 {/if}
                 <label class="cap-field">Reason <input class="m-0" bind:value={adjNote} maxlength="60" placeholder="Optional" aria-label="Reason" autocomplete="off" /></label>
               </div>
@@ -406,15 +448,28 @@
             <div class="min-w-0">
               <strong class="text-[color:var(--c)]">{p.name}</strong>
               <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-                <span class="pill"><span aria-hidden="true">★</span> {ptsLabel(choreState.balances[p.id] ?? 0)}</span>
-                {#if choreState.minutes[p.id]}<span class="pill"><span aria-hidden="true">⏱</span> {choreState.minutes[p.id]} min</span>{/if}
+                <span class="pill"><FeatherIcon name="star" /> {ptsLabel(choreState.balances[p.id] ?? 0)}</span>
+                {#if choreState.minutes[p.id]}<span class="pill"><FeatherIcon name="clock" /> {choreState.minutes[p.id]} min</span>{/if}
               </div>
+              {#if holdingFor(p.id)}<p class="note m-0 mt-1"><FeatherIcon name="lock" /> {ptsLabel(heldFor(p.id))} held until {holdingFor(p.id)} {holdingFor(p.id).includes(' and ') ? 'are' : 'is'} done</p>{/if}
             </div>
             <button type="button" id={`adjust-${p.id}`} class="small m-0 pointer-coarse:min-h-11 pointer-coarse:px-5" disabled={busy || adjPerson !== ''} aria-label={`Adjust points or screen time for ${p.name}`} onclick={() => { adjPerson = p.id; adjNote = ''; }}>Adjust</button>
           {/if}
         </li>
       {/snippet}
     </Masonry>
+  {/if}
+  {#if people.length > 0}
+    <h3 class="mt-6 mb-1 text-[1rem]">Daily screen time</h3>
+    <p class="note mt-0 mb-2">Free time that comes back every day and is not saved up. It is separate from points: screen time bought with points is kept until used.</p>
+    <ul class="plain-list grid gap-3 grid-cols-[repeat(auto-fill,minmax(17rem,1fr))]">
+      {#each people as p (p.id)}
+        <li class="edit-card" style:--c={p.color}>
+          <strong class="text-[color:var(--c)]">{p.name}</strong>
+          <AllowanceForm person={p.id} allowance={choreState.allowance[p.id]} {busy} {send} />
+        </li>
+      {/each}
+    </ul>
   {/if}
   {#if history.length > 0}
     <div class="flex items-center justify-between gap-2 mt-5">
@@ -423,7 +478,7 @@
     </div>
     {#each shownHistory as day (day.label)}
       <div class="cap mt-2 mb-[.15rem]">{day.label}</div>
-      <ul class="list-none m-0 p-0 text-[.88rem]">
+      <ul class="plain-list text-[.88rem]">
         {#each day.entries as e (e.id)}
           {@const who = people.find((p) => p.id === e.person)}
           <li class="flex items-baseline gap-2 py-[.2rem]" style:--c={who?.color ?? 'var(--muted)'}>
