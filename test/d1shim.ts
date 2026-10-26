@@ -16,5 +16,8 @@ export function createTestDb(): D1Database {
       return { success: true, meta: { changes: Number(r.changes) } };
     },
   });
-  return { prepare: (sql: string) => stmt(sql) } as unknown as D1Database;
+  return {
+    prepare: (sql: string) => stmt(sql),
+    batch: async (stmts: { run: () => Promise<unknown> }[]) => { const out = []; for (const s of stmts) out.push(await s.run()); return out; },
+  } as unknown as D1Database;
 }

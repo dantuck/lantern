@@ -5,13 +5,13 @@
   import Stepper from './Stepper.svelte';
 
   /** The edit form for one chore (title, points, time of day, schedule). Nothing is saved until "Save"; the parent supplies the card around it. */
-  let { c, day, busy, send, onremove, onclose, labels = PERIOD_LABEL }: { c: ChoreItem; day: string; labels?: Record<Period, string>; busy: boolean; send: (payload: Record<string, unknown>) => Promise<boolean>; onremove: () => void; onclose: () => void } = $props();
+  let { c, day, busy, send, onremove, onclose, labels = PERIOD_LABEL, earns = true }: { earns?: boolean; c: ChoreItem; day: string; labels?: Record<Period, string>; busy: boolean; send: (payload: Record<string, unknown>) => Promise<boolean>; onremove: () => void; onclose: () => void } = $props();
 
   // A draft of the chore as it was when editing started; the card only ever edits one chore, so reading `c` once is right.
   // svelte-ignore state_referenced_locally
-  let draft = $state({ title: c.title, points: c.points, period: c.period as Period, days: c.days ?? EVERY_DAY, once: c.onceDate !== null, date: c.onceDate ?? day, every: c.everyWeeks, from: c.weekAnchor ?? weekStart(day) });
+  let draft = $state({ title: c.title, points: c.points, period: c.period as Period, days: c.days ?? EVERY_DAY, once: c.onceDate !== null, date: c.onceDate ?? day, every: c.everyWeeks, from: c.weekAnchor ?? weekStart(day), untilDone: c.untilDone, kept: c.keptPoints });
 
-  const schedule = $derived(draft.once ? { days: null, onceDate: draft.date } : { days: normalizeDays(draft.days), onceDate: null, everyWeeks: draft.every, weekAnchor: draft.every > 1 ? draft.from : null });
+  const schedule = $derived(draft.once ? { days: null, onceDate: draft.date } : { days: normalizeDays(draft.days), onceDate: null, everyWeeks: draft.every, weekAnchor: draft.every > 1 ? draft.from : null, untilDone: draft.untilDone, keptPoints: draft.kept });
 
   async function save(e: SubmitEvent) {
     e.preventDefault();
@@ -30,7 +30,7 @@
         {#each PERIODS as p (p)}<option value={p}>{labels[p]}</option>{/each}
       </select></label>
   </div>
-  <ScheduleFields class="text-[.85rem]" subject={c.title} {day} bind:once={draft.once} bind:days={draft.days} bind:date={draft.date} bind:every={draft.every} bind:from={draft.from} />
+  <ScheduleFields class="text-[.85rem]" subject={c.title} {day} bind:once={draft.once} bind:days={draft.days} bind:date={draft.date} bind:every={draft.every} bind:from={draft.from} bind:untilDone={draft.untilDone} bind:keptPoints={draft.kept} {earns} />
   <div class="flex flex-wrap items-center justify-between gap-2">
     <ConfirmButton ariaLabel={`Remove ${c.title}`} disabled={busy} onconfirm={onremove} />
     <span class="flex gap-2">

@@ -17,6 +17,8 @@
   let once = $state(false);
   let days = $state(EVERY_DAY);
   let every = $state(1);
+  let untilDone = $state(false);
+  let kept = $state(0);
   // svelte-ignore state_referenced_locally
   let from = $state(weekStart(day));
   // svelte-ignore state_referenced_locally
@@ -93,7 +95,7 @@
   $effect(() => { if (rows) place(); }); // the list grew or shrank, or just appeared
 
   async function pick(c: ChoreTemplate) {
-    if (await send({ action: 'item_add', person, title: c.title, points: c.points, period: c.period, days: c.days, onceDate: c.onceDate, everyWeeks: c.everyWeeks, weekAnchor: c.weekAnchor })) { title = ''; active = -1; input?.focus(); } // the list stays open (minus what was just added), ready for the next one
+    if (await send({ action: 'item_add', person, title: c.title, points: c.points, period: c.period, days: c.days, onceDate: c.onceDate, everyWeeks: c.everyWeeks, weekAnchor: c.weekAnchor, untilDone: c.untilDone, keptPoints: c.keptPoints })) { title = ''; active = -1; input?.focus(); } // the list stays open (minus what was just added), ready for the next one
   }
   function keys(e: KeyboardEvent) {
     if (e.key === 'Escape') { focused = false; return; }
@@ -112,7 +114,7 @@
   async function add() {
     const t = title.trim();
     if (!t) return;
-    const schedule = once ? { days: null, onceDate: date } : { days: normalizeDays(days), onceDate: null, everyWeeks: every, weekAnchor: every > 1 ? from : null };
+    const schedule = once ? { days: null, onceDate: date } : { days: normalizeDays(days), onceDate: null, everyWeeks: every, weekAnchor: every > 1 ? from : null, untilDone, keptPoints: kept };
     if (await send({ action: 'item_add', person, title: t, points: Number(points) || 0, period, ...schedule })) { title = ''; input?.focus(); }
   }
 </script>
@@ -127,7 +129,7 @@
         {#if typed}
           <!-- svelte-ignore a11y_click_events_have_key_events -- as below: keyboards use the input itself, where Enter adds the typed chore -->
           <li id="{listId}-0" role="option" aria-selected={active === 0} class="flex items-center gap-2 px-2 py-2 rounded-[var(--radius-sm)] cursor-pointer pointer-coarse:min-h-11 {active === 0 ? 'bg-line' : ''}" onmousedown={(e) => e.preventDefault()} onclick={() => void add()}>
-            <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">Add “{typed}”<span class="note block text-[.85rem]">{labels[period]} · {describeSchedule(once ? { days: null, onceDate: date } : { days: normalizeDays(days), onceDate: null, everyWeeks: every })}</span></span>
+            <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">Add “{typed}”<span class="note block text-[.85rem]">{labels[period]} · {describeSchedule(once ? { days: null, onceDate: date } : { days: normalizeDays(days), onceDate: null, everyWeeks: every, untilDone })}</span></span>
             <span class="text-[.9rem] [font-weight:650] tabular-nums">+{Number(points) || 0}</span>
             <span class="text-[.85rem] text-accent">Add</span>
           </li>
@@ -146,6 +148,6 @@
   </div>
   <Stepper caption="Points" bind:value={points} min={0} max={100} label="Points" />
   <label class="cap-field">Time of day <select class="m-0" bind:value={period} aria-label="Time of day">{#each PERIODS as p (p)}<option value={p}>{labels[p]}</option>{/each}</select></label>
-  <ScheduleFields class="col-span-2" {day} bind:once bind:days bind:date bind:every bind:from />
+  <ScheduleFields class="col-span-2" {day} bind:once bind:days bind:date bind:every bind:from bind:untilDone bind:keptPoints={kept} earns={person !== null} />
   <button class="small col-span-2 [&&&]:w-full" type="submit" disabled={busy || !title.trim()}>Add chore</button>
 </form>

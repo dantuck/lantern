@@ -25,7 +25,7 @@
       const have = new Set((routines.find((r) => r.person === t.id)?.items ?? []).map((i) => i.title.toLowerCase()));
       const fresh = chosen.filter((c) => !have.has(c.title.toLowerCase()));
       skipped += chosen.length - fresh.length;
-      return fresh.map((c) => ({ person: t.id, title: c.title, points: c.points, period: c.period, days: c.days, onceDate: c.onceDate, everyWeeks: c.everyWeeks, weekAnchor: c.weekAnchor }));
+      return fresh.map((c) => ({ person: t.id, title: c.title, points: c.points, period: c.period, days: c.days, onceDate: c.onceDate, everyWeeks: c.everyWeeks, weekAnchor: c.weekAnchor, untilDone: c.untilDone, keptPoints: c.keptPoints }));
     });
     const ok = adds.length === 0 || (await send({ action: 'items_add', items: adds }));
     working = false;

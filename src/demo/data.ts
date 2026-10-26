@@ -1,6 +1,6 @@
 // Fixture data for /demo. Everything here is invented; nothing is fetched, stored, or tied to a real household.
 // Dates are relative to "now" so the demo always looks current. The demo runs in UTC so "today" matches its clock times.
-import { allowanceFor, PERIOD_LABEL, periodRecord } from '../lib/choreTypes';
+import { allowanceFor, itemDue, PERIOD_LABEL, periodRecord, WEEKDAYS_MASK, WEEKENDS_MASK } from '../lib/choreTypes';
 import { DAY_MS, addDays, dayKey, startOfDayMs } from '../lib/dates';
 import type { CalEvent, CalendarData } from '../plugins/calendar/types';
 import type { WeatherData } from '../plugins/calendar/weatherView';
@@ -44,6 +44,31 @@ const TIMED: [number, string, number, string, string?][] = [
   [23, '17:00', 60, 'Banana-peeling contest', 'Town hall'],
   [27, '09:00', 60, 'Freeze-ray service'],
   [31, '19:00', 90, 'Minion movie night', 'Living room'],
+  [-6, '10:00', 90, 'Soccer practice: Margo', 'Community field'],
+  [-3, '15:30', 60, 'Piano lesson: Edith', 'Music Corner'],
+  [-1, '07:45', 30, 'Carpool to school', 'Front driveway'],
+  [0, '07:30', 30, 'Banana breakfast', 'The Kitchen'],
+  [0, '17:30', 45, 'Soccer practice: Margo', 'Community field'],
+  [1, '08:30', 30, 'School drop-off', 'Miss Hattie’s Academy'],
+  [1, '10:30', 60, 'Minion training session', 'Underground Lab'],
+  [1, '16:00', 60, 'Piano lesson: Edith', 'Music Corner'],
+  [2, '12:15', 45, 'Lunch with Dr. Nefario', 'Bank of Evil Café'],
+  [2, '19:00', 60, 'Book club: Lucy', 'Aunt Lena’s'],
+  [3, '08:30', 30, 'School drop-off', 'Miss Hattie’s Academy'],
+  [4, '14:30', 60, 'Science fair prep: Margo', 'Garage'],
+  [5, '10:00', 120, 'Cleaning the lair', 'Underground Lab'],
+  [5, '18:30', 90, 'Birthday dinner: Agnes', 'Fluffy Castle'],
+  [6, '15:00', 90, 'Playdate at the park', 'Central Park'],
+  [7, '08:30', 30, 'School drop-off', 'Miss Hattie’s Academy'],
+  [8, '17:30', 45, 'Soccer practice: Margo', 'Community field'],
+  [9, '13:00', 60, 'Gadget show-and-tell', 'Underground Lab'],
+  [11, '10:30', 60, 'Dentist: Edith', 'Dr. Pointy Teeth'],
+  [13, '09:00', 60, 'Camping gear check', 'Garage'],
+  [15, '11:00', 120, 'Gru’s mom’s visit', 'Living room'],
+  [17, '16:30', 45, 'Ballet recital rehearsal: Agnes', 'Little Stars Studio'],
+  [20, '18:00', 120, 'Ballet recital: Agnes', 'Little Stars Studio'],
+  [25, '12:00', 90, 'Family picnic', 'Lake Banana Park'],
+  [29, '10:00', 60, 'Parent volunteer morning', 'Miss Hattie’s Academy'],
 ];
 // [days from today, length in days, title]
 const ALL_DAY: [number, number, string][] = [
@@ -52,6 +77,9 @@ const ALL_DAY: [number, number, string][] = [
   [13, 3, 'Camping trip (no volcanoes)'],
   [21, 1, 'Teacher in-service day'],
   [29, 1, 'Banana Appreciation Day'],
+  [8, 2, 'Science fair'],
+  [17, 1, 'Picture day'],
+  [25, 1, 'Minion field trip'],
 ];
 
 export function demoCalendar(now = Date.now()): CalendarData {
@@ -140,64 +168,94 @@ export const demoUsers = [
   { email: 'margo@example.com', role: 'member', status: 'active', since: '2025-02-03' },
   { email: 'dr.nefario@example.com', role: 'member', status: 'active', since: '2025-03-21' },
   { email: 'kevin@example.com', role: 'member', status: 'disabled', since: '2025-02-03' },
+  { email: 'edith@example.com', role: 'member', status: 'active', since: '2025-04-10' },
+  { email: 'agnes@example.com', role: 'member', status: 'active', since: '2025-04-10' },
 ];
 export const demoDevices = [
   { who: 'gru@example.com', device: 'iPhone · Safari', last: 'Just now', current: true },
   { who: 'gru@example.com', device: 'Kitchen display · Chrome', last: '2 minutes ago', current: false },
   { who: 'lucy@example.com', device: 'Pixel · Chrome', last: 'Yesterday', current: false },
   { who: 'margo@example.com', device: 'iPad · Safari', last: '3 days ago', current: false },
+  { who: 'edith@example.com', device: 'Kids’ tablet · Chrome', last: '5 hours ago', current: false },
+  { who: 'lucy@example.com', device: 'Laptop · Firefox', last: 'Last week', current: false },
 ];
 export const demoAudit = [
   { when: 'Today, 8:02 AM', who: 'gru@example.com', event: 'login', detail: 'iPhone · Safari' },
   { when: 'Yesterday, 6:40 PM', who: 'lucy@example.com', event: 'invite', detail: 'dr.nefario@example.com (member)' },
   { when: 'Mon, 9:15 AM', who: 'gru@example.com', event: 'disable_user', detail: 'kevin (borrowed the iPad again)' },
   { when: 'Last week', who: 'system', event: 'login_blocked', detail: 'rate limit' },
+  { when: 'Sun, 7:30 PM', who: 'lucy@example.com', event: 'invite', detail: 'edith@example.com (member)' },
+  { when: 'Sat, 10:12 AM', who: 'gru@example.com', event: 'login', detail: 'Kitchen display · Chrome' },
+  { when: 'Last week', who: 'lucy@example.com', event: 'login', detail: 'Laptop · Firefox' },
 ];
 
 // --- Chores and lists -------------------------------------------------------
 
 type Period = 'morning' | 'afternoon' | 'evening' | 'any';
 /** [person id or null, all-done bonus per time of day, [chore, points, time of day, ticked already][]] */
-const ROUTINES: [string | null, Partial<Record<Period, number>>, [string, number, Period, boolean][]][] = [
-  ['agnes', { morning: 3, afternoon: 2 }, [['Make your bed', 1, 'morning', true], ['Brush teeth', 1, 'morning', true], ['Feed Fluffy', 2, 'morning', false], ['Pack your school bag', 1, 'morning', false], ['Ballet bag by the door', 2, 'afternoon', false]]],
-  ['margo', { afternoon: 5 }, [['Walk the dog', 2, 'afternoon', true], ['Homework', 3, 'afternoon', false], ['Empty the dishwasher', 2, 'afternoon', false]]],
-  ['edith', { morning: 3 }, [['Tidy the lab bench', 2, 'morning', false], ['Feed the goldfish', 1, 'morning', false]]],
-  ['gru', {}, [['Take out the trash', 1, 'evening', false], ['Rocket repairs', 1, 'evening', false]]],
-  ['minions', { any: 4 }, [['Peel the bananas', 1, 'any', true], ['Sweep the lair', 1, 'any', false]]],
-  [null, {}, [['Water the plants', 0, 'any', false]]],
+/** A chore that is not every day: weekdays to repeat on, and (for "until done") the points paid on each remaining day. */
+type ChoreOpts = { days?: number; kept?: number };
+const ROUTINES: [string | null, Partial<Record<Period, number>>, [string, number, Period, boolean, ChoreOpts?][]][] = [
+  ['agnes', { morning: 3, afternoon: 2, evening: 2 }, [['Make your bed', 1, 'morning', true], ['Brush teeth', 1, 'morning', true], ['Feed Fluffy', 2, 'morning', false], ['Pack your school bag', 1, 'morning', false], ['Ballet bag by the door', 2, 'afternoon', false, { days: WEEKDAYS_MASK }], ['Practice ballet steps', 2, 'afternoon', false, { days: 0b0101010 }], ['Tidy the toy corner', 1, 'evening', false], ['Pick out tomorrow’s outfit', 1, 'evening', false], ['Bath time', 1, 'evening', false]]],
+  ['margo', { afternoon: 5, evening: 3 }, [['Walk the dog', 2, 'afternoon', true], ['Homework', 3, 'afternoon', false, { days: WEEKDAYS_MASK }], ['Finish science fair poster', 10, 'afternoon', false, { days: WEEKDAYS_MASK, kept: 2 }], ['Empty the dishwasher', 2, 'afternoon', false], ['Set the table', 1, 'evening', false], ['Practice soccer drills', 2, 'evening', false, { days: 0b0101010 }], ['Take out the recycling', 2, 'evening', false, { days: 0b0010000 }]]],
+  ['edith', { morning: 3, evening: 2 }, [['Tidy the lab bench', 2, 'morning', false], ['Feed the goldfish', 1, 'morning', false], ['Make your bed', 1, 'morning', true], ['Piano practice', 2, 'evening', false, { days: WEEKDAYS_MASK }], ['Put dirty clothes in the hamper', 1, 'evening', false], ['Clean your room', 3, 'evening', false, { days: WEEKENDS_MASK }]]],
+  ['gru', { evening: 2 }, [['Take out the trash', 1, 'evening', false], ['Rocket repairs', 1, 'evening', false], ['Wash the dishes', 2, 'evening', false], ['Mow the lawn', 3, 'afternoon', false, { days: WEEKENDS_MASK }], ['Check the freeze ray', 1, 'morning', true, { days: 0b0000010 }]]],
+  ['lucy', { morning: 2 }, [['Pack lunches', 2, 'morning', true], ['Water the herb garden', 1, 'morning', false], ['Sort the mail', 1, 'evening', false], ['Laundry', 2, 'afternoon', false, { days: 0b0100100 }]]],
+  ['minions', { any: 4 }, [['Peel the bananas', 1, 'any', true], ['Sweep the lair', 1, 'any', false], ['Polish the gadgets', 2, 'any', false], ['Feed the fish tank', 1, 'any', false]]],
+  [null, {}, [['Water the plants', 0, 'any', false], ['Wipe down the counters', 0, 'any', false]]],
 ];
 
 export function demoChores(now = Date.now()): import('../lib/choreTypes').ChoreState {
   const day = dayKey(now, DEMO_TZ);
   const routines = ROUTINES.map(([person, bonus, chores], ri) => {
-    const items = chores.map(([title, points, period, done], i) => ({ id: `c${ri}-${i}`, title, points, done, period, days: null, onceDate: null, everyWeeks: 1, weekAnchor: null, due: true, skipped: false }));
+    const items = chores.map(([title, points, period, done, opts], i) => {
+      const days = opts?.days ?? null;
+      const due = itemDue({ days, onceDate: null }, day);
+      return { id: `c${ri}-${i}`, title, points, done: done && due, period, days, onceDate: null, everyWeeks: 1, weekAnchor: null, untilDone: opts?.kept !== undefined, keptPoints: opts?.kept ?? 0, due, kept: false, skipped: false };
+    });
     const bonuses = { ...periodRecord(0), ...bonus };
-    const earned = (p: Period) => bonuses[p] > 0 && items.some((i) => i.period === p) && items.filter((i) => i.period === p).every((i) => i.done);
+    const earned = (p: Period) => bonuses[p] > 0 && items.some((i) => i.due && i.period === p) && items.filter((i) => i.due && i.period === p).every((i) => i.done);
     return { id: `r${ri}`, person, bonuses, bonusEarned: { morning: earned('morning'), afternoon: earned('afternoon'), evening: earned('evening'), any: earned('any') }, items };
   });
-  const balances: Record<string, number> = { agnes: 14, margo: 31, edith: 8, gru: 3, minions: 22 };
+  const balances: Record<string, number> = { agnes: 14, margo: 31, edith: 8, gru: 3, lucy: 17, minions: 22 };
   for (const r of routines) if (r.person) for (const i of r.items) if (i.done) balances[r.person] = (balances[r.person] ?? 0) + i.points;
   return {
-    day, manager: true, periodLabels: { ...PERIOD_LABEL }, routines, balances, minutes: { agnes: 45, margo: 20, minions: 15 }, now, timers: {}, sounds: { agnes: 'bubbles' },
+    day, manager: true, periodLabels: { ...PERIOD_LABEL }, routines, balances, minutes: { agnes: 45, margo: 20, edith: 10, minions: 15 }, now, timers: {}, sounds: { agnes: 'bubbles' },
     allowance: {
       agnes: { weekday: 60, weekend: 90, today: allowanceFor(day, 60, 90), used: 20 },
       margo: { weekday: 45, weekend: null, today: 45, used: 0 },
+      edith: { weekday: 30, weekend: 60, today: allowanceFor(day, 30, 60), used: 10 },
     },
     rewards: [
       { id: 'r1', name: 'Pick the movie', cost: 10, minutes: 0, people: null, hidden: false },
       { id: 'r2', name: 'Extra screen time', cost: 20, minutes: 30, people: null, hidden: false },
       { id: 'r4', name: 'New ballet shoes', cost: 30, minutes: 0, people: ['agnes'], hidden: false }, // only Agnes sees it
       { id: 'r3', name: 'Ice cream trip', cost: 40, minutes: 0, people: null, hidden: false },
+      { id: 'r5', name: 'Stay up 30 minutes late', cost: 15, minutes: 0, people: null, hidden: false },
+      { id: 'r6', name: 'Choose dinner', cost: 25, minutes: 0, people: null, hidden: false },
+      { id: 'r7', name: '15 minutes of screen time', cost: 8, minutes: 15, people: null, hidden: false },
+      { id: 'r8', name: 'Friend sleepover', cost: 60, minutes: 0, people: ['margo', 'edith'], hidden: false },
+      { id: 'r9', name: 'Skip one chore', cost: 35, minutes: 0, people: null, hidden: true }, // paused by a manager
     ],
     goals: [
       { id: 'g1', name: 'Family movie night out', target: 150, progress: 96, claimed: false },
       { id: 'g2', name: 'Pizza Friday', target: 60, progress: 60, claimed: false },
+      { id: 'g3', name: 'New trampoline', target: 400, progress: 132, claimed: false },
+      { id: 'g4', name: 'Beach house snacks', target: 80, progress: 80, claimed: true },
     ],
-    pending: [{ id: 'req1', person: 'margo', rewardName: 'Pick the movie', cost: 10, minutes: 0, requestedAt: now - 20 * 60_000 }],
+    pending: [
+      { id: 'req1', person: 'margo', rewardName: 'Pick the movie', cost: 10, minutes: 0, requestedAt: now - 20 * 60_000 },
+      { id: 'req2', person: 'edith', rewardName: 'Choose dinner', cost: 25, minutes: 0, requestedAt: now - 3 * 60 * 60_000 },
+    ],
     recent: [
       { id: 'e1', person: 'margo', delta: 2, kind: 'chore', note: 'Walk the dog', at: now - 60 * 60_000 },
       { id: 'e2', person: 'minions', delta: 1, kind: 'chore', note: 'Peel the bananas', at: now - 2 * 60 * 60_000 },
       { id: 'e3', person: 'agnes', delta: 5, kind: 'adjust', note: 'Helped with the groceries', at: now - 26 * 60 * 60_000 },
+      { id: 'e4', person: 'lucy', delta: 2, kind: 'chore', note: 'Pack lunches', at: now - 3 * 60 * 60_000 },
+      { id: 'e5', person: 'agnes', delta: 3, kind: 'bonus', note: 'All done', at: now - 5 * 60 * 60_000 },
+      { id: 'e6', person: 'margo', delta: -15, kind: 'redeem', note: 'Stay up 30 minutes late', at: now - 28 * 60 * 60_000 },
+      { id: 'e7', person: 'edith', delta: 2, kind: 'chore', note: 'Make your bed', at: now - 30 * 60 * 60_000 },
+      { id: 'e8', person: 'gru', delta: -2, kind: 'adjust', note: 'Left the freeze ray on', at: now - 48 * 60 * 60_000 },
     ],
   };
 }
@@ -205,8 +263,10 @@ export function demoChores(now = Date.now()): import('../lib/choreTypes').ChoreS
 export function demoLists(): import('../lib/lists').HList[] {
   const items = (...t: [string, boolean?][]) => t.map(([text, done], i) => ({ id: `i${i}-${text}`, text, done: !!done }));
   return [
-    { id: 'groceries', name: 'Groceries', items: items(['Bananas (lots)'], ['Milk'], ['Pancake mix'], ['Dog food', true], ['Unicorn sprinkles']) },
-    { id: 'todo', name: 'Home to-dos', items: items(['Fix the freeze ray'], ['Book the vet'], ['Return library books', true]) },
-    { id: 'wishes', name: 'Wish list', items: items(['Bigger rocket'], ['A pet unicorn'], ['Matching pajamas']) },
+    { id: 'groceries', name: 'Groceries', items: items(['Bananas (lots)'], ['Milk'], ['Pancake mix'], ['Dog food', true], ['Unicorn sprinkles'], ['Bread'], ['Eggs'], ['Peanut butter', true], ['Apples']) },
+    { id: 'todo', name: 'Home to-dos', items: items(['Fix the freeze ray'], ['Book the vet'], ['Return library books', true], ['Replace the garage light'], ['Order new minion goggles'], ['Fix the squeaky stair']) },
+    { id: 'wishes', name: 'Wish list', items: items(['Bigger rocket'], ['A pet unicorn'], ['Matching pajamas'], ['Trampoline'], ['Disco ball for the lab']) },
+    { id: 'packing', name: 'Beach house packing', items: items(['Swimsuits'], ['Sunscreen'], ['Banana-shaped floaties'], ['Board games', true], ['Phone chargers'], ['Fluffy’s travel bed']) },
+    { id: 'school', name: 'School supplies', items: items(['Glue sticks (lots)'], ['Colored pencils', true], ['Science fair poster board'], ['New backpack for Agnes'], ['Ballet tights', true]) },
   ];
 }

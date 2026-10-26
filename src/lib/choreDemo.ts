@@ -17,6 +17,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
     s.recent.length = Math.min(s.recent.length, 20);
   };
   const refresh = () => { for (const r of s.routines) for (const i of r.items) i.due = itemDue(i, s.day); };
+  // An until-done chore ticked here stays on today's list as done, as on the server. The demo has no later days to show it kept up.
   /** Pays or withdraws a person's bonus for a time of day after a tick, like the server's syncBonus. */
   const syncBonus = (person: string | null, period: Period) => {
     const r = s.routines.find((x) => x.person === person);
@@ -126,7 +127,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
     case 'item_add':
     case 'items_add':
       for (const i of p.action === 'items_add' ? p.items : [p]) {
-        routineOf(i.person ?? null).items.push({ id: uid('c'), title: i.title, points: i.points, done: false, period: i.period, days: i.onceDate ? null : i.days ?? null, onceDate: i.onceDate ?? null, everyWeeks: i.onceDate ? 1 : i.everyWeeks ?? 1, weekAnchor: !i.onceDate && (i.everyWeeks ?? 1) > 1 ? weekStart(i.weekAnchor ?? s.day) : null, due: false, skipped: false });
+        routineOf(i.person ?? null).items.push({ id: uid('c'), title: i.title, points: i.points, done: false, period: i.period, days: i.onceDate ? null : i.days ?? null, onceDate: i.onceDate ?? null, everyWeeks: i.onceDate ? 1 : i.everyWeeks ?? 1, weekAnchor: !i.onceDate && (i.everyWeeks ?? 1) > 1 ? weekStart(i.weekAnchor ?? s.day) : null, untilDone: !i.onceDate && i.untilDone === true, keptPoints: !i.onceDate && i.untilDone === true ? i.keptPoints ?? 0 : 0, due: false, kept: false, skipped: false });
       }
       refresh();
       break;
@@ -139,7 +140,10 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
         if (p.onceDate !== undefined) i.onceDate = p.onceDate;
         if (p.everyWeeks !== undefined) i.everyWeeks = p.everyWeeks;
         if (p.weekAnchor !== undefined) i.weekAnchor = p.weekAnchor;
-        if (i.onceDate !== null) { i.days = null; i.everyWeeks = 1; }
+        if (p.untilDone !== undefined) i.untilDone = p.untilDone;
+        if (p.keptPoints !== undefined) i.keptPoints = p.keptPoints;
+        if (i.onceDate !== null) { i.days = null; i.everyWeeks = 1; i.untilDone = false; }
+        if (!i.untilDone) i.keptPoints = 0;
         if (i.everyWeeks > 1) i.weekAnchor = weekStart(i.weekAnchor ?? s.day); else i.weekAnchor = null;
       }
       refresh();

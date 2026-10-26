@@ -4,7 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { createTestDb } from './d1shim';
 import { addItem, choreState, MAX_ITEMS_PER_ROUTINE, removeItem, setBonus, setCheck, setPeriodLabels, setSkip, updateItem, type ChoreInput } from '../src/lib/chores';
 import { adjustPoints, approveAffordable, adjustMinutes, balanceOf, claimGoal, decideRedemption, MAX_GOALS, MAX_PENDING, removeGoal, removeReward, requestRedemption, saveGoal, saveReward, setAllowance, useMinutes } from '../src/lib/rewards';
-import { canAsk, choreSuggestions, describeSchedule, itemDue, holdingLabel, lockedPoints, sections, spendable, suggestedCost, typicalDailyPoints, toggleDay, WEEKDAYS_MASK, type ChoreItem, type Routine } from '../src/lib/choreTypes';
+import { canAsk, choreSuggestions, describeSchedule, finishedBefore, itemDue, pointsOnWeekday, holdingLabel, lockedPoints, sections, spendable, suggestedCost, typicalDailyPoints, toggleDay, WEEKDAYS_MASK, type ChoreItem, type Routine } from '../src/lib/choreTypes';
 import { requiredRole } from '../src/lib/http';
 
 const T = 1_700_000_000_000;
@@ -598,7 +598,7 @@ describe('skipping a chore for a day', () => {
 });
 
 describe('choreSuggestions', () => {
-  const item = (title: string, o: Partial<ChoreItem> = {}): ChoreItem => ({ id: title, title, points: 2, done: false, period: 'morning', days: null, onceDate: null, everyWeeks: 1, weekAnchor: null, due: true, skipped: false, ...o });
+  const item = (title: string, o: Partial<ChoreItem> = {}): ChoreItem => ({ id: title, title, points: 2, done: false, period: 'morning', days: null, onceDate: null, everyWeeks: 1, weekAnchor: null, untilDone: false, keptPoints: 0, due: true, kept: false, skipped: false, ...o });
   const routine = (person: string | null, items: ChoreItem[]): Routine => ({ id: String(person), person, bonuses: { morning: 0, afternoon: 0, evening: 0, any: 0 }, bonusEarned: { morning: false, afternoon: false, evening: false, any: false }, items });
   const routines = [routine('a', [item('Feed the dog'), item('Make bed'), item('Old trip', { onceDate: '2020-01-01' })]), routine('b', [item('Feed the Dog'), item('Dishes', { points: 5 })]), routine('c', [item('Make bed')])];
 
@@ -610,7 +610,7 @@ describe('choreSuggestions', () => {
     expect(choreSuggestions(routines, 'c', 'trip', '2026-10-18')).toEqual([]);
   });
   it('carries the points and schedule over', () => {
-    expect(choreSuggestions(routines, 'c', 'dish', '2026-10-18')).toEqual([{ title: 'Dishes', points: 5, period: 'morning', days: null, onceDate: null, everyWeeks: 1, weekAnchor: null }]);
+    expect(choreSuggestions(routines, 'c', 'dish', '2026-10-18')).toEqual([{ title: 'Dishes', points: 5, period: 'morning', days: null, onceDate: null, everyWeeks: 1, weekAnchor: null, untilDone: false, keptPoints: 0 }]);
   });
 });
 
@@ -685,7 +685,7 @@ describe('time of day names', () => {
 });
 
 describe('spendable points on the client', () => {
-  const item = (period: ChoreItem['period'], points: number, done: boolean, extra: Partial<ChoreItem> = {}) => ({ period, points, done, due: true, skipped: false, ...extra });
+  const item = (period: ChoreItem['period'], points: number, done: boolean, extra: Partial<ChoreItem> = {}) => ({ period, points, done, due: true, kept: false, skipped: false, ...extra });
   it('holds the points of an unfinished time of day and nothing else', () => {
     expect(lockedPoints([item('morning', 3, true), item('morning', 1, false), item('evening', 4, true)])).toBe(3);
     expect(lockedPoints([item('morning', 3, true), item('morning', 1, false, { skipped: true })])).toBe(0);
@@ -705,7 +705,7 @@ describe('spendable points on the client', () => {
 });
 
 describe('reward cost calculator', () => {
-  const at = (title: string, points: number, days: number | null, period: ChoreItem['period'] = 'morning') => ({ id: title, title, points, done: false, period, days, onceDate: null, everyWeeks: 1, weekAnchor: null, due: true, skipped: false }) as ChoreItem;
+  const at = (title: string, points: number, days: number | null, period: ChoreItem['period'] = 'morning') => ({ id: title, title, points, done: false, period, days, onceDate: null, everyWeeks: 1, weekAnchor: null, untilDone: false, keptPoints: 0, due: true, kept: false, skipped: false }) as ChoreItem;
   it('averages the week, counting bonuses and ignoring one-offs', () => {
     const bonuses = { morning: 7, afternoon: 0, evening: 0, any: 0 };
     const items = [at('Daily', 2, null), at('Weekdays', 5, WEEKDAYS_MASK), { ...at('Once', 50, null), onceDate: WED }];
@@ -716,5 +716,111 @@ describe('reward cost calculator', () => {
     expect(suggestedCost({ perDay: 6.4, days: 3 })).toBe(19);
     expect(suggestedCost({ minutes: 30, minutesPerPoint: 2 })).toBe(15);
     expect(suggestedCost({ perDay: 0, days: 1 })).toBe(1);
+  });
+});
+
+describe('until-done chores', () => {
+  let db: D1Database;
+  const MON = '2026-10-05', TUE = '2026-10-06', FRI = '2026-10-09', NEXT_MON = '2026-10-12';
+  const homework = chore('Math homework', 20, { days: WEEKDAYS_MASK, untilDone: true, keptPoints: 5 });
+  const mine = async (day: string) => (await choreState(db, day, true, T)).routines[0]!.items[0]!;
+  const bal = async () => (await choreState(db, WED, true, T)).balances.sam ?? 0;
+  beforeEach(async () => { db = createTestDb(); await give(db, 'sam', homework); });
+
+  it('finds when it was finished earlier in the same Sunday-to-Saturday week', () => {
+    expect(finishedBefore([TUE], WED)).toBe(TUE);
+    expect(finishedBefore([TUE], TUE)).toBeNull(); // the finish day itself is not "after"
+    expect(finishedBefore([TUE], NEXT_MON)).toBeNull(); // a new week starts over
+    expect(finishedBefore([], WED)).toBeNull();
+  });
+  it('stays on the list every day until it is ticked, and pays nothing for days that pass', async () => {
+    for (const d of [MON, TUE, WED]) expect(await mine(d)).toMatchObject({ due: true, kept: false });
+    expect(await bal()).toBe(0);
+  });
+  it('pays its points on the finish day, then the kept-up points for each remaining weekday', async () => {
+    const id = (await mine(MON)).id;
+    expect(await setCheck(db, id, TUE, true, T)).toBe('ok');
+    expect(await mine(TUE)).toMatchObject({ done: true, kept: false });
+    expect(await balanceOf(db, 'sam')).toBe(20);
+    expect(await mine(WED)).toMatchObject({ kept: true, done: false });
+    expect(await balanceOf(db, 'sam')).toBe(25); // Wednesday, now settled
+    await choreState(db, FRI, true, T);
+    expect(await balanceOf(db, 'sam')).toBe(35); // Thursday and Friday, caught up even though nobody looked on Thursday
+    await choreState(db, FRI, true, T);
+    expect(await balanceOf(db, 'sam')).toBe(35); // settling again pays nothing more
+    expect(await choreState(db, '2026-10-10', true, T).then((s) => s.routines[0]!.items[0]!.kept)).toBe(false); // Saturday is not a scheduled day
+    expect(await balanceOf(db, 'sam')).toBe(35);
+  });
+  it('cannot be finished twice in a week, and starts over the next week', async () => {
+    const id = (await mine(MON)).id;
+    await setCheck(db, id, MON, true, T);
+    expect(await setCheck(db, id, TUE, true, T)).toBe('not_due');
+    expect(await mine(NEXT_MON)).toMatchObject({ due: true, kept: false });
+    expect(await setCheck(db, id, NEXT_MON, true, T)).toBe('ok');
+  });
+  it('takes back the finish and the kept-up points together when un-ticked', async () => {
+    const id = (await mine(MON)).id;
+    await setCheck(db, id, MON, true, T);
+    await choreState(db, WED, true, T);
+    expect(await balanceOf(db, 'sam')).toBe(30); // 20 + Tue + Wed
+    await setCheck(db, id, MON, false, T);
+    expect(await balanceOf(db, 'sam')).toBe(0);
+    expect(await mine(WED)).toMatchObject({ kept: false });
+  });
+  it('does not pay a day a manager skipped, and does not hold back the all-done bonus', async () => {
+    const id = (await mine(MON)).id;
+    await setBonus(db, 'sam', 'morning', 3);
+    await setCheck(db, id, MON, true, T);
+    expect(await setSkip(db, id, TUE, true, T)).toBe('ok');
+    await choreState(db, WED, true, T);
+    expect(await balanceOf(db, 'sam')).toBe(28); // 20 + 3 bonus on Monday + Wednesday's 5; Tuesday was skipped
+  });
+  it('is stored only for repeating chores, with kept-up points in range', async () => {
+    expect(await addItem(db, 'sam', chore('Once', 1, { onceDate: WED, untilDone: true, keptPoints: 5 }), T)).toBe('ok');
+    const items = (await choreState(db, WED, true, T)).routines[0]!.items;
+    expect(items.find((i) => i.title === 'Once')).toMatchObject({ untilDone: false, keptPoints: 0 });
+    expect(await addItem(db, 'sam', chore('Too much', 1, { untilDone: true, keptPoints: 101 }), T)).toBe('bad_request');
+    expect(await updateItem(db, items[0]!.id, { untilDone: false }, T)).toBe('ok');
+    expect(await mine(WED)).toMatchObject({ untilDone: false, keptPoints: 0 });
+  });
+  it('ignores an un-tick on a day it was never ticked, leaving kept-up points alone', async () => {
+    const id = (await mine(MON)).id;
+    await setCheck(db, id, MON, true, T);
+    await choreState(db, WED, true, T);
+    expect(await balanceOf(db, 'sam')).toBe(30);
+    await setCheck(db, id, WED, false, T); // a stale or doubled request
+    expect(await balanceOf(db, 'sam')).toBe(30);
+  });
+  it('re-checks the bonus on later days when the finish is undone', async () => {
+    const id = (await mine(MON)).id;
+    await setBonus(db, 'sam', 'morning', 3);
+    await setCheck(db, id, MON, true, T);
+    await setCheck(db, id, TUE, false, T); // nothing was ticked Tuesday: no effect
+    expect(await balanceOf(db, 'sam')).toBe(23); // 20 + Monday's bonus
+    await setCheck(db, id, MON, false, T);
+    expect(await balanceOf(db, 'sam')).toBe(0);
+  });
+  it('does not read ticks from before it became until-done as a finish', async () => {
+    const plain = (await choreState(db, MON, true, T)).routines[0]!;
+    await addItem(db, 'sam', chore('Dishes', 2, { days: WEEKDAYS_MASK }), T);
+    const dishes = (await choreState(db, MON, true, T)).routines[0]!.items.find((i) => i.title === 'Dishes')!;
+    expect(plain.items).toHaveLength(1);
+    await setCheck(db, dishes.id, MON, true, T);
+    await setCheck(db, dishes.id, TUE, true, T);
+    const before = await balanceOf(db, 'sam');
+    await updateItem(db, dishes.id, { untilDone: true, keptPoints: 5 }, Date.parse('2026-10-07T12:00:00Z')); // switched on Wednesday
+    expect(await choreState(db, WED, true, T).then((st) => st.routines[0]!.items.find((i) => i.title === 'Dishes')!)).toMatchObject({ kept: false });
+    expect(await balanceOf(db, 'sam')).toBe(before); // no back-pay for Tuesday or Wednesday
+    expect(await setCheck(db, dishes.id, WED, true, T)).toBe('ok'); // Wednesday's tick is the finish
+  });
+  it('pays nothing extra on a list for Anyone', async () => {
+    await addItem(db, null, chore('Plants', 0, { untilDone: true, keptPoints: 5 }), T);
+    const anyone = (await choreState(db, MON, true, T)).routines.find((r) => r.person === null)!;
+    expect(anyone.items[0]).toMatchObject({ untilDone: true, keptPoints: 0 });
+  });
+  it('counts the finish points on the first scheduled weekday and the kept-up points after', () => {
+    const hw = { untilDone: true, days: WEEKDAYS_MASK, onceDate: null, points: 20, keptPoints: 5 };
+    expect([0, 1, 2, 5, 6].map((d) => pointsOnWeekday(hw, d))).toEqual([20, 20, 5, 5, 5]); // Sunday is not scheduled, so Monday is the first day
+    expect(pointsOnWeekday({ ...hw, untilDone: false }, 3)).toBe(20);
   });
 });
