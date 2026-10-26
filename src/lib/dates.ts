@@ -26,6 +26,12 @@ function offsetMs(tz: string, ms: number): number {
   return Date.UTC(p.y, p.m - 1, p.d, p.h, p.mi, p.s) - Math.floor(ms / 1000) * 1000;
 }
 
+/** Milliseconds since local midnight of an instant in `tz`. */
+export function msOfDay(ms: number, tz: string): number {
+  const p = zonedParts(ms, tz);
+  return ((p.h * 60 + p.mi) * 60 + p.s) * 1000 + (((ms % 1000) + 1000) % 1000);
+}
+
 const pad = (n: number) => String(n).padStart(2, '0');
 export const keyOf = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
 export const parseKey = (key: string) => ({ y: +key.slice(0, 4), m: +key.slice(5, 7), d: +key.slice(8, 10) });

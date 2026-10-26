@@ -140,7 +140,9 @@ whose meals have details expand to show them. Needs `MEALQ_API_TOKEN`; the API i
 
 Each person has **one routine**, split by time of day (morning, afternoon, evening, any time). A manager can **rename** them at
 **Chores → Manage** (for example "Before school" and "After school"). **Anyone** has one too, for
-shared chores. A manager adds chores at **Chores → Manage** (`/chores/manage`), giving each:
+shared chores. Each time of day has **hours** (morning 5 AM to 12 PM, afternoon 12 to 5 PM and evening 5 to 9 PM until a manager
+changes them, in the household time zone). A chore can be ticked, or un-ticked, only during its time of day: later ones show when they
+open and an earlier one shows "Time is up". Managers can tick at any time, and "any time" chores have no hours. A manager adds chores at **Chores → Manage** (`/chores/manage`), giving each:
 
 - a **time of day**;
 - the **days it repeats** (every day, weekdays, or chosen days), every week or **every 2nd, 3rd or 4th week** (counted from
@@ -169,7 +171,13 @@ day with a bonus). It is skipped for devices set to reduce motion.
   hidden to pause it without deleting it.
 - **Locks.** Each time of day is its own lock: the points earned from its chores cannot be spent until every chore due in
   it is done (a skipped chore does not count). Points from a manager's adjustment, from a finished time of day or from an
-  earlier day are free. The lock applies to every reward, screen time included.
+  earlier day are free, and so are the points of a time of day that has ended with chores undone (it pays no all-done bonus). The lock
+  applies to every reward, screen time included.
+- **Taking screen time more than once.** A screen-time reward can be taken several times over in one go: at 2 points for 5 minutes, ×10
+  (or **Max**) is 20 points for 50 minutes.
+- **A daily limit on bought screen time.** A manager can set, for each person, the most screen time they can buy with points in a day
+  (next to their daily allowance; 0 for no limit). **Max** stops at what is left of it, and once it is used up the reward says so.
+  It counts only time bought with points, not the allowance or time already banked.
 - **Spending is deliberate.** A screen-time reward asks for a second tap ("Spend 20?") before it takes the points. A tick shows at once and saves behind it; if the save fails it is put back and the error is shown.
 - **Asking.** Anyone can get a reward the person can afford, from that person's column. A reward that carries **screen time**
   is granted at once, with nothing for a manager to approve. Any other reward waits: nothing is deducted until a

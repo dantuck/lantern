@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Switch from './Switch.svelte';
   import { SOUNDS, SOUND_LABEL, type Sound } from '../lib/choreTypes';
   import { playSound, unlockAudio } from '../lib/chime';
   import { disablePush, enablePush, isSubscribed, pushSupport, type PushSupport } from '../lib/pushClient';
@@ -46,14 +47,17 @@
 
 <section class="card" aria-labelledby="alarm-h">
   <h2 class="card-h" id="alarm-h">Timer sound</h2>
-  <p class="note mt-0">What {name}'s timer plays when time is up. Tap one to hear it.</p>
+  <p class="note mt-0">Tap a sound to hear it and pick it for {name}'s timer.</p>
   <div class="flex flex-wrap gap-2" role="group" aria-label="Sound for time's up">
     {#each SOUNDS as s (s)}
-      <button type="button" class="ghost small w-auto m-0 [&[aria-pressed=true]]:bg-card [&[aria-pressed=true]]:text-accent [&[aria-pressed=true]]:border-[1.5px] [&[aria-pressed=true]]:border-accent" aria-pressed={s === sound} disabled={busy} onclick={() => choose(s)}><span aria-hidden="true">▶</span> {SOUND_LABEL[s]}</button>
+      <button type="button" class="ghost flex-[1_1_7rem] [&&]:w-auto [&&]:m-0 [&&]:min-h-11 [&[aria-pressed=true]]:bg-accent-soft [&[aria-pressed=true]]:text-accent [&[aria-pressed=true]]:border-accent" aria-pressed={s === sound} disabled={busy} onclick={() => choose(s)}><span aria-hidden="true">{s === sound ? '✓' : '▶'}</span> {SOUND_LABEL[s]}</button>
     {/each}
   </div>
-  <label class="flex items-center gap-2 mt-4 text-[.95rem] font-medium text-fg"><input class="w-auto m-0" type="checkbox" checked={!muted} onchange={(e) => { muted = !e.currentTarget.checked; if (!muted) unlockAudio(); }} /> Ring on this device</label>
-  <p class="note mt-1">Sound plays only while this page is open. On an iPad, the side switch or Control Centre mute also silences it.</p>
+  <div class="flex items-center justify-between gap-3 mt-3 pointer-coarse:min-h-11">
+    <span id="ring-l" class="text-[.95rem] font-medium text-fg">Ring on this device</span>
+    <Switch checked={!muted} labelledby="ring-l" onchange={(on) => { muted = !on; if (on) unlockAudio(); }} />
+  </div>
+  <p class="note mt-1">Plays only while this page is open. An iPad's side switch or mute also silences it.</p>
 
   {#if support === 'ready' || support === 'needs-install'}
     <h3 class="mt-4 mb-1 mx-0 text-[1rem]">Alerts when the page is closed</h3>

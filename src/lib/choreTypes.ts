@@ -7,6 +7,49 @@ export const PERIODS: readonly Period[] = ['morning', 'afternoon', 'evening', 'a
 export const PERIOD_LABEL: Record<Period, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening', any: 'Any time' };
 export const MAX_PERIOD_LABEL = 24;
 
+/** When a time of day runs, in minutes after local midnight. A chore in it can be ticked only inside its hours (managers can always). */
+export interface Hours { from: number; to: number }
+export type PeriodHours = Record<Period, Hours | null>;
+/** The hours until a manager changes them. "Any time" has none. */
+export const DEFAULT_HOURS: PeriodHours = { morning: { from: 300, to: 720 }, afternoon: { from: 720, to: 1020 }, evening: { from: 1020, to: 1260 }, any: null };
+export const HOURS_PERIODS: readonly Period[] = ['morning', 'afternoon', 'evening'];
+export type PeriodPhase = 'before' | 'open' | 'closed';
+/** Whether `h` is a real span of the day: it starts at or after midnight and ends after it starts, by the end of the day. */
+export const validHours = (h: Hours): boolean => Number.isInteger(h.from) && Number.isInteger(h.to) && h.from >= 0 && h.to <= 1440 && h.to > h.from;
+/** "07:30" (what a time field holds) for minutes after midnight, and back. A time field cannot say 24:00, so midnight as an end means the end of the day. */
+export const clockOf = (min: number): string => `${pad2(Math.floor(min / 60) % 24)}:${pad2(min % 60)}`;
+export const minuteOf = (v: string, end = false): number => { const [h = 0, m = 0] = v.split(':').map(Number); const n = h * 60 + m; return end && n === 0 ? 1440 : n; };
+const pad2 = (n: number): string => String(n).padStart(2, '0');
+/** Whether a time of day has not begun, is running, or is over, at `dayMs` (milliseconds since local midnight). */
+export function phaseOf(hours: Hours | null, dayMs: number): PeriodPhase {
+  if (!hours) return 'open';
+  return dayMs < hours.from * 60_000 ? 'before' : dayMs >= hours.to * 60_000 ? 'closed' : 'open';
+}
+/** The times of day that are over at `dayMs`. */
+export const closedPeriods = (hours: PeriodHours, dayMs: number): Set<Period> => new Set(PERIODS.filter((p) => phaseOf(hours[p], dayMs) === 'closed'));
+/** "7 AM" or "5:30 PM" for minutes after midnight. */
+export const formatMinute = (min: number): string => {
+  const h = Math.floor(min / 60) % 24, m = min % 60;
+  return `${h % 12 || 12}${m ? `:${pad2(m)}` : ''} ${h < 12 ? 'AM' : 'PM'}`;
+};
+export const hoursLabel = (h: Hours | null): string => (h ? `${formatMinute(h.from)} to ${formatMinute(h.to)}` : '');
+/** What stops this viewer ticking a chore in `period` right now, or ''. Managers are never stopped, except in the demo, which shows what everyone else sees. */
+export const blockFor = (s: Pick<ChoreState, 'periodHours' | 'manager'>, period: Period, dayMs: number, demo = false): string => (s.manager && !demo ? '' : tickBlock(s.periodHours, period, dayMs));
+/** Why a chore cannot be ticked right now (its time of day has not begun, or is over), or '' when it can. Whether that applies to the viewer is the caller's call: managers can always tick. */
+export function tickBlock(hours: PeriodHours, period: Period, dayMs: number): string {
+  const h = hours[period];
+  const phase = phaseOf(h, dayMs);
+  return phase === 'before' ? `Opens at ${formatMinute(h!.from)}` : phase === 'closed' ? 'Time is up' : '';
+}
+
+/** The most times a screen time reward can be taken at once ("2 points for 5 minutes", taken ten times, is 20 points for 50 minutes). */
+export const MAX_QUANTITY = 48;
+/** A screen time reward taken `quantity` times over: what it costs, the minutes it gives and what to call it. Anything else is only ever taken once. */
+export const scaled = (r: Pick<Reward, 'name' | 'cost' | 'minutes'>, quantity: number): { name: string; cost: number; minutes: number } => {
+  const q = r.minutes > 0 ? Math.max(1, Math.min(MAX_QUANTITY, Math.floor(quantity))) : 1;
+  return { name: q > 1 ? `${r.name} ×${q}` : r.name, cost: r.cost * q, minutes: r.minutes * q };
+};
+
 export const EVERY_DAY = 127;
 export const WEEKDAYS_MASK = 0b0111110; // Monday to Friday (bit 0 is Sunday)
 export const WEEKENDS_MASK = 0b1000001;
@@ -29,6 +72,8 @@ export interface ChoreItem {
   /** An "until done" chore stays on the list until it is ticked, then pays `keptPoints` for each remaining scheduled day of its week. */
   untilDone: boolean;
   keptPoints: number;
+  /** On the list every scheduled day, but only counts once ticked: undone, it holds no points back and the bonus does not wait for it. */
+  optional: boolean;
   /** Whether it is on the schedule for `ChoreState.day`. */
   due: boolean;
   /** An until-done chore that was finished earlier this week: off today's list, with its kept-up points paid automatically. */
@@ -71,6 +116,21 @@ export interface Allowance {
   /** Minutes of today's allowance already used. */
   used: number;
 }
+/** The most screen time a person can buy with points in a day, and how much they have bought today. */
+export interface BuyCap { limit: number; bought: number }
+/**
+ * Whether a person can take a reward `quantity` times: 'insufficient' without the points, 'locked' while a time of day holds them back
+ * (`balance` is what they have less waiting requests, `held` what is locked), and 'daily_limit' past what they may buy today (`room`).
+ * The server and the demo both decide with this.
+ */
+export function redeemCheck(r: Pick<Reward, 'name' | 'cost' | 'minutes'>, quantity: number, have: { balance: number; held: number; room: number }): 'ok' | 'insufficient' | 'locked' | 'daily_limit' {
+  const { cost, minutes } = scaled(r, quantity);
+  if (have.balance < cost) return 'insufficient';
+  if (have.balance - have.held < cost) return 'locked';
+  return minutes > have.room ? 'daily_limit' : 'ok';
+}
+/** Minutes of screen time a person can still buy today: Infinity when they have no limit. */
+export const buyRoom = (s: Pick<ChoreState, 'buyCap'>, person: string): number => { const c = s.buyCap[person]; return c ? Math.max(0, c.limit - c.bought) : Infinity; };
 /** A running (or just finished) screen time countdown. Times are milliseconds on the server's clock; see `ChoreState.now`. */
 export interface Timer { startedAt: number; endsAt: number; minutes: number }
 /** The sounds a device can play when time is up. They are synthesized in the browser (see chime.ts), so there are no audio files. */
@@ -88,6 +148,10 @@ export interface ChoreState {
   day: string;
   /** What each time of day is called in this household (a manager's names, or the built-in ones). */
   periodLabels: Record<Period, string>;
+  /** When each time of day runs (null for "any time"). */
+  periodHours: PeriodHours;
+  /** Milliseconds since local midnight at `now`, which says which times of day are open. */
+  dayMs: number;
   /** Whether the signed-in user is a manager and may change chores, rewards and points. */
   manager: boolean;
   routines: Routine[];
@@ -99,6 +163,8 @@ export interface ChoreState {
   minutes: Record<string, number>;
   /** Daily screen time allowance per person id, for the people who have one. */
   allowance: Record<string, Allowance>;
+  /** The daily limit on bought screen time, for the people who have one. */
+  buyCap: Record<string, BuyCap>;
   /** The server's clock when this state was read, so a device with a slightly wrong clock still counts down correctly. */
   now: number;
   /** The countdown each person has running (or has just finished and not yet cleared), by person id. */
@@ -158,10 +224,10 @@ export const WEEKDAY_SHORT: readonly string[] = Array.from({ length: 7 }, (_, i)
 export const toggleDay = (days: number, weekday: number): number => days ^ (1 << weekday);
 
 /** "Every day", "Weekdays", "Mon, Wed", or the date for a one-off; with ", every other week" or ", every 3 weeks" when it skips weeks. `names` default to the seven short weekday names from Sunday. */
-export function describeSchedule(s: { days: number | null; onceDate: string | null; untilDone?: boolean } & Rotation, names: readonly string[] = WEEKDAY_SHORT): string {
+export function describeSchedule(s: { days: number | null; onceDate: string | null; untilDone?: boolean; optional?: boolean } & Rotation, names: readonly string[] = WEEKDAY_SHORT): string {
   if (s.onceDate !== null) return `Once, ${s.onceDate}`;
   const n = s.everyWeeks ?? 1;
-  const base = describeDays(s.days, names) + (s.untilDone ? ', until done' : '');
+  const base = describeDays(s.days, names) + (s.untilDone ? ', until done' : '') + (s.optional ? ', optional' : '');
   return n > 1 ? `${base}, ${n === 2 ? 'every other week' : `every ${n} weeks`}` : base;
 }
 
@@ -187,7 +253,7 @@ export const todaysRoutines = (routines: readonly Routine[]): Routine[] =>
   routines.map((r) => ({ ...r, items: r.items.filter(onToday) })).filter((r) => r.items.length > 0);
 
 /** A chore already set up for someone, offered again when adding one to another person's list. */
-export type ChoreTemplate = Pick<ChoreItem, 'title' | 'points' | 'period' | 'days' | 'onceDate' | 'everyWeeks' | 'weekAnchor' | 'untilDone' | 'keptPoints'>;
+export type ChoreTemplate = Pick<ChoreItem, 'title' | 'points' | 'period' | 'days' | 'onceDate' | 'everyWeeks' | 'weekAnchor' | 'untilDone' | 'keptPoints' | 'optional'>;
 
 /**
  * The chores in the household that could be added to `person`'s list: those on other lists (or earlier on none), matching `query`,
@@ -203,7 +269,7 @@ export function choreSuggestions(routines: readonly Routine[], person: string | 
       const t = i.title.toLowerCase();
       if (have.has(t) || (q && !t.includes(q)) || isPastOnce(i, day)) continue;
       have.add(t);
-      out.push({ title: i.title, points: i.points, period: i.period, days: i.days, onceDate: i.onceDate, everyWeeks: i.everyWeeks, weekAnchor: i.weekAnchor, untilDone: i.untilDone, keptPoints: i.keptPoints });
+      out.push({ title: i.title, points: i.points, period: i.period, days: i.days, onceDate: i.onceDate, everyWeeks: i.everyWeeks, weekAnchor: i.weekAnchor, untilDone: i.untilDone, keptPoints: i.keptPoints, optional: i.optional });
     }
   }
   // Titles starting with the query read as the better match, then alphabetical.
@@ -218,23 +284,29 @@ export const sections = <T extends { period: Period }>(items: readonly T[]): { p
 /** Whether `person` may ask for `reward`: it is open to everyone, or they are among the people it is limited to. */
 export const canAsk = (reward: Pick<Reward, 'people'>, person: string): boolean => reward.people === null || reward.people.includes(person);
 
-type Lockable = Pick<ChoreItem, 'period' | 'points' | 'done' | 'due' | 'skipped' | 'kept'>;
+type Lockable = Pick<ChoreItem, 'period' | 'points' | 'done' | 'due' | 'skipped' | 'kept' | 'optional'>;
+/** Whether a chore is needed to finish its time of day: every chore is, except an optional one. The bonus and the lock wait only for these. */
+export const required = (i: Pick<ChoreItem, 'optional'>): boolean => !i.optional;
+/** "x of y done" for a list of chores. An optional chore nobody ticked is not one of the y. */
+export const tally = (items: readonly Pick<ChoreItem, 'optional' | 'done'>[]): { done: number; total: number } => ({ done: items.filter((i) => i.done).length, total: items.filter(counts).length });
+/** Whether a chore counts toward "x of y done": every chore does, except an optional one nobody ticked. */
+export const counts = (i: Pick<ChoreItem, 'optional' | 'done'>): boolean => !i.optional || i.done;
 
-/** The times of day that still have a chore due and not done today. Each is its own lock. */
-const openPeriods = (items: readonly Lockable[]): Set<Period> => new Set(items.filter((i) => onToday(i) && !i.done).map((i) => i.period));
+/** The times of day that still have a chore due and not done today, and are not over. Each is its own lock. */
+const openPeriods = (items: readonly Lockable[], closed: ReadonlySet<Period>): Set<Period> => new Set(items.filter((i) => onToday(i) && !i.done && required(i) && !closed.has(i.period)).map((i) => i.period));
 
 /**
  * Points still locked today: the points earned from chores in a time of day that is not finished yet cannot be spent until it is.
- * A skipped chore is not due, so skipping can open a lock.
+ * A skipped chore is not due, so skipping can open a lock, and so can the time of day ending (`closed`).
  */
-export function lockedPoints(items: readonly Lockable[]): number {
-  const open = openPeriods(items);
+export function lockedPoints(items: readonly Lockable[], closed: ReadonlySet<Period> = new Set()): number {
+  const open = openPeriods(items, closed);
   return items.reduce((n, i) => (onToday(i) && i.done && open.has(i.period) ? n + i.points : n), 0);
 }
 
 /** "Before school and After school" for the unfinished times of day that hold points back, or '' when nothing is held. */
-export function holdingLabel(items: readonly Lockable[], labels: Record<Period, string>): string {
-  const open = openPeriods(items);
+export function holdingLabel(items: readonly Lockable[], labels: Record<Period, string>, closed: ReadonlySet<Period> = new Set()): string {
+  const open = openPeriods(items, closed);
   return PERIODS.filter((p) => open.has(p) && items.some((i) => onToday(i) && i.done && i.points > 0 && i.period === p)).map((p) => labels[p]).join(' and ');
 }
 
@@ -264,8 +336,8 @@ export const suggestedCost = (basis: { perDay: number; days: number } | { minute
   Math.min(100_000, Math.max(1, Math.round('days' in basis ? basis.perDay * basis.days : basis.minutes / Math.max(1, basis.minutesPerPoint))));
 
 /** What a person can spend now: their points, less what is promised to waiting requests and what an unfinished time of day holds back. */
-export function spendable(s: Pick<ChoreState, 'routines' | 'balances' | 'pending'>, person: string): number {
-  const held = lockedPoints(s.routines.filter((r) => r.person === person).flatMap((r) => r.items));
+export function spendable(s: Pick<ChoreState, 'routines' | 'balances' | 'pending' | 'periodHours' | 'dayMs'>, person: string): number {
+  const held = lockedPoints(s.routines.filter((r) => r.person === person).flatMap((r) => r.items), closedPeriods(s.periodHours, s.dayMs));
   const waiting = s.pending.filter((r) => r.person === person).reduce((n, r) => n + r.cost, 0);
   return Math.max(0, (s.balances[person] ?? 0) - held - waiting);
 }

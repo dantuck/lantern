@@ -9,7 +9,7 @@
 
   // A draft of the chore as it was when editing started; the card only ever edits one chore, so reading `c` once is right.
   // svelte-ignore state_referenced_locally
-  let draft = $state({ title: c.title, points: c.points, period: c.period as Period, days: c.days ?? EVERY_DAY, once: c.onceDate !== null, date: c.onceDate ?? day, every: c.everyWeeks, from: c.weekAnchor ?? weekStart(day), untilDone: c.untilDone, kept: c.keptPoints });
+  let draft = $state({ title: c.title, points: c.points, period: c.period as Period, days: c.days ?? EVERY_DAY, once: c.onceDate !== null, date: c.onceDate ?? day, every: c.everyWeeks, from: c.weekAnchor ?? weekStart(day), untilDone: c.untilDone, kept: c.keptPoints, optional: c.optional });
 
   const schedule = $derived(draft.once ? { days: null, onceDate: draft.date } : { days: normalizeDays(draft.days), onceDate: null, everyWeeks: draft.every, weekAnchor: draft.every > 1 ? draft.from : null, untilDone: draft.untilDone, keptPoints: draft.kept });
 
@@ -17,7 +17,7 @@
     e.preventDefault();
     const title = draft.title.trim();
     if (!title) return;
-    if (await send({ action: 'item_update', id: c.id, title, points: draft.points, period: draft.period, ...schedule })) onclose();
+    if (await send({ action: 'item_update', id: c.id, title, points: draft.points, period: draft.period, optional: draft.optional, ...schedule })) onclose();
   }
 </script>
 
@@ -30,7 +30,7 @@
         {#each PERIODS as p (p)}<option value={p}>{labels[p]}</option>{/each}
       </select></label>
   </div>
-  <ScheduleFields class="text-[.85rem]" subject={c.title} {day} bind:once={draft.once} bind:days={draft.days} bind:date={draft.date} bind:every={draft.every} bind:from={draft.from} bind:untilDone={draft.untilDone} bind:keptPoints={draft.kept} {earns} />
+  <ScheduleFields class="text-[.85rem]" subject={c.title} {day} bind:once={draft.once} bind:days={draft.days} bind:date={draft.date} bind:every={draft.every} bind:from={draft.from} bind:untilDone={draft.untilDone} bind:keptPoints={draft.kept} bind:optional={draft.optional} {earns} />
   <div class="flex flex-wrap items-center justify-between gap-2">
     <ConfirmButton ariaLabel={`Remove ${c.title}`} disabled={busy} onconfirm={onremove} />
     <span class="flex gap-2">

@@ -1,5 +1,5 @@
 // Browser-safe. The demo has no database, so this applies the same actions as /api/chores to a copy of the state held in the page.
-import { allowanceFor, allowanceLeft, isPeriod, isSound, itemDue, MAX_PERIOD_LABEL, onToday, PERIOD_LABEL, periodRecord, spendable, weekStart, type ChoreState, type Period } from './choreTypes';
+import { allowanceFor, allowanceLeft, buyRoom, isPeriod, isSound, itemDue, MAX_PERIOD_LABEL, redeemCheck, required, scaled, validHours, onToday, PERIOD_LABEL, periodRecord, spendable, weekStart, type ChoreState, type Period } from './choreTypes';
 
 let seq = 0;
 /** Where each demo timer's minutes came from, so stopping one early can give them back the way the server does. */
@@ -10,6 +10,7 @@ const uid = (p: string) => `${p}-${++seq}`;
 export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.now()): ChoreState {
   const s: ChoreState = JSON.parse(JSON.stringify(prev)); // the state is plain data; this also accepts a Svelte $state proxy
   s.now = now;
+  s.dayMs = prev.dayMs + (now - prev.now); // the demo's clock keeps moving from where it started
   const log = (person: string, delta: number, kind: ChoreState['recent'][number]['kind'], note: string) => {
     s.balances[person] = (s.balances[person] ?? 0) + delta;
     if (kind === 'chore' || kind === 'bonus' || (kind === 'adjust' && delta > 0)) earn(delta);
@@ -22,7 +23,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
   const syncBonus = (person: string | null, period: Period) => {
     const r = s.routines.find((x) => x.person === person);
     if (!r || !person || r.bonuses[period] <= 0) return;
-    const due = r.items.filter((i) => i.period === period && onToday(i));
+    const due = r.items.filter((i) => i.period === period && onToday(i) && required(i)); // an optional chore never holds the bonus back
     const all = due.length > 0 && due.every((i) => i.done);
     if (all !== r.bonusEarned[period]) { r.bonusEarned[period] = all; log(person, all ? r.bonuses[period] : -r.bonuses[period], 'bonus', 'All done'); }
   };
@@ -62,8 +63,9 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
     case 'redeem': {
       const r = s.rewards.find((x) => x.id === p.rewardId);
       // Like the server: only unlocked points count, and screen time is granted at once while anything else waits for a manager.
-      if (!r || r.hidden || spendable(s, p.person) < r.cost) break;
-      if (r.minutes > 0) { log(p.person, -r.cost, 'redeem', r.name); s.minutes[p.person] = (s.minutes[p.person] ?? 0) + r.minutes; }
+      const buy = r && scaled(r, p.quantity ?? 1);
+      if (!r || !buy || r.hidden || redeemCheck(r, p.quantity ?? 1, { balance: spendable(s, p.person), held: 0, room: buyRoom(s, p.person) }) !== 'ok') break;
+      if (r.minutes > 0) { log(p.person, -buy.cost, 'redeem', buy.name); s.minutes[p.person] = (s.minutes[p.person] ?? 0) + buy.minutes; const c = s.buyCap[p.person]; if (c) c.bought += buy.minutes; }
       else s.pending.push({ id: uid('req'), person: p.person, rewardName: r.name, cost: r.cost, minutes: r.minutes, requestedAt: now });
       break;
     }
@@ -99,10 +101,17 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
         if (isPeriod(k)) s.periodLabels[k] = label || PERIOD_LABEL[k];
       }
       break;
+    case 'period_hours_set':
+      for (const [k, h] of Object.entries((p.hours ?? {}) as Record<string, { from: number; to: number }>)) if (isPeriod(k) && k !== 'any' && h && validHours(h)) s.periodHours[k] = { from: h.from, to: h.to };
+      break;
     case 'sound_set': if (isSound(p.sound)) s.sounds[p.person] = p.sound; break;
     case 'allowance_set':
       if (p.weekday <= 0 && (p.weekend === null || p.weekend <= 0)) delete s.allowance[p.person];
       else s.allowance[p.person] = { weekday: p.weekday, weekend: p.weekend, today: allowanceFor(s.day, p.weekday, p.weekend), used: s.allowance[p.person]?.used ?? 0 };
+      break;
+    case 'buy_cap_set':
+      if (p.minutes <= 0) delete s.buyCap[p.person];
+      else s.buyCap[p.person] = { limit: p.minutes, bought: s.buyCap[p.person]?.bought ?? 0 };
       break;
     case 'adjust_time': s.minutes[p.person] = Math.max(0, (s.minutes[p.person] ?? 0) + p.delta); break;
     case 'decide': {
@@ -127,7 +136,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
     case 'item_add':
     case 'items_add':
       for (const i of p.action === 'items_add' ? p.items : [p]) {
-        routineOf(i.person ?? null).items.push({ id: uid('c'), title: i.title, points: i.points, done: false, period: i.period, days: i.onceDate ? null : i.days ?? null, onceDate: i.onceDate ?? null, everyWeeks: i.onceDate ? 1 : i.everyWeeks ?? 1, weekAnchor: !i.onceDate && (i.everyWeeks ?? 1) > 1 ? weekStart(i.weekAnchor ?? s.day) : null, untilDone: !i.onceDate && i.untilDone === true, keptPoints: !i.onceDate && i.untilDone === true ? i.keptPoints ?? 0 : 0, due: false, kept: false, skipped: false });
+        routineOf(i.person ?? null).items.push({ id: uid('c'), title: i.title, points: i.points, done: false, period: i.period, days: i.onceDate ? null : i.days ?? null, onceDate: i.onceDate ?? null, everyWeeks: i.onceDate ? 1 : i.everyWeeks ?? 1, weekAnchor: !i.onceDate && (i.everyWeeks ?? 1) > 1 ? weekStart(i.weekAnchor ?? s.day) : null, optional: i.optional === true, untilDone: !i.onceDate && i.untilDone === true, keptPoints: !i.onceDate && i.untilDone === true ? i.keptPoints ?? 0 : 0, due: false, kept: false, skipped: false });
       }
       refresh();
       break;
@@ -141,6 +150,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
         if (p.everyWeeks !== undefined) i.everyWeeks = p.everyWeeks;
         if (p.weekAnchor !== undefined) i.weekAnchor = p.weekAnchor;
         if (p.untilDone !== undefined) i.untilDone = p.untilDone;
+        if (p.optional !== undefined) i.optional = p.optional;
         if (p.keptPoints !== undefined) i.keptPoints = p.keptPoints;
         if (i.onceDate !== null) { i.days = null; i.everyWeeks = 1; i.untilDone = false; }
         if (!i.untilDone) i.keptPoints = 0;

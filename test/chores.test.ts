@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { readdirSync, readFileSync } from 'node:fs';
 import { createTestDb } from './d1shim';
-import { addItem, choreState, MAX_ITEMS_PER_ROUTINE, removeItem, setBonus, setCheck, setPeriodLabels, setSkip, updateItem, type ChoreInput } from '../src/lib/chores';
-import { adjustPoints, approveAffordable, adjustMinutes, balanceOf, claimGoal, decideRedemption, MAX_GOALS, MAX_PENDING, removeGoal, removeReward, requestRedemption, saveGoal, saveReward, setAllowance, useMinutes } from '../src/lib/rewards';
-import { canAsk, choreSuggestions, describeSchedule, finishedBefore, itemDue, pointsOnWeekday, holdingLabel, lockedPoints, sections, spendable, suggestedCost, typicalDailyPoints, toggleDay, WEEKDAYS_MASK, type ChoreItem, type Routine } from '../src/lib/choreTypes';
+import { addItem, choreState, MAX_ITEMS_PER_ROUTINE, removeItem, setBonus, setCheck, setPeriodHours, setPeriodLabels, setSkip, updateItem, type ChoreInput } from '../src/lib/chores';
+import { adjustPoints, approveAffordable, adjustMinutes, balanceOf, claimGoal, decideRedemption, MAX_GOALS, MAX_PENDING, removeGoal, removeReward, requestRedemption, saveGoal, saveReward, setAllowance, setBuyCap, useMinutes } from '../src/lib/rewards';
+import { allDone } from '../src/lib/completion';
+import { buyRoom, canAsk, closedPeriods, DEFAULT_HOURS, phaseOf, tickBlock, choreSuggestions, describeSchedule, finishedBefore, itemDue, pointsOnWeekday, holdingLabel, lockedPoints, sections, spendable, suggestedCost, typicalDailyPoints, toggleDay, WEEKDAYS_MASK, type ChoreItem, type Routine } from '../src/lib/choreTypes';
 import { requiredRole } from '../src/lib/http';
 
 const T = 1_700_000_000_000;
+const AM = Date.UTC(2026, 9, 7, 14), PM = Date.UTC(2026, 9, 7, 19); // 8 AM and 1 PM in the household's zone (Denver, UTC-6 in October)
 const WED = '2026-10-07'; // a Wednesday (weekday 3)
 const THU = '2026-10-08';
 const manager = { id: 'u1', email: 'm@example.com', role: 'manager', createdAt: 0, disabledAt: null } as const;
@@ -598,7 +600,7 @@ describe('skipping a chore for a day', () => {
 });
 
 describe('choreSuggestions', () => {
-  const item = (title: string, o: Partial<ChoreItem> = {}): ChoreItem => ({ id: title, title, points: 2, done: false, period: 'morning', days: null, onceDate: null, everyWeeks: 1, weekAnchor: null, untilDone: false, keptPoints: 0, due: true, kept: false, skipped: false, ...o });
+  const item = (title: string, o: Partial<ChoreItem> = {}): ChoreItem => ({ id: title, title, points: 2, done: false, period: 'morning', days: null, onceDate: null, everyWeeks: 1, weekAnchor: null, untilDone: false, keptPoints: 0, optional: false, due: true, kept: false, skipped: false, ...o });
   const routine = (person: string | null, items: ChoreItem[]): Routine => ({ id: String(person), person, bonuses: { morning: 0, afternoon: 0, evening: 0, any: 0 }, bonusEarned: { morning: false, afternoon: false, evening: false, any: false }, items });
   const routines = [routine('a', [item('Feed the dog'), item('Make bed'), item('Old trip', { onceDate: '2020-01-01' })]), routine('b', [item('Feed the Dog'), item('Dishes', { points: 5 })]), routine('c', [item('Make bed')])];
 
@@ -610,7 +612,7 @@ describe('choreSuggestions', () => {
     expect(choreSuggestions(routines, 'c', 'trip', '2026-10-18')).toEqual([]);
   });
   it('carries the points and schedule over', () => {
-    expect(choreSuggestions(routines, 'c', 'dish', '2026-10-18')).toEqual([{ title: 'Dishes', points: 5, period: 'morning', days: null, onceDate: null, everyWeeks: 1, weekAnchor: null, untilDone: false, keptPoints: 0 }]);
+    expect(choreSuggestions(routines, 'c', 'dish', '2026-10-18')).toEqual([{ title: 'Dishes', points: 5, period: 'morning', days: null, onceDate: null, everyWeeks: 1, weekAnchor: null, untilDone: false, keptPoints: 0, optional: false }]);
   });
 });
 
@@ -631,9 +633,38 @@ describe('time of day locks', () => {
   it('holds back the points of a time of day until every chore in it is done', async () => {
     await give(db, 'agnes', chore('Teeth', 3, { period: 'morning' }), chore('Bag', 2, { period: 'morning' }), chore('Reading', 5, { period: 'afternoon' }));
     await tick('Teeth');
-    expect(await requestRedemption(db, 'agnes', (await reward('Screen time')).id, T, WED)).toBe('locked');
+    expect(await requestRedemption(db, 'agnes', (await reward('Screen time')).id, AM, WED)).toBe('locked');
     await tick('Bag'); // morning is finished: its 5 points are free, afternoon holds nothing yet
-    expect(await requestRedemption(db, 'agnes', (await reward('Screen time')).id, T, WED)).toBe('ok');
+    expect(await requestRedemption(db, 'agnes', (await reward('Screen time')).id, AM, WED)).toBe('ok');
+  });
+
+  it('takes screen time several times over, within the points', async () => {
+    await adjustPoints(db, manager, 'agnes', 10, 'gift', T);
+    const id = (await reward('Screen time')).id; // 3 points for 15 minutes
+    expect(await requestRedemption(db, 'agnes', id, AM, WED, 3)).toBe('ok');
+    const s = await choreState(db, WED, false);
+    expect(s.balances.agnes).toBe(1);
+    expect(s.minutes.agnes).toBe(45);
+    expect(s.recent[0]).toMatchObject({ delta: -9, note: 'Screen time ×3' });
+    expect(await requestRedemption(db, 'agnes', id, AM, WED, 1)).toBe('insufficient');
+    expect(await requestRedemption(db, 'agnes', (await reward('Ice cream')).id, AM, WED, 2)).toBe('not_found'); // only screen time can be taken more than once
+    expect(await requestRedemption(db, 'agnes', id, AM, WED, 0)).toBe('not_found');
+  });
+
+  it('stops buying screen time at the per-child daily limit', async () => {
+    await adjustPoints(db, manager, 'agnes', 30, 'gift', T);
+    const id = (await reward('Screen time')).id; // 3 points for 15 minutes
+    await setBuyCap(db, manager, 'agnes', 45);
+    expect(await requestRedemption(db, 'agnes', id, AM, WED, 2)).toBe('ok'); // 30 minutes
+    expect(await requestRedemption(db, 'agnes', id, AM, WED, 2)).toBe('daily_limit'); // 30 more would pass 45
+    const s = await choreState(db, WED, false, AM);
+    expect(s.buyCap.agnes).toEqual({ limit: 45, bought: 30 });
+    expect(buyRoom(s, 'agnes')).toBe(15);
+    expect(await requestRedemption(db, 'agnes', id, AM, WED, 1)).toBe('ok');
+    expect(await requestRedemption(db, 'agnes', id, AM, WED, 1)).toBe('daily_limit');
+    expect(await requestRedemption(db, 'margo', id, AM, WED, 1)).toBe('insufficient'); // no limit for margo, just no points
+    await setBuyCap(db, manager, 'agnes', 0);
+    expect(buyRoom((await choreState(db, WED, false, AM)), 'agnes')).toBe(Infinity);
   });
 
   it('gives each time of day its own lock', async () => {
@@ -641,10 +672,10 @@ describe('time of day locks', () => {
     await tick('Teeth');
     await tick('Reading'); // afternoon is not finished, so its 5 are held; morning's 3 are free
     const id = (await reward('Ice cream')).id;
-    expect(await requestRedemption(db, 'agnes', id, T, WED)).toBe('ok');
-    expect(await requestRedemption(db, 'agnes', id, T, WED)).toBe('locked'); // the 3 free points are spent; the 5 left are held
+    expect(await requestRedemption(db, 'agnes', id, PM, WED)).toBe('ok');
+    expect(await requestRedemption(db, 'agnes', id, PM, WED)).toBe('locked'); // the 3 free points are spent; the 5 left are held
     await tick('Tidy');
-    expect(await requestRedemption(db, 'agnes', id, T, WED)).toBe('ok'); // afternoon is finished, so its points are free
+    expect(await requestRedemption(db, 'agnes', id, PM, WED)).toBe('ok'); // afternoon is finished, so its points are free
   });
 
   it('opens a lock when the chore holding it is skipped, and does not hold points from earlier days', async () => {
@@ -652,9 +683,9 @@ describe('time of day locks', () => {
     await tick('Teeth');
     const bag = (await choreState(db, WED, false)).routines[0]!.items.find((i) => i.title === 'Bag')!;
     const id = (await reward('Screen time')).id;
-    expect(await requestRedemption(db, 'agnes', id, T, WED)).toBe('locked');
+    expect(await requestRedemption(db, 'agnes', id, AM, WED)).toBe('locked');
     await setSkip(db, bag.id, WED, true, T + 2);
-    expect(await requestRedemption(db, 'agnes', id, T, WED)).toBe('ok');
+    expect(await requestRedemption(db, 'agnes', id, AM, WED)).toBe('ok');
     await adjustPoints(db, manager, 'agnes', 3, 'gift', T);
     expect(await requestRedemption(db, 'agnes', (await reward('Ice cream')).id, T, THU)).toBe('ok'); // another day: yesterday's chores hold nothing
   });
@@ -684,8 +715,75 @@ describe('time of day names', () => {
   });
 });
 
+describe('ticking within a time of day\'s hours', () => {
+  it('lets only a manager tick or un-tick outside the hours, and lets hours be changed', async () => {
+    const db = createTestDb();
+    await addItem(db, 'agnes', { title: 'Brush teeth', points: 1, period: 'morning', days: null, onceDate: null } as ChoreInput, T);
+    const id = (await choreState(db, WED, true)).routines[0]!.items[0]!.id;
+    const eight = AM, three = Date.UTC(2026, 9, 7, 21); // 8 AM and 3 PM
+    expect(await setCheck(db, id, WED, true, three, false)).toBe('closed');
+    expect(await setCheck(db, id, WED, true, eight, false)).toBe('ok');
+    expect(await setCheck(db, id, WED, false, three, false)).toBe('closed');
+    expect(await setCheck(db, id, WED, false, three, true)).toBe('ok');
+    expect(await setPeriodHours(db, { morning: { from: 360, to: 960 } })).toBe('ok'); // 6 AM to 4 PM
+    expect((await choreState(db, WED, false)).periodHours.morning).toEqual({ from: 360, to: 960 });
+    expect(await setCheck(db, id, WED, true, three, false)).toBe('ok');
+    expect(await setPeriodHours(db, { morning: { from: 600, to: 600 } })).toBe('bad_request');
+    expect(await setPeriodHours(db, { any: { from: 0, to: 60 } } as never)).toBe('bad_request');
+  });
+});
+
+describe('optional chores and celebrating', () => {
+  it('finishes a list once what it needs is done, not waiting for an optional chore', () => {
+    const c = (done: boolean, optional: boolean) => ({ done, optional }) as ChoreItem;
+    expect(allDone([c(true, false), c(false, true)])).toBe(true);
+    expect(allDone([c(false, false), c(true, true)])).toBe(false);
+    expect(allDone([c(true, true)])).toBe(false); // only optional chores: nothing needed, nothing to celebrate
+  });
+});
+
+describe('optional chores', () => {
+  const item = (period: ChoreItem['period'], points: number, done: boolean, optional: boolean) => ({ period, points, done, optional, due: true, kept: false, skipped: false });
+  it('hold nothing back when undone, and count only once ticked', () => {
+    expect(lockedPoints([item('morning', 3, true, false), item('morning', 2, false, true)])).toBe(0); // the lunch box was not needed
+    expect(lockedPoints([item('morning', 3, true, false), item('morning', 2, false, false)])).toBe(3);
+  });
+  it('is left out of the all-done bonus, and a manager can take a tick back', async () => {
+    const db = createTestDb();
+    await setBonus(db, 'agnes', 'morning', 3);
+    await addItem(db, 'agnes', { title: 'Teeth', points: 1, period: 'morning', days: null, onceDate: null } as ChoreInput, T);
+    await addItem(db, 'agnes', { title: 'Lunch box', points: 2, period: 'morning', days: null, onceDate: null, optional: true } as ChoreInput, T + 1);
+    const items = async () => (await choreState(db, WED, true, AM)).routines[0]!.items;
+    const [teeth, lunch] = await items();
+    expect(lunch!.optional).toBe(true);
+    await setCheck(db, teeth!.id, WED, true, AM);
+    expect((await choreState(db, WED, true, AM)).balances.agnes).toBe(4); // 1 point + the 3 bonus, without waiting for the lunch box
+    await setCheck(db, lunch!.id, WED, true, AM);
+    expect((await choreState(db, WED, true, AM)).balances.agnes).toBe(6);
+    await setSkip(db, lunch!.id, WED, true, AM); // no lunch box that day after all
+    expect((await choreState(db, WED, true, AM)).balances.agnes).toBe(4);
+    expect(await setCheck(db, lunch!.id, WED, true, AM)).toBe('not_due'); // and it cannot be ticked again
+  });
+});
+
+describe('times of day have hours', () => {
+  const h = 3_600_000;
+  it('is before, open or closed by the clock', () => {
+    expect(phaseOf(DEFAULT_HOURS.morning, 4 * h)).toBe('before');
+    expect(phaseOf(DEFAULT_HOURS.morning, 5 * h)).toBe('open');
+    expect(phaseOf(DEFAULT_HOURS.morning, 12 * h)).toBe('closed');
+    expect(phaseOf(null, 3 * h)).toBe('open');
+    expect([...closedPeriods(DEFAULT_HOURS, 13 * h)]).toEqual(['morning']);
+  });
+  it('says why a chore cannot be ticked outside the hours', () => {
+    expect(tickBlock(DEFAULT_HOURS, 'evening', 8 * h)).toBe('Opens at 5 PM');
+    expect(tickBlock(DEFAULT_HOURS, 'morning', 13 * h)).toBe('Time is up');
+    expect(tickBlock(DEFAULT_HOURS, 'any', 3 * h)).toBe('');
+  });
+});
+
 describe('spendable points on the client', () => {
-  const item = (period: ChoreItem['period'], points: number, done: boolean, extra: Partial<ChoreItem> = {}) => ({ period, points, done, due: true, kept: false, skipped: false, ...extra });
+  const item = (period: ChoreItem['period'], points: number, done: boolean, extra: Partial<ChoreItem> = {}) => ({ period, points, done, due: true, kept: false, skipped: false, optional: false, ...extra });
   it('holds the points of an unfinished time of day and nothing else', () => {
     expect(lockedPoints([item('morning', 3, true), item('morning', 1, false), item('evening', 4, true)])).toBe(3);
     expect(lockedPoints([item('morning', 3, true), item('morning', 1, false, { skipped: true })])).toBe(0);
@@ -693,9 +791,10 @@ describe('spendable points on the client', () => {
   });
   it('takes held points and waiting requests off the balance', () => {
     const items = [item('morning', 3, true), item('morning', 1, false)] as ChoreItem[];
-    const state = { routines: [{ id: 'r', person: 'agnes', bonuses: {}, bonusEarned: {}, items }] as unknown as Routine[], balances: { agnes: 10 }, pending: [{ id: 'p', person: 'agnes', rewardName: 'x', cost: 2, minutes: 0, requestedAt: 0 }] };
+    const state = { routines: [{ id: 'r', person: 'agnes', bonuses: {}, bonusEarned: {}, items }] as unknown as Routine[], balances: { agnes: 10 }, periodHours: DEFAULT_HOURS, dayMs: 8 * 3_600_000, pending: [{ id: 'p', person: 'agnes', rewardName: 'x', cost: 2, minutes: 0, requestedAt: 0 }] };
     expect(spendable(state, 'agnes')).toBe(5);
     expect(spendable(state, 'margo')).toBe(0);
+    expect(spendable({ ...state, dayMs: 13 * 3_600_000 }, 'agnes')).toBe(8); // the morning is over, so it no longer holds its points
   });
   it('names the unfinished times of day that hold points', () => {
     const labels = { morning: 'Before school', afternoon: 'After school', evening: 'Evening', any: 'Any time' };

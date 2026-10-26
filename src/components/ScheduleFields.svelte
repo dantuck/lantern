@@ -4,7 +4,7 @@
   import Stepper from './Stepper.svelte';
 
   /** "Repeats" on chosen weekdays, or "Just once" on a date. `subject` names the chore for screen readers ("Days for Dishes"). */
-  let { once = $bindable(), days = $bindable(), date = $bindable(), every = $bindable(1), from = $bindable(''), untilDone = $bindable(false), keptPoints = $bindable(0), earns = true, day, subject = '', class: cls = '' }: { earns?: boolean; once: boolean; days: number; date: string; every?: number; from?: string; untilDone?: boolean; keptPoints?: number; day: string; subject?: string; class?: string } = $props();
+  let { once = $bindable(), days = $bindable(), date = $bindable(), every = $bindable(1), from = $bindable(''), untilDone = $bindable(false), keptPoints = $bindable(0), optional = $bindable(false), earns = true, day, subject = '', class: cls = '' }: { earns?: boolean; once: boolean; days: number; date: string; every?: number; from?: string; untilDone?: boolean; keptPoints?: number; optional?: boolean; day: string; subject?: string; class?: string } = $props();
 
   // "Every other week" needs to know which weeks: this one or next, or (when editing) the rotation the chore already has.
   const thisWeek = $derived(weekStart(day));
@@ -48,4 +48,6 @@
       <p class="note m-0 text-[.85rem]">It stays on the list until it is ticked{earns ? ', which pays its points. After that it leaves the list and pays the amount above automatically for each of its remaining days that week' : ', then leaves the list for the rest of that week'}.</p>
     {/if}
   {/if}
+  <label class="flex items-center gap-2"><input class="m-0 w-auto" type="checkbox" bind:checked={optional} aria-label={of('Optional')} />Optional, only counts when ticked</label>
+  {#if optional}<p class="note m-0 text-[.85rem]">For a chore that is only needed some days, like a lunch box. It is on the list every day it is scheduled; if it is ticked it pays its points, and if not it holds nothing back and the all-done bonus does not wait for it. A manager can take back a tick that was not honest with Skip.</p>{/if}
 </div>

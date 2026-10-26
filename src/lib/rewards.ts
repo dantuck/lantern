@@ -1,8 +1,9 @@
 import { audit, type User } from './auth/users';
-import { dayKey } from './dates';
+import { addDays, dayKey, msOfDay, startOfDayMs } from './dates';
 import { keptOn, untilDoneChecks } from './untilDone';
 import { householdZone } from './household';
-import { allowanceFor, isSound, itemDue, lockedPoints, type Allowance, type ChoreState, type Goal, type LedgerEntry, type Period, type Redemption, type Reward, type Sound, type Timer } from './choreTypes';
+import { loadHours } from './hours';
+import { allowanceFor, closedPeriods, MAX_QUANTITY, redeemCheck, scaled, isSound, itemDue, lockedPoints, type Allowance, type BuyCap, type ChoreState, type Goal, type LedgerEntry, type Period, type Redemption, type Reward, type Sound, type Timer } from './choreTypes';
 
 export const MAX_REWARDS = 40;
 export const MAX_GOALS = 20;
@@ -22,24 +23,33 @@ async function sumFor(db: D1Database, table: 'reward_ledger' | 'screentime_ledge
 
 export const balanceOf = (db: D1Database, person: string): Promise<number> => sumFor(db, 'reward_ledger', person);
 
+/** Minutes of screen time each person bought with points on `day` (everyone, or just `person`). */
+async function boughtToday(db: D1Database, day: string, person?: string): Promise<Map<string, number>> {
+  const { results } = await db
+    .prepare(`SELECT person, SUM(delta) AS n FROM screentime_ledger WHERE kind = 'earn' AND at >= ? AND at < ?${person ? ' AND person = ?' : ''} GROUP BY person`)
+    .bind(startOfDayMs(day, householdZone), startOfDayMs(addDays(day, 1), householdZone), ...(person ? [person] : []))
+    .all<{ person: string; n: number }>();
+  return new Map(results.map((r) => [r.person, r.n]));
+}
+
 /** The points held back on `day` by times of day a person has not finished (see `lockedPoints`). */
-export async function lockedFor(db: D1Database, person: string, day: string): Promise<number> {
-  const [finished, { results }] = await Promise.all([untilDoneChecks(db, day, { person }), db
-    .prepare(`SELECT i.id, i.points, i.period, i.days, i.once_date, i.every_weeks, i.week_anchor, i.until_done, c.item_id IS NOT NULL AS done, s.item_id IS NOT NULL AS skipped
+export async function lockedFor(db: D1Database, person: string, day: string, now = Date.now()): Promise<number> {
+  const [finished, hours, { results }] = await Promise.all([untilDoneChecks(db, day, { person }), loadHours(db), db
+    .prepare(`SELECT i.id, i.points, i.period, i.days, i.once_date, i.every_weeks, i.week_anchor, i.until_done, i.optional, c.item_id IS NOT NULL AS done, s.item_id IS NOT NULL AS skipped
       FROM chore_items i JOIN chore_lists l ON l.id = i.list_id
       LEFT JOIN chore_checks c ON c.item_id = i.id AND c.day = ? LEFT JOIN chore_skips s ON s.item_id = i.id AND s.day = ?
       WHERE l.person = ?`)
     .bind(day, day, person)
-    .all<{ id: string; points: number; period: Period; days: number | null; once_date: string | null; every_weeks: number; week_anchor: string | null; until_done: number; done: number; skipped: number }>()]);
+    .all<{ id: string; points: number; period: Period; days: number | null; once_date: string | null; every_weeks: number; week_anchor: string | null; until_done: number; optional: number; done: number; skipped: number }>()]);
   return lockedPoints(results.map((r) => ({
-    period: r.period, points: r.points, done: r.done === 1, skipped: r.skipped === 1,
+    period: r.period, points: r.points, optional: r.optional === 1, done: r.done === 1, skipped: r.skipped === 1,
     due: itemDue({ days: r.days, onceDate: r.once_date, everyWeeks: r.every_weeks, weekAnchor: r.week_anchor }, day),
     kept: r.until_done === 1 && keptOn(finished, r.id, day),
-  })));
+  })), closedPeriods(hours, msOfDay(now, householdZone)));
 }
 
-export async function rewardState(db: D1Database, day: string, now = Date.now()): Promise<Pick<ChoreState, 'rewards' | 'goals' | 'balances' | 'minutes' | 'allowance' | 'now' | 'timers' | 'sounds' | 'pending' | 'recent'>> {
-  const [rows, links, ledger, pendingRows, recentRows, goalRows, bankRows, allowanceRows, usedRows, timerRows, soundRows] = await Promise.all([
+export async function rewardState(db: D1Database, day: string, now = Date.now()): Promise<Pick<ChoreState, 'rewards' | 'goals' | 'balances' | 'minutes' | 'allowance' | 'buyCap' | 'now' | 'timers' | 'sounds' | 'pending' | 'recent'>> {
+  const [rows, links, ledger, pendingRows, recentRows, goalRows, bankRows, allowanceRows, usedRows, timerRows, soundRows, capRows, bought] = await Promise.all([
     db.prepare('SELECT id, name, cost, minutes, scoped, hidden FROM rewards ORDER BY cost, created_at, id').all<{ id: string; name: string; cost: number; minutes: number; scoped: number; hidden: number }>(),
     db.prepare('SELECT reward_id, person FROM reward_people').all<{ reward_id: string; person: string }>(),
     db.prepare('SELECT person, SUM(delta) AS n FROM reward_ledger GROUP BY person').all<{ person: string; n: number }>(),
@@ -51,6 +61,8 @@ export async function rewardState(db: D1Database, day: string, now = Date.now())
     db.prepare("SELECT person, SUM(allowance_used) AS n FROM screentime_ledger WHERE kind = 'use' AND day = ? GROUP BY person").bind(day).all<{ person: string; n: number }>(),
     db.prepare('SELECT person, started_at AS startedAt, ends_at AS endsAt, minutes FROM screentime_timers').all<Timer & { person: string }>(),
     db.prepare('SELECT person, sound FROM screentime_sound').all<{ person: string; sound: string }>(),
+    db.prepare('SELECT person, minutes FROM screentime_buy_cap').all<{ person: string; minutes: number }>(),
+    boughtToday(db, day),
   ]);
   const peopleOf = new Map<string, string[]>();
   for (const l of links.results) peopleOf.set(l.reward_id, [...(peopleOf.get(l.reward_id) ?? []), l.person]);
@@ -65,13 +77,15 @@ export async function rewardState(db: D1Database, day: string, now = Date.now())
   for (const a of allowanceRows.results) {
     allowance[a.person] = { weekday: a.weekday, weekend: a.weekend, today: allowanceFor(day, a.weekday, a.weekend), used: usedToday.get(a.person) ?? 0 };
   }
+  const buyCap: Record<string, BuyCap> = {};
+  for (const c of capRows.results) buyCap[c.person] = { limit: c.minutes, bought: bought.get(c.person) ?? 0 };
   const timers: Record<string, Timer> = {};
   for (const t of timerRows.results) timers[t.person] = { startedAt: t.startedAt, endsAt: t.endsAt, minutes: t.minutes };
   const sounds: Record<string, Sound> = {};
   for (const r of soundRows.results) if (isSound(r.sound)) sounds[r.person] = r.sound;
   const pending = pendingRows.results;
   const recent = recentRows.results;
-  return { rewards, goals, balances, minutes, allowance, now, timers, sounds, pending, recent };
+  return { rewards, goals, balances, minutes, allowance, buyCap, now, timers, sounds, pending, recent };
 }
 
 /**
@@ -112,8 +126,8 @@ export async function removeReward(db: D1Database, id: string): Promise<boolean>
  * reward waits for a manager, and nothing is deducted until they approve it.
  */
 export async function requestRedemption(
-  db: D1Database, person: string, rewardId: string, now = Date.now(), day = dayKey(now, householdZone),
-): Promise<'ok' | 'not_found' | 'not_eligible' | 'insufficient' | 'locked' | 'limit'> {
+  db: D1Database, person: string, rewardId: string, now = Date.now(), day = dayKey(now, householdZone), quantity = 1,
+): Promise<'ok' | 'not_found' | 'not_eligible' | 'insufficient' | 'locked' | 'limit' | 'daily_limit'> {
   const reward = await db.prepare('SELECT name, cost, minutes, scoped, hidden FROM rewards WHERE id = ?').bind(rewardId).first<{ name: string; cost: number; minutes: number; scoped: number; hidden: number }>();
   if (!reward || reward.hidden) return 'not_found';
   if (reward.scoped) {
@@ -124,21 +138,24 @@ export async function requestRedemption(
     if (!mine) return 'not_eligible';
   }
   const instant = reward.minutes > 0;
-  const [open, points, held] = await Promise.all([
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY || (!instant && quantity !== 1)) return 'not_found';
+  const { cost, minutes, name } = scaled(reward, quantity);
+  const [open, points, held, capRow] = await Promise.all([
     db.prepare("SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN person = ? THEN cost END), 0) AS mine FROM redemptions WHERE status = 'pending'").bind(person).first<{ n: number; mine: number }>(),
     balanceOf(db, person),
-    lockedFor(db, person, day),
+    lockedFor(db, person, day, now),
+    instant ? Promise.all([db.prepare('SELECT minutes FROM screentime_buy_cap WHERE person = ?').bind(person).first<{ minutes: number }>(), boughtToday(db, day, person)]) : null,
   ]);
   if (!instant && (open?.n ?? 0) >= MAX_PENDING) return 'limit';
-  const balance = points - (open?.mine ?? 0);
-  if (balance < reward.cost) return 'insufficient';
-  if (balance - held < reward.cost) return 'locked';
+  const [cap, bought] = capRow ?? [null, new Map<string, number>()];
+  const verdict = redeemCheck(reward, quantity, { balance: points - (open?.mine ?? 0), held, room: cap ? Math.max(0, cap.minutes - (bought.get(person) ?? 0)) : Infinity });
+  if (verdict !== 'ok') return verdict;
   const id = crypto.randomUUID();
   await db
     .prepare('INSERT INTO redemptions (id, person, reward_name, cost, minutes, requested_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(id, person, reward.name, reward.cost, reward.minutes, now)
+    .bind(id, person, name, cost, minutes, now)
     .run();
-  if (instant) await settle(db, id, { person, reward_name: reward.name, cost: reward.cost, minutes: reward.minutes }, true, now);
+  if (instant) await settle(db, id, { person, reward_name: name, cost, minutes }, true, now);
   return 'ok';
 }
 
@@ -259,6 +276,13 @@ export async function setAllowance(db: D1Database, manager: User, person: string
       .run();
   }
   await audit(db, manager.id, 'screentime.allowance', { person, weekday, weekend }, now);
+}
+
+/** Sets the most screen time a person can buy with points in a day. Zero removes the limit. */
+export async function setBuyCap(db: D1Database, manager: User, person: string, minutes: number, now = Date.now()): Promise<void> {
+  if (minutes <= 0) await db.prepare('DELETE FROM screentime_buy_cap WHERE person = ?').bind(person).run();
+  else await db.prepare('INSERT INTO screentime_buy_cap (person, minutes) VALUES (?, ?) ON CONFLICT (person) DO UPDATE SET minutes = excluded.minutes').bind(person, minutes).run();
+  await audit(db, manager.id, 'screentime.buy_cap', { person, minutes }, now);
 }
 
 /** A manager adds or removes banked minutes by hand. Taking away more than the bank holds leaves it at zero. */
