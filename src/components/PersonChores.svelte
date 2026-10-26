@@ -4,12 +4,13 @@
   import { dayClock } from '../lib/dayClock.svelte';
   import FeatherIcon from './FeatherIcon.svelte';
   import RoutineEditor from './RoutineEditor.svelte';
+  import Sheet from './Sheet.svelte';
   import Stepper from './Stepper.svelte';
   import TimerCard from './TimerCard.svelte';
   import AlarmSettings from './AlarmSettings.svelte';
   import RewardList from './RewardList.svelte';
   import AllowanceForm from './AllowanceForm.svelte';
-  import { allowanceLeft, blockFor, tally, canAsk, DEFAULT_SOUND, formatWhen, buyRoom, holdingLabel, hoursLabel, LEDGER_LABEL, lockedPoints, onToday, periodRecord, plural, sections, skippedToday, keptToday, spendable, timeAvailable, timerRunning, type ChoreState, type Sound } from '../lib/choreTypes';
+  import { allowanceLeft, blockFor, tally, canAsk, DEFAULT_SOUND, buyRoom, holdingLabel, hoursLabel, LEDGER_LABEL, lockedPoints, onToday, periodRecord, plural, sections, skippedToday, keptToday, spendable, timeAvailable, timerRunning, type ChoreState, type Sound } from '../lib/choreTypes';
   import { unlockAudio } from '../lib/chime';
   import { liveTimers } from '../lib/timerClient.svelte';
   import { celebrate } from '../lib/celebrate.svelte';
@@ -45,6 +46,23 @@
   const waiting = $derived(pending.reduce((n, r) => n + r.cost, 0)); // points promised to requests a manager has not decided
   const shop = $derived(choreState.rewards.filter((r) => !r.hidden && canAsk(r, who)));
   const history = $derived(choreState.recent.filter((e) => e.person === who));
+  let showRecent = $state(false);
+  const dayName = (ms: number) => {
+    const d = new Date(ms), today = new Date(), yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    return d.toDateString() === today.toDateString() ? 'Today' : d.toDateString() === yesterday.toDateString() ? 'Yesterday' : d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  };
+  const LEDGER_ICON: Record<(typeof history)[number]['kind'], string> = { chore: 'check', bonus: 'award', redeem: 'star', adjust: 'sliders' };
+  /** The recent entries under a heading for each day, newest first. */
+  const historyByDay = $derived.by(() => {
+    const groups: { day: string; entries: typeof history }[] = [];
+    for (const e of history) {
+      const day = dayName(e.at);
+      const last = groups[groups.length - 1];
+      if (last?.day === day) last.entries.push(e); else groups.push({ day, entries: [e] });
+    }
+    return groups;
+  });
   const progress = $derived(tally(chores)); // an optional chore nobody ticked is not one of today's chores
   const done = $derived(progress.done);
   const total = $derived(progress.total);
@@ -138,7 +156,10 @@
     {/each}
     <a class="inline-flex items-center py-[.35rem] px-[.8rem] rounded-full text-[.85rem] font-semibold text-muted no-underline bg-transparent [border:1px_dashed_var(--border)] pointer-coarse:min-h-11" href={base} title="Everyone's chores">All</a>
   </nav>
-  {#if choreState.manager}<button type="button" class="w-auto [margin:0_0_0_auto] py-[.45rem] px-4 rounded-full text-[.9rem] [&[aria-pressed=true]]:bg-card [&[aria-pressed=true]]:text-accent [&[aria-pressed=true]]:border-[1.5px] [&[aria-pressed=true]]:border-accent" aria-pressed={editing} onclick={() => (editing = !editing)}>{editing ? 'Done managing' : 'Manage'}</button>{/if}
+  <div class="flex items-center gap-2 ml-auto">
+    {#if history.length > 0}<button type="button" class="ghost w-auto m-0 py-[.45rem] px-4 rounded-full text-[.9rem]" aria-haspopup="dialog" onclick={() => (showRecent = true)}>Recent</button>{/if}
+    {#if choreState.manager}<button type="button" class="w-auto m-0 py-[.45rem] px-4 rounded-full text-[.9rem] [&[aria-pressed=true]]:bg-card [&[aria-pressed=true]]:text-accent [&[aria-pressed=true]]:border-[1.5px] [&[aria-pressed=true]]:border-accent" aria-pressed={editing} onclick={() => (editing = !editing)}>{editing ? 'Done managing' : 'Manage'}</button>{/if}
+  </div>
   </div>
 
   {#if error}<p class="notice error sticky top-2 z-30" role="alert">{error}</p>{/if}
@@ -191,7 +212,7 @@
 
   <TimerCard name={me.name} {timer} now={clock.now} {sound} canAddMore={minutes >= 5} {busy} stop={stopTimer} addMore={addMore} bind:muted />
 
-  <div class="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] max-[52rem]:grid-cols-[minmax(0,1fr)] gap-x-6 items-start">
+  <div class="grid {choreState.manager && editing ? 'grid-cols-[minmax(0,1fr)]' : 'grid-cols-[minmax(0,3fr)_minmax(0,2fr)] max-[52rem]:grid-cols-[minmax(0,1fr)]'} gap-x-6 items-start">
     <div>
   {#if choreState.manager && editing}
   <section class="card" aria-labelledby="today-h">
@@ -318,16 +339,23 @@
     <RewardList rewards={shop} room={buyRoom(choreState, who)} free={available} owned={points - waiting} {holding} {busy} get={(r, quantity) => send({ action: 'redeem', person: who, rewardId: r.id, ...(quantity > 1 ? { quantity } : {}) })} />
   </section>
 
-  {#if history.length > 0}
-    <section class="card" aria-labelledby="hist-h">
-      <h2 class="card-h" id="hist-h">Recent</h2>
-      <ul class="plain-list">
-        {#each history as e (e.id)}
-          <li class="flex flex-wrap items-center gap-x-[.6rem] gap-y-[.1rem] py-[.3rem] text-[.92rem] [li+&]:[border-top:1px_solid_var(--border)]"><span class="text-muted tabular-nums">{formatWhen(e.at)}</span> <strong class={e.delta < 0 ? 'text-danger' : ''}>{e.delta > 0 ? '+' : ''}{e.delta}</strong> <span class="note">{LEDGER_LABEL[e.kind]}{e.note ? `: ${e.note}` : ''}</span></li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
     </aside>
   </div>
+
+  {#if showRecent}
+    <Sheet title={`${me.name}'s recent points`} drawer onclose={() => (showRecent = false)}>
+      {#each historyByDay as g (g.day)}
+        <h4 class="mt-4 mb-1 mx-0 first:mt-0 text-[.8rem] font-semibold uppercase tracking-[.06em] text-muted">{g.day}</h4>
+        <ul class="plain-list">
+          {#each g.entries as e (e.id)}
+            <li class="flex items-center gap-3 py-2 [li+&]:[border-top:1px_solid_var(--border)]">
+              <span class="grid place-items-center size-9 shrink-0 rounded-full {e.delta < 0 ? 'bg-[color-mix(in_srgb,var(--danger)_14%,var(--card))] text-danger' : 'bg-accent-soft text-accent'}" aria-hidden="true"><FeatherIcon name={LEDGER_ICON[e.kind]} /></span>
+              <span class="min-w-0 flex-1 [overflow-wrap:anywhere]"><span class="block font-medium">{LEDGER_LABEL[e.kind]}{e.note ? `: ${e.note}` : ''}</span><span class="note">{new Date(e.at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span></span>
+              <strong class="tabular-nums text-[1.1rem] {e.delta < 0 ? 'text-danger' : ''}">{e.delta > 0 ? '+' : ''}{e.delta}</strong>
+            </li>
+          {/each}
+        </ul>
+      {/each}
+    </Sheet>
+  {/if}
 </div>
