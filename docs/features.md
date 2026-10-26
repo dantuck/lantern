@@ -146,6 +146,10 @@ shared chores. A manager adds chores at **Chores → Manage** (`/chores/manage`)
 - the **days it repeats** (every day, weekdays, or chosen days), every week or **every 2nd, 3rd or 4th week** (counted from
   the week you choose: this one or next), or a **single date** for a one-off;
 - optional **points** (0 to 100).
+- optionally **Repeat until finished**: a repeating chore stays on the list each scheduled day until it is ticked, which pays its
+  points once. For the rest of that Sunday-to-Saturday week it leaves the list and pays a set number of points automatically for
+  each remaining scheduled day (paid when the app next loads, so a day nobody opened it is still paid). Un-ticking the finish takes
+  those back, a skipped day is not paid, and the next week starts over.
 
 Ticks are stored per day, so every chore starts fresh each day it is scheduled; nothing needs resetting. A routine holds
 up to 60 chores. Other things managers can do:
