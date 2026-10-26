@@ -4,12 +4,15 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { createTestDb } from './d1shim';
 import { addItem, choreState, MAX_ITEMS_PER_ROUTINE, removeItem, setBonus, setCheck, setPeriodHours, setPeriodLabels, setSkip, updateItem, type ChoreInput } from '../src/lib/chores';
 import { adjustPoints, approveAffordable, adjustMinutes, balanceOf, claimGoal, decideRedemption, MAX_GOALS, MAX_PENDING, removeGoal, removeReward, requestRedemption, saveGoal, saveReward, setAllowance, setBuyCap, useMinutes } from '../src/lib/rewards';
+import { zonedTimeMs } from '../src/lib/dates';
+import { householdZone } from '../src/lib/household';
 import { allDone } from '../src/lib/completion';
 import { buyRoom, canAsk, closedPeriods, DEFAULT_HOURS, phaseOf, tickBlock, choreSuggestions, describeSchedule, finishedBefore, itemDue, pointsOnWeekday, holdingLabel, lockedPoints, sections, spendable, suggestedCost, typicalDailyPoints, toggleDay, WEEKDAYS_MASK, type ChoreItem, type Routine } from '../src/lib/choreTypes';
 import { requiredRole } from '../src/lib/http';
 
 const T = 1_700_000_000_000;
-const AM = Date.UTC(2026, 9, 7, 14), PM = Date.UTC(2026, 9, 7, 19); // 8 AM and 1 PM in the household's zone (Denver, UTC-6 in October)
+const at = (hour: number) => zonedTimeMs('2026-10-07', hour, 0, 0, householdZone); // a time on WED in the household's zone, whatever it is
+const AM = at(8), PM = at(13);
 const WED = '2026-10-07'; // a Wednesday (weekday 3)
 const THU = '2026-10-08';
 const manager = { id: 'u1', email: 'm@example.com', role: 'manager', createdAt: 0, disabledAt: null } as const;
@@ -720,7 +723,7 @@ describe('ticking within a time of day\'s hours', () => {
     const db = createTestDb();
     await addItem(db, 'agnes', { title: 'Brush teeth', points: 1, period: 'morning', days: null, onceDate: null } as ChoreInput, T);
     const id = (await choreState(db, WED, true)).routines[0]!.items[0]!.id;
-    const eight = AM, three = Date.UTC(2026, 9, 7, 21); // 8 AM and 3 PM
+    const eight = AM, three = at(15); // 8 AM and 3 PM
     expect(await setCheck(db, id, WED, true, three, false)).toBe('closed');
     expect(await setCheck(db, id, WED, true, eight, false)).toBe('ok');
     expect(await setCheck(db, id, WED, false, three, false)).toBe('closed');
