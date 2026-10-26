@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import FeatherIcon from './FeatherIcon.svelte';
   import Switch from './Switch.svelte';
   import { SOUNDS, SOUND_LABEL, type Sound } from '../lib/choreTypes';
   import { playSound, unlockAudio } from '../lib/chime';
@@ -22,6 +23,9 @@
     playSound(s);
     if (s !== sound) await setSound(s);
   }
+
+  // Closed until someone opens it, so a quick tap on the page cannot change the sound by accident.
+  let open = $state(false);
 
   let support = $state<PushSupport>('off');
   let subscribed = $state(false);
@@ -46,7 +50,14 @@
 </script>
 
 <section class="card" aria-labelledby="alarm-h">
-  <h2 class="card-h" id="alarm-h">Timer sound</h2>
+  <h2 class="card-h m-0" id="alarm-h">
+    <button type="button" class="ghost flex w-full items-center justify-between gap-3 m-0 min-h-12 text-left [&&]:font-[inherit]" aria-expanded={open} aria-controls="alarm-body" onclick={() => (open = !open)}>
+      <span class="flex items-center gap-2"><FeatherIcon name="bell" /> Timer sound <span class="note">{SOUND_LABEL[sound]}{muted ? ', off here' : ''}</span></span>
+      <span class="text-accent text-[.9rem] font-semibold">{open ? 'Done' : 'Change'}</span>
+    </button>
+  </h2>
+  {#if open}
+  <div id="alarm-body" class="mt-3">
   <p class="note mt-0">Tap a sound to hear it and pick it for {name}'s timer.</p>
   <div class="flex flex-wrap gap-2" role="group" aria-label="Sound for time's up">
     {#each SOUNDS as s (s)}
@@ -67,5 +78,7 @@
     {#if note}<p class="note mt-2" role="alert">{note}</p>{/if}
   {:else if support === 'needs-install'}
     <p class="note m-0">On an iPhone or iPad, tap Share, then Add to Home Screen, and open Lantern from there. Then this button appears.</p>
+  {/if}
+  </div>
   {/if}
 </section>
