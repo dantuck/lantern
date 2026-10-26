@@ -8,7 +8,7 @@
   import AlarmSettings from './AlarmSettings.svelte';
   import RewardList from './RewardList.svelte';
   import AllowanceForm from './AllowanceForm.svelte';
-  import { allowanceLeft, canAsk, DEFAULT_SOUND, formatWhen, holdingLabel, LEDGER_LABEL, lockedPoints, onToday, periodRecord, plural, sections, skippedToday, spendable, timeAvailable, timerRunning, type ChoreState, type Sound } from '../lib/choreTypes';
+  import { allowanceLeft, canAsk, DEFAULT_SOUND, formatWhen, holdingLabel, LEDGER_LABEL, lockedPoints, onToday, periodRecord, plural, sections, skippedToday, keptToday, spendable, timeAvailable, timerRunning, type ChoreState, type Sound } from '../lib/choreTypes';
   import { unlockAudio } from '../lib/chime';
   import { liveTimers } from '../lib/timerClient.svelte';
   import { celebrate } from '../lib/celebrate.svelte';
@@ -28,6 +28,7 @@
   const me = $derived(people.find((p) => p.id === who)!);
   const routine = $derived(choreState.routines.find((r) => r.person === who));
   const chores = $derived(routine?.items.filter(onToday) ?? []);
+  const keptUp = $derived(keptToday(routine?.items ?? []));
   const skipped = $derived(skippedToday(routine?.items ?? [])); // only a manager is shown these, to bring them back
   const groups = $derived(sections(chores));
   const points = $derived(choreState.balances[who] ?? 0);
@@ -223,6 +224,19 @@
     {:else}
       <p class="note">Nothing today.</p>
     {/each}
+    {#if keptUp.length > 0}
+      <div class="mt-4">
+        <h3 class="m-0 text-[1rem]">Finished this week <span class="note">{keptUp.length}</span></h3>
+        <ul class="plain-list">
+          {#each keptUp as c (c.id)}
+            <li class="list-row">
+              <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.1rem] font-medium text-muted">{c.title}</span>
+              {#if c.keptPoints > 0}<span class="text-[.9rem] [font-weight:650] text-[color:var(--c)] tabular-nums">+{c.keptPoints} today</span>{/if}
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
     {#if choreState.manager && skipped.length > 0}
       <div class="mt-4">
         <h3 class="m-0 text-[1rem]">Skipped today <span class="note">{skipped.length}</span></h3>

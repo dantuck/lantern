@@ -26,8 +26,13 @@ export interface ChoreItem {
   everyWeeks: number;
   /** The Sunday that starts the first week it is on, when `everyWeeks` is more than 1; otherwise null. */
   weekAnchor: string | null;
+  /** An "until done" chore stays on the list until it is ticked, then pays `keptPoints` for each remaining scheduled day of its week. */
+  untilDone: boolean;
+  keptPoints: number;
   /** Whether it is on the schedule for `ChoreState.day`. */
   due: boolean;
+  /** An until-done chore that was finished earlier this week: off today's list, with its kept-up points paid automatically. */
+  kept: boolean;
   /** Whether a manager skipped it for `ChoreState.day`. It is then left out of the day's list, points and bonus. */
   skipped: boolean;
 }
@@ -130,6 +135,12 @@ export const inRotation = (s: Rotation, day: string): boolean => {
 export const itemDue = (s: { days: number | null; onceDate: string | null } & Rotation, day: string): boolean =>
   s.onceDate !== null ? s.onceDate === day : (s.days === null || hasDay(s.days, weekdayOf(day))) && inRotation(s, day);
 
+/** When an until-done chore was finished earlier in the week `day` is in (Sunday to Saturday), from the days it was ticked; null if it was not. */
+export const finishedBefore = (tickedDays: readonly string[], day: string): string | null => {
+  const start = weekStart(day);
+  return tickedDays.filter((d) => d >= start && d < day).sort()[0] ?? null;
+};
+
 /** A one-off whose day is before `day`: finished with, unless it is moved to another date. */
 export const isPastOnce = (s: { onceDate: string | null }, day: string): boolean => s.onceDate !== null && s.onceDate < day;
 
@@ -147,10 +158,10 @@ export const WEEKDAY_SHORT: readonly string[] = Array.from({ length: 7 }, (_, i)
 export const toggleDay = (days: number, weekday: number): number => days ^ (1 << weekday);
 
 /** "Every day", "Weekdays", "Mon, Wed", or the date for a one-off; with ", every other week" or ", every 3 weeks" when it skips weeks. `names` default to the seven short weekday names from Sunday. */
-export function describeSchedule(s: { days: number | null; onceDate: string | null } & Rotation, names: readonly string[] = WEEKDAY_SHORT): string {
+export function describeSchedule(s: { days: number | null; onceDate: string | null; untilDone?: boolean } & Rotation, names: readonly string[] = WEEKDAY_SHORT): string {
   if (s.onceDate !== null) return `Once, ${s.onceDate}`;
   const n = s.everyWeeks ?? 1;
-  const base = describeDays(s.days, names);
+  const base = describeDays(s.days, names) + (s.untilDone ? ', until done' : '');
   return n > 1 ? `${base}, ${n === 2 ? 'every other week' : `every ${n} weeks`}` : base;
 }
 
@@ -162,18 +173,21 @@ function describeDays(days: number | null, names: readonly string[]): string {
   return picked.length > 0 ? picked.join(', ') : 'Never';
 }
 
-/** Whether a chore is there to do today: on the schedule and not skipped. */
-export const onToday = (i: Pick<ChoreItem, 'due' | 'skipped'>): boolean => i.due && !i.skipped;
+/** Whether a chore is there to do today: on the schedule, not skipped, and not an until-done chore already finished this week. */
+export const onToday = (i: Pick<ChoreItem, 'due' | 'skipped' | 'kept'>): boolean => i.due && !i.skipped && !i.kept;
 
 /** The chores a manager skipped for today, which they can bring back. */
 export const skippedToday = (items: readonly ChoreItem[]): ChoreItem[] => items.filter((i) => i.due && i.skipped);
+
+/** The until-done chores already finished earlier this week, which are paid automatically today instead of being listed. */
+export const keptToday = (items: readonly ChoreItem[]): ChoreItem[] => items.filter((i) => i.kept && !i.skipped);
 
 /** The routines with only today's chores; one with nothing to do today is left out. */
 export const todaysRoutines = (routines: readonly Routine[]): Routine[] =>
   routines.map((r) => ({ ...r, items: r.items.filter(onToday) })).filter((r) => r.items.length > 0);
 
 /** A chore already set up for someone, offered again when adding one to another person's list. */
-export type ChoreTemplate = Pick<ChoreItem, 'title' | 'points' | 'period' | 'days' | 'onceDate' | 'everyWeeks' | 'weekAnchor'>;
+export type ChoreTemplate = Pick<ChoreItem, 'title' | 'points' | 'period' | 'days' | 'onceDate' | 'everyWeeks' | 'weekAnchor' | 'untilDone' | 'keptPoints'>;
 
 /**
  * The chores in the household that could be added to `person`'s list: those on other lists (or earlier on none), matching `query`,
@@ -189,7 +203,7 @@ export function choreSuggestions(routines: readonly Routine[], person: string | 
       const t = i.title.toLowerCase();
       if (have.has(t) || (q && !t.includes(q)) || isPastOnce(i, day)) continue;
       have.add(t);
-      out.push({ title: i.title, points: i.points, period: i.period, days: i.days, onceDate: i.onceDate, everyWeeks: i.everyWeeks, weekAnchor: i.weekAnchor });
+      out.push({ title: i.title, points: i.points, period: i.period, days: i.days, onceDate: i.onceDate, everyWeeks: i.everyWeeks, weekAnchor: i.weekAnchor, untilDone: i.untilDone, keptPoints: i.keptPoints });
     }
   }
   // Titles starting with the query read as the better match, then alphabetical.
@@ -204,7 +218,7 @@ export const sections = <T extends { period: Period }>(items: readonly T[]): { p
 /** Whether `person` may ask for `reward`: it is open to everyone, or they are among the people it is limited to. */
 export const canAsk = (reward: Pick<Reward, 'people'>, person: string): boolean => reward.people === null || reward.people.includes(person);
 
-type Lockable = Pick<ChoreItem, 'period' | 'points' | 'done' | 'due' | 'skipped'>;
+type Lockable = Pick<ChoreItem, 'period' | 'points' | 'done' | 'due' | 'skipped' | 'kept'>;
 
 /** The times of day that still have a chore due and not done today. Each is its own lock. */
 const openPeriods = (items: readonly Lockable[]): Set<Period> => new Set(items.filter((i) => onToday(i) && !i.done).map((i) => i.period));
@@ -224,14 +238,23 @@ export function holdingLabel(items: readonly Lockable[], labels: Record<Period, 
   return PERIODS.filter((p) => open.has(p) && items.some((i) => onToday(i) && i.done && i.points > 0 && i.period === p)).map((p) => labels[p]).join(' and ');
 }
 
+/** Whether an until-done chore is already finished by `weekday` (0 = Sunday), assuming it is ticked on its first scheduled day of the week. */
+export const keptByWeekday = (i: Pick<ChoreItem, 'untilDone' | 'days' | 'onceDate'>, weekday: number): boolean =>
+  i.untilDone && Array.from({ length: weekday }, (_, w) => w).some((w) => itemDueOnWeekday(i, w));
+
+/** The points a chore is worth on a weekday: its kept-up points once an until-done chore would be finished, otherwise its own. */
+export const pointsOnWeekday = (i: Pick<ChoreItem, 'untilDone' | 'days' | 'onceDate' | 'points' | 'keptPoints'>, weekday: number): number =>
+  keptByWeekday(i, weekday) ? i.keptPoints : i.points;
+
 /** Points a person earns on a typical day: the chores scheduled each weekday (and each time of day's all-done bonus) averaged over the week. */
 export function typicalDailyPoints(routine: Pick<Routine, 'items' | 'bonuses'> | undefined): number {
   if (!routine) return 0;
   const items = routine.items.filter((i) => i.onceDate === null); // a one-off is not part of the routine
   let week = 0;
   for (let d = 0; d < 7; d++) {
-    const today = items.filter((i) => itemDueOnWeekday(i, d));
-    week += today.reduce((n, i) => n + i.points, 0) + PERIODS.reduce((n, p) => n + (today.some((i) => i.period === p) ? routine.bonuses[p] : 0), 0);
+    // An until-done chore is assumed finished on its first day of the week: it pays its points then, and its kept-up points after.
+    const today = items.filter((i) => itemDueOnWeekday(i, d)).map((i) => ({ period: i.period, points: pointsOnWeekday(i, d), open: !keptByWeekday(i, d) }));
+    week += today.reduce((n, i) => n + i.points, 0) + PERIODS.reduce((n, p) => n + (today.some((i) => i.open && i.period === p) ? routine.bonuses[p] : 0), 0);
   }
   return week / 7;
 }

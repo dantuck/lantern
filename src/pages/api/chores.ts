@@ -25,7 +25,9 @@ const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const period = z.enum(PERIODS as [string, ...string[]]);
 const periodLabel = z.string().trim().max(MAX_PERIOD_LABEL); // blank goes back to the built-in name
 const everyWeeks = z.number().int().min(1).max(MAX_EVERY_WEEKS).optional();
-const newItem = { title, points, period, days: itemDays, onceDate: date.nullable().optional(), everyWeeks, weekAnchor: date.nullable().optional() };
+const untilDone = z.boolean().optional();
+const keptPoints = points.optional();
+const newItem = { title, points, period, days: itemDays, onceDate: date.nullable().optional(), everyWeeks, weekAnchor: date.nullable().optional(), untilDone, keptPoints };
 
 /** What anyone signed in may do: tick chores, and spend points on rewards (screen time at once, anything else once a manager approves). */
 const memberBody = z.discriminatedUnion('action', [
@@ -40,7 +42,7 @@ const memberBody = z.discriminatedUnion('action', [
 const managerBody = z.discriminatedUnion('action', [
   z.object({ action: z.literal('item_add'), person: person.nullable(), ...newItem }),
   z.object({ action: z.literal('items_add'), items: z.array(z.object({ person: person.nullable(), ...newItem })).min(1).max(240) }),
-  z.object({ action: z.literal('item_update'), id, title: title.optional(), points: points.optional(), period: period.optional(), days: itemDays, onceDate: date.nullable().optional(), everyWeeks, weekAnchor: date.nullable().optional() }),
+  z.object({ action: z.literal('item_update'), id, title: title.optional(), points: points.optional(), period: period.optional(), days: itemDays, onceDate: date.nullable().optional(), everyWeeks, weekAnchor: date.nullable().optional(), untilDone, keptPoints }),
   z.object({ action: z.literal('item_remove'), id }),
   z.object({ action: z.literal('item_skip'), id, skipped: z.boolean() }),
   z.object({ action: z.literal('period_labels_set'), labels: z.object({ morning: periodLabel.optional(), afternoon: periodLabel.optional(), evening: periodLabel.optional(), any: periodLabel.optional() }) }),
@@ -67,9 +69,10 @@ const knows = async (b: object) => {
 };
 
 const today = () => dayKey(Date.now(), householdZone);
-/** The optional repeat-every-N-weeks fields of a request, left out when not given so an update keeps what is stored. */
-const rotationOf = (b: { everyWeeks?: number | undefined; weekAnchor?: string | null | undefined }) => ({
+/** The optional repeat fields of a request (every N weeks, until done), left out when not given so an update keeps what is stored. */
+const rotationOf = (b: { everyWeeks?: number | undefined; weekAnchor?: string | null | undefined; untilDone?: boolean | undefined; keptPoints?: number | undefined }) => ({
   ...(b.everyWeeks !== undefined ? { everyWeeks: b.everyWeeks } : {}), ...(b.weekAnchor !== undefined ? { weekAnchor: b.weekAnchor } : {}),
+  ...(b.untilDone !== undefined ? { untilDone: b.untilDone } : {}), ...(b.keptPoints !== undefined ? { keptPoints: b.keptPoints } : {}),
 });
 
 /** Middleware has already required a session and a same-origin Origin. Reading and ticking are open to every member. */

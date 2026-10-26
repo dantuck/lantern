@@ -1,5 +1,6 @@
 import { audit, type User } from './auth/users';
 import { dayKey } from './dates';
+import { keptOn, untilDoneChecks } from './untilDone';
 import { householdZone } from './household';
 import { allowanceFor, isSound, itemDue, lockedPoints, type Allowance, type ChoreState, type Goal, type LedgerEntry, type Period, type Redemption, type Reward, type Sound, type Timer } from './choreTypes';
 
@@ -23,16 +24,17 @@ export const balanceOf = (db: D1Database, person: string): Promise<number> => su
 
 /** The points held back on `day` by times of day a person has not finished (see `lockedPoints`). */
 export async function lockedFor(db: D1Database, person: string, day: string): Promise<number> {
-  const { results } = await db
-    .prepare(`SELECT i.points, i.period, i.days, i.once_date, i.every_weeks, i.week_anchor, c.item_id IS NOT NULL AS done, s.item_id IS NOT NULL AS skipped
+  const [finished, { results }] = await Promise.all([untilDoneChecks(db, day, { person }), db
+    .prepare(`SELECT i.id, i.points, i.period, i.days, i.once_date, i.every_weeks, i.week_anchor, i.until_done, c.item_id IS NOT NULL AS done, s.item_id IS NOT NULL AS skipped
       FROM chore_items i JOIN chore_lists l ON l.id = i.list_id
       LEFT JOIN chore_checks c ON c.item_id = i.id AND c.day = ? LEFT JOIN chore_skips s ON s.item_id = i.id AND s.day = ?
       WHERE l.person = ?`)
     .bind(day, day, person)
-    .all<{ points: number; period: Period; days: number | null; once_date: string | null; every_weeks: number; week_anchor: string | null; done: number; skipped: number }>();
+    .all<{ id: string; points: number; period: Period; days: number | null; once_date: string | null; every_weeks: number; week_anchor: string | null; until_done: number; done: number; skipped: number }>()]);
   return lockedPoints(results.map((r) => ({
     period: r.period, points: r.points, done: r.done === 1, skipped: r.skipped === 1,
     due: itemDue({ days: r.days, onceDate: r.once_date, everyWeeks: r.every_weeks, weekAnchor: r.week_anchor }, day),
+    kept: r.until_done === 1 && keptOn(finished, r.id, day),
   })));
 }
 

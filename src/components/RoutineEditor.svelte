@@ -8,7 +8,7 @@
   import CopyChores from './CopyChores.svelte';
   import Panel from './Panel.svelte';
   import Sheet from './Sheet.svelte';
-  import { EVERY_DAY, hasDay, inRotation, MAX_PERIOD_LABEL, isPastOnce, itemDueOnWeekday, normalizeDays, PERIOD_LABEL, PERIODS, plural, ptsLabel, sections, toggleDay, WEEKDAY_SHORT, type ChoreItem, type Owner, type Period, type Routine } from '../lib/choreTypes';
+  import { EVERY_DAY, hasDay, inRotation, MAX_PERIOD_LABEL, isPastOnce, itemDueOnWeekday, normalizeDays, PERIOD_LABEL, PERIODS, plural, pointsOnWeekday, ptsLabel, sections, toggleDay, WEEKDAY_SHORT, type ChoreItem, type Owner, type Period, type Routine } from '../lib/choreTypes';
   import { addDays, dayLabel, weekdayOf } from '../lib/dates';
   import ItemEditor from './ItemEditor.svelte';
 
@@ -64,8 +64,8 @@
   const isPast = (c: ChoreItem) => isPastOnce(c, day);
   /** Whether a chore is on the schedule for a weekday (0 = Sunday); a one-off counts on the weekday of its date, and one that skips weeks only in the weeks it is on, unless that day has gone (it waits in the list to be used again). */
   const perDay = $derived(WEEKDAY_SHORT.map((_, d) => live.filter((c) => !isPast(c) && itemDueOnWeekday(c, d) && inRotation(c, day))));
-  /** Chore points on the busiest day: what the most a person can earn from chores alone. */
-  const dayPoints = $derived(perDay.map((cs) => cs.reduce((n, c) => n + c.points, 0)));
+  /** Chore points on each day; an until-done chore counts its points on its first day and its kept-up points after. */
+  const dayPoints = $derived(perDay.map((cs, d) => cs.reduce((n, c) => n + pointsOnWeekday(c, d), 0)));
   const busiest = $derived(Math.max(0, ...dayPoints));
   const groups = $derived(sections(live));
   const openItem = $derived(live.find((c) => c.id === openId));
@@ -80,7 +80,8 @@
   const setTitle = (c: ChoreItem, e: Event) => { const t = text(e); if (!t) { (e.currentTarget as HTMLInputElement).value = c.title; return; } if (t !== c.title) keep(e, patch(c, { title: t })); };
 
   /** The planner's columns on a wide screen (chore, time of day, seven days, points, actions); on a phone each chore stacks in three. */
-  const COLS = 'min-[56rem]:grid min-[56rem]:grid-cols-[minmax(10rem,1fr)_9.5rem_repeat(7,2.1rem)_4.5rem_auto]';
+  // The last column is a fixed width, not `auto`: the header and the "points a day" footer are separate grids, and an auto column would size to each one's own contents and push the day columns out of line with the rows.
+  const COLS = 'min-[56rem]:grid min-[56rem]:grid-cols-[minmax(10rem,1fr)_9.5rem_repeat(7,2.1rem)_4.5rem_10rem]';
   const COLS_PHONE = 'grid-cols-[minmax(0,1fr)_5.5rem_auto]';
   /** Moves a one-off to another day, so a chore that came up once can be done again without retyping it. */
   const reuse = (c: ChoreItem, date: string) => send({ action: 'item_update', id: c.id, onceDate: date });
@@ -199,7 +200,7 @@
         <button type="button" id={`edit-chore-${c.id}`} class="ghost small m-0" disabled={busy || openId !== null} aria-label={`More for ${c.title}: repeat, date, remove`} onclick={() => (openId = c.id)}>More</button>
       </div>
       {#if inline}
-        <div class="col-span-full edit-card"><ItemEditor {c} {day} {busy} {send} {labels} onremove={() => gone(c)} onclose={closeEdit} /></div>
+        <div class="col-span-full edit-card"><ItemEditor {c} {day} {busy} {send} {labels} earns={person !== null} onremove={() => gone(c)} onclose={closeEdit} /></div>
       {/if}
     </div>
   {/each}
@@ -215,7 +216,7 @@
 
 {#if narrow && openItem}
   <Sheet title={`Edit ${openItem.title}`} onclose={closeEdit}>
-    <ItemEditor c={openItem} {day} {busy} {send} {labels} onremove={() => gone(openItem)} onclose={closeEdit} />
+    <ItemEditor c={openItem} {day} {busy} {send} {labels} earns={person !== null} onremove={() => gone(openItem)} onclose={closeEdit} />
   </Sheet>
 {/if}
 

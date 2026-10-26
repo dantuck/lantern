@@ -1,9 +1,10 @@
 <script lang="ts">
   import { hasDay, MAX_EVERY_WEEKS, toggleDay, weekStart, WEEKDAY_SHORT } from '../lib/choreTypes';
   import { addDays, dayLabel } from '../lib/dates';
+  import Stepper from './Stepper.svelte';
 
   /** "Repeats" on chosen weekdays, or "Just once" on a date. `subject` names the chore for screen readers ("Days for Dishes"). */
-  let { once = $bindable(), days = $bindable(), date = $bindable(), every = $bindable(1), from = $bindable(''), day, subject = '', class: cls = '' }: { once: boolean; days: number; date: string; every?: number; from?: string; day: string; subject?: string; class?: string } = $props();
+  let { once = $bindable(), days = $bindable(), date = $bindable(), every = $bindable(1), from = $bindable(''), untilDone = $bindable(false), keptPoints = $bindable(0), earns = true, day, subject = '', class: cls = '' }: { earns?: boolean; once: boolean; days: number; date: string; every?: number; from?: string; untilDone?: boolean; keptPoints?: number; day: string; subject?: string; class?: string } = $props();
 
   // "Every other week" needs to know which weeks: this one or next, or (when editing) the rotation the chore already has.
   const thisWeek = $derived(weekStart(day));
@@ -40,6 +41,11 @@
           <option value={nextWeek}>Next week</option>
           {#if kept}<option value={kept}>Keep its weeks (from {dayLabel(kept, day)})</option>{/if}
         </select></label>
+    {/if}
+    <label class="flex items-center gap-2"><input class="m-0 w-auto" type="checkbox" bind:checked={untilDone} aria-label={of('Repeat until finished')} />Repeat until finished</label>
+    {#if untilDone}
+      {#if earns}<Stepper caption="Then each remaining day" bind:value={keptPoints} min={0} max={100} label={of('Points for each remaining day after it is finished')} />{/if}
+      <p class="note m-0 text-[.85rem]">It stays on the list until it is ticked{earns ? ', which pays its points. After that it leaves the list and pays the amount above automatically for each of its remaining days that week' : ', then leaves the list for the rest of that week'}.</p>
     {/if}
   {/if}
 </div>
