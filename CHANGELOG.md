@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.20.0](https://github.com/dantuck/lantern/compare/v0.19.0...v0.20.0) (2026-10-26)
+
+
+### Added
+
+* **chores:** time-of-day hours, optional chores and screen time limits ([3362f93](https://github.com/dantuck/lantern/commit/3362f93b45b8c5b6e024b2105b52d8cb4111bd7d))
+
 ## [0.19.0](https://github.com/dantuck/lantern/compare/v0.18.0...v0.19.0) (2026-10-26)
 
 
