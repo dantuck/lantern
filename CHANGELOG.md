@@ -7,6 +7,14 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.21.0](https://github.com/dantuck/lantern/compare/v0.20.0...v0.21.0) (2026-10-26)
+
+
+### Added
+
+* **chores:** collapse the timer sound settings until opened ([731038e](https://github.com/dantuck/lantern/commit/731038e4340337335df9043a827efe77961bc1fb))
+* **chores:** move recent points into a sheet and give the routine editor full width in manage ([06c4cf4](https://github.com/dantuck/lantern/commit/06c4cf46abf74f28fa4c5af94da5383e8139b956))
+
 ## [0.20.0](https://github.com/dantuck/lantern/compare/v0.19.0...v0.20.0) (2026-10-26)
 
 
