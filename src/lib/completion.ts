@@ -1,7 +1,7 @@
-import { PERIODS, type ChoreItem, type Period } from './choreTypes';
+import { PERIODS, required, type ChoreItem, type Period } from './choreTypes';
 
-/** A list counts as finished when it has chores and every one is done. */
-export const allDone = (items: ChoreItem[]) => items.length > 0 && items.every((i) => i.done);
+/** A list counts as finished when it has chores and every one it needs is done (an optional chore is never waited for). */
+export const allDone = (items: ChoreItem[]) => { const need = items.filter(required); return need.length > 0 && need.every((i) => i.done); };
 
 /**
  * What to celebrate for one person: the whole day, plus each time of day that carries a bonus.

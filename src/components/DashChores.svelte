@@ -1,8 +1,9 @@
 <script lang="ts">
   import FeatherIcon from './FeatherIcon.svelte';
+  import { dayClock } from '../lib/dayClock.svelte';
   import { holdRefresh } from '../lib/holdRefresh.svelte';
   import { runChores } from '../lib/choreClient';
-  import { timeAvailable, todaysRoutines, type ChoreItem, type ChoreState } from '../lib/choreTypes';
+  import { blockFor, tally, timeAvailable, todaysRoutines, type ChoreItem, type ChoreState } from '../lib/choreTypes';
   import type { Person } from '../lib/people';
 
   let { initial, people, href = '/chores', demo = false }: { initial: ChoreState; people: Person[]; href?: string; demo?: boolean } = $props();
@@ -10,6 +11,8 @@
   // Rendered once from the server, then replaced by whatever the API answers after each tick.
   // svelte-ignore state_referenced_locally
   let state = $state<ChoreState>(initial);
+  const day = dayClock(() => state);
+  const blockOf = (item: ChoreItem) => blockFor(state, item.period, day.dayMs, demo);
   let busy = $state(false);
   let error = $state('');
   // The last chore ticked, offered back for a few seconds. One at a time: a newer tick replaces it.
@@ -31,8 +34,9 @@
     ].filter((g) => g.items.length > 0);
   });
   const all = $derived(groups.flatMap((g) => g.items));
-  const total = $derived(all.length);
-  const doneAll = $derived(all.filter((i) => i.done).length);
+  const progress = $derived(tally(all));
+  const total = $derived(progress.total);
+  const doneAll = $derived(progress.done);
 
   async function tick(item: ChoreItem, name: string, done: boolean) {
     if (busy) return;
@@ -63,21 +67,23 @@
 {:else}
   <ul class="mini">
     {#each groups as g (g.id ?? 'anyone')}
-      {@const done = g.items.filter((i) => i.done).length}
+      {@const prog = tally(g.items)}
+      {@const done = prog.done}
+      {@const countedN = prog.total}
       {@const todo = g.items.filter((i) => !i.done).sort((a, b) => +(b.onceDate !== null) - +(a.onceDate !== null))}
       {@const mins = g.id ? timeAvailable(state, g.id) : 0}
       {@const pts = g.id ? state.balances[g.id] : undefined}
       <li style="--c:{g.color}">
         {#if g.id}<a class="mini-name" href="{href}/{encodeURIComponent(g.id)}">{g.name}</a>{:else}<span class="mini-name">{g.name}</span>{/if}
-        <span class="mini-bar" role="img" aria-label="{g.name}: {done} of {g.items.length} done"><span style="width:{(done / g.items.length) * 100}%"></span></span>
-        <span class="mini-n">{done}/{g.items.length}</span>
+        <span class="mini-bar" role="img" aria-label="{g.name}: {done} of {countedN} done"><span style="width:{countedN ? (done / countedN) * 100 : 0}%"></span></span>
+        <span class="mini-n">{done}/{countedN}</span>
         <div class="mini-sub">
           {#if todo.length === 0}
             <span class="text-accent font-semibold">All done <FeatherIcon name="check" /></span>
           {:else}
             <span class="mini-todo">
               {#each todo.slice(0, SHOWN) as item (item.id)}
-                <button type="button" class="mini-chip" disabled={busy} onclick={() => tick(item, g.name, true)} aria-label="Mark {item.title} done for {g.name}"><i aria-hidden="true"></i>{item.title}{#if item.onceDate !== null}<span class="cal-pill ml-auto flex-none text-muted">Today only</span>{/if}</button>
+                <button type="button" class="mini-chip" disabled={busy || blockOf(item) !== ''} title={blockOf(item)} onclick={() => tick(item, g.name, true)} aria-label="Mark {item.title} done for {g.name}"><i aria-hidden="true"></i>{item.title}{#if item.onceDate !== null}<span class="cal-pill ml-auto flex-none text-muted">Today only</span>{/if}</button>
               {/each}
               {#if todo.length > SHOWN}<a class="mini-more" href={g.id ? `${href}/${encodeURIComponent(g.id)}` : href}>+{todo.length - SHOWN} more</a>{/if}
             </span>

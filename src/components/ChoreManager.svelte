@@ -9,9 +9,10 @@
   import Disclosure from './Disclosure.svelte';
   import CostCalculator from './CostCalculator.svelte';
   import FeatherIcon from './FeatherIcon.svelte';
+  import Switch from './Switch.svelte';
   import ManageOverview from './ManageOverview.svelte';
   import { toggleIn } from '../lib/arrays';
-  import { holdingLabel, LEDGER_LABEL, lockedPoints, MAX_PERIOD_LABEL, ownerKey, PERIOD_LABEL, PERIODS, periodRecord, ptsLabel, type ChoreItem, type ChoreState, type LedgerEntry, type Period, type Reward } from '../lib/choreTypes';
+  import { clockOf, closedPeriods, HOURS_PERIODS, minuteOf, holdingLabel, LEDGER_LABEL, lockedPoints, MAX_PERIOD_LABEL, ownerKey, PERIOD_LABEL, PERIODS, periodRecord, ptsLabel, type ChoreItem, type ChoreState, type LedgerEntry, type Period, type Reward } from '../lib/choreTypes';
   import { chorePipe } from '../lib/chorePipe.svelte';
   import type { Person } from '../lib/people';
 
@@ -80,8 +81,9 @@
   const current = $derived(shown.find((o) => ownerKey(o.id) === picked));
   const itemsOf = (id: string | null): ChoreItem[] => choreState.routines.find((r) => r.person === id)?.items ?? [];
   /** Why a person's points are held back right now, or '' when none are. */
-  const holdingFor = (id: string) => holdingLabel(itemsOf(id), choreState.periodLabels);
-  const heldFor = (id: string) => lockedPoints(itemsOf(id));
+  const closed = $derived(closedPeriods(choreState.periodHours, choreState.dayMs));
+  const holdingFor = (id: string) => holdingLabel(itemsOf(id), choreState.periodLabels, closed);
+  const heldFor = (id: string) => lockedPoints(itemsOf(id), closed);
   const bonusesOf = (id: string | null) => choreState.routines.find((r) => r.person === id)?.bonuses ?? periodRecord(0);
 
   /** The names of the times of day as typed; saved with "Save names". A blank name goes back to the built-in one. */
@@ -91,6 +93,16 @@
   async function saveNames(e: SubmitEvent) {
     e.preventDefault();
     await send({ action: 'period_labels_set', labels: Object.fromEntries(PERIODS.map((p) => [p, names[p].trim()])) });
+  }
+
+  /** The hours of the times of day as typed (HH:MM, which is what a time field holds); saved with "Save hours". Midnight as an end means the end of the day. */
+  // svelte-ignore state_referenced_locally
+  let hours = $state(Object.fromEntries(HOURS_PERIODS.map((p) => [p, { from: clockOf(initial.periodHours[p]!.from), to: clockOf(initial.periodHours[p]!.to) }])) as Record<string, { from: string; to: string }>);
+  const hoursValid = $derived(HOURS_PERIODS.every((p) => hours[p]!.from !== '' && hours[p]!.to !== '' && minuteOf(hours[p]!.to, true) > minuteOf(hours[p]!.from)));
+  const hoursChanged = $derived(HOURS_PERIODS.some((p) => minuteOf(hours[p]!.from) !== choreState.periodHours[p]!.from || minuteOf(hours[p]!.to, true) !== choreState.periodHours[p]!.to));
+  async function saveHours(e: SubmitEvent) {
+    e.preventDefault();
+    await send({ action: 'period_hours_set', hours: Object.fromEntries(HOURS_PERIODS.map((p) => [p, { from: minuteOf(hours[p]!.from), to: minuteOf(hours[p]!.to, true) }])) });
   }
 
   /** Who a reward's scope lets ask: everyone, or the people picked. */
@@ -208,7 +220,7 @@
 
 {#if tab === 'overview'}
 <div id="overview" class="grid gap-0">
-  <ManageOverview chores={choreState} {people} {demo} inboxHref={demo ? '/demo/inbox' : '/inbox'} go={show} openChores={(id) => { picked = ownerKey(id); show('chores'); }} />
+  <ManageOverview chores={choreState} {people} {demo} {busy} {send} inboxHref={demo ? '/demo/inbox' : '/inbox'} go={show} openChores={(id) => { picked = ownerKey(id); show('chores'); }} />
 </div>
 {/if}
 
@@ -269,6 +281,25 @@
       </div>
       <span class="flex justify-end gap-2">
         <button type="submit" class="small" disabled={busy || !namesChanged}>Save names</button>
+      </span>
+    </form>
+  </Disclosure>
+
+  <Disclosure id="period-hours" summary="Set the hours of the times of day" class="mb-3">
+    <form class="grid gap-3 mt-2 max-w-[34rem]" onsubmit={saveHours}>
+      <p class="note m-0">Chores can be ticked only during their time of day, so evening chores wait until evening and a morning that is over can no longer be ticked. Managers can tick at any time. Points a missed time of day was holding become spendable once it is over. "Any time" chores have no hours.</p>
+      <div class="grid gap-2">
+        {#each HOURS_PERIODS as p (p)}
+          <div class="flex flex-wrap items-end gap-2">
+            <span class="w-24 pb-2">{choreState.periodLabels[p]}</span>
+            <label class="cap-field">From <input class="m-0" type="time" bind:value={hours[p]!.from} required /></label>
+            <label class="cap-field">Until <input class="m-0" type="time" bind:value={hours[p]!.to} required /></label>
+          </div>
+        {/each}
+      </div>
+      {#if !hoursValid}<p class="note m-0" role="alert">Each time of day has to end after it starts.</p>{/if}
+      <span class="flex justify-end gap-2">
+        <button type="submit" class="small" disabled={busy || !hoursChanged || !hoursValid}>Save hours</button>
       </span>
     </form>
   </Disclosure>
@@ -377,7 +408,7 @@
             <form class="grid gap-3" onsubmit={saveEdit}>
               <div class="grid gap-2">
                 <input class="m-0" bind:value={edit.name} maxlength="60" required aria-label="Reward" autocomplete="off" />
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid gap-3">
                   <Stepper caption="Cost (points)" bind:value={edit.cost} min={1} max={100000} label={`Cost of ${r.name}`} />
                   <div title="Minutes of screen time it gives at once (0 for none)"><Stepper caption="Screen time it gives (min)" presets={[15, 30, 60]} bind:value={edit.minutes} min={0} max={1440} step={5} label={`Screen time minutes for ${r.name}`} /></div>
                 </div>
@@ -386,9 +417,7 @@
               {@render scope(edit.people, (ids) => { if (edit?.kind === 'reward') edit.people = ids; })}
               <div class="flex items-center justify-between gap-3 pointer-coarse:min-h-11">
                 <span id={`hide-${r.id}`}>Hidden<span class="note block">Nobody can ask for it while it's on</span></span>
-                <button type="button" role="switch" aria-checked={edit.hidden} aria-labelledby={`hide-${r.id}`} class="relative box-border flex-none [&&]:m-0 [&&]:p-0 [&&]:h-7 [&&]:min-h-0 [&&]:w-12 rounded-full border-0 shadow-none transition-colors {edit.hidden ? 'bg-accent' : 'bg-line'} [&&:hover]:filter-none [&&:active]:transform-none" onclick={() => { if (edit?.kind === 'reward') edit.hidden = !edit.hidden; }}>
-                  <span class="absolute top-[3px] left-[3px] size-[22px] rounded-full bg-white shadow-sm transition-transform {edit.hidden ? 'translate-x-5' : ''}"></span>
-                </button>
+                <Switch checked={edit.hidden} labelledby={`hide-${r.id}`} onchange={(on) => { if (edit?.kind === 'reward') edit.hidden = on; }} />
               </div>
               {@render editActions(`Remove ${r.name}`, { action: 'reward_remove', id: r.id }, edit.name.trim() !== '')}
             </form>
@@ -466,7 +495,7 @@
       {#each people as p (p.id)}
         <li class="edit-card" style:--c={p.color}>
           <strong class="text-[color:var(--c)]">{p.name}</strong>
-          <AllowanceForm person={p.id} allowance={choreState.allowance[p.id]} {busy} {send} />
+          <AllowanceForm person={p.id} allowance={choreState.allowance[p.id]} buyCap={choreState.buyCap[p.id]} {busy} {send} />
         </li>
       {/each}
     </ul>

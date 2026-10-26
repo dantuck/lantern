@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { dayClock } from '../lib/dayClock.svelte';
   import FeatherIcon from './FeatherIcon.svelte';
   import RewardList from './RewardList.svelte';
   import { chorePipe } from '../lib/chorePipe.svelte';
   import { toggleIn } from '../lib/arrays';
-  import { allowanceLeft, canAsk, formatCountdown, timeAvailable, timeLeftMs, holdingLabel, lockedPoints, PERIODS, onToday, sections, spendable, skippedToday, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
+  import { allowanceLeft, blockFor, tally, canAsk, formatCountdown, timeAvailable, timeLeftMs, buyRoom, holdingLabel, hoursLabel, lockedPoints, PERIODS, onToday, sections, spendable, skippedToday, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
   import { liveTimers } from '../lib/timerClient.svelte';
   import { onMount } from 'svelte';
   import { celebrate } from '../lib/celebrate.svelte';
@@ -38,17 +39,18 @@
     if (anyone.length > 0 || anyoneSkipped.length > 0 || people.length === 0) cols.push({ id: null, name: 'Anyone', items: anyone, skipped: anyoneSkipped });
     return cols;
   });
-  const tally = (items: ChoreItem[]) => ({ total: items.length, done: items.filter((i) => i.done).length });
-  // Confetti the moment someone's last chore gets ticked: big for the day, small for a time of day with a bonus.
+    // Confetti the moment someone's last chore gets ticked: big for the day, small for a time of day with a bonus.
   const party = celebrate(() => columns.flatMap((c) => celebrationKeys(c.id, c.items, c.routine?.bonuses)));
   const partyColor = $derived(columns.find((c) => party.key.startsWith(`${c.id}:`))?.person?.color ?? 'var(--accent)');
   const pendingFor = (id: string | null) => choreState.pending.filter((r) => r.person === id);
   const rewardsFor = (id: string) => choreState.rewards.filter((r) => !r.hidden && canAsk(r, id));
+  const day = dayClock(() => choreState);
+  const closed = $derived(day.closed);
   const available = (id: string) => spendable(choreState, id);
   /** Points a person has, less those promised to requests waiting for a manager. */
   const owned = (id: string) => (choreState.balances[id] ?? 0) - pendingFor(id).reduce((n, r) => n + r.cost, 0);
   /** Why a person's points cannot be spent yet: the unfinished times of day holding them, or '' when nothing is held. */
-  const holding = (id: string) => holdingLabel(choreState.routines.filter((r) => r.person === id).flatMap((r) => r.items), choreState.periodLabels);
+  const holding = (id: string) => holdingLabel(choreState.routines.filter((r) => r.person === id).flatMap((r) => r.items), choreState.periodLabels, closed);
 
   // --- Filters: whose chores, which time of day, and done or not. Remembered in this browser only. ---
   type Status = 'all' | 'todo' | 'done';
@@ -217,23 +219,27 @@
         {@const all = col.items.filter((i) => i.period === sec.period)}
         {@const bonus = col.routine?.bonuses[sec.period] ?? 0}
         {@const earned = col.routine?.bonusEarned[sec.period] ?? false}
+        {@const block = blockFor(choreState, sec.period, day.dayMs, demo)}
+        {@const prog = tally(all)}
         <div class="mt-4">
           {#if sec.period !== 'any' || col.rows.length > 1}
             <h4 class="flex flex-wrap items-baseline gap-x-[.6rem] gap-y-[.15rem] m-0 text-[.95rem] tracking-[.01em]">
               {choreState.periodLabels[sec.period]}
-              <span class="ml-auto [font-weight:650] tabular-nums text-muted">{all.filter((i) => i.done).length}/{all.length}</span>
+              {#if choreState.periodHours[sec.period]}<span class="note [font-weight:400]">{hoursLabel(choreState.periodHours[sec.period])}</span>{/if}
+              {#if block}<span class="note [font-weight:400]"><FeatherIcon name="lock" /> {block}</span>{/if}
+              <span class="ml-auto [font-weight:650] tabular-nums text-muted">{prog.done}/{prog.total}</span>
             </h4>
-            {#if earns && lockedPoints(all) > 0}<div class="track h-[.35rem] mt-1" role="progressbar" aria-label={`${choreState.periodLabels[sec.period]} done, points held until it is finished`} aria-valuemin={0} aria-valuemax={all.length} aria-valuenow={all.filter((i) => i.done).length}><span class="fill bg-[var(--c)]" style:width={`${(all.filter((i) => i.done).length / all.length) * 100}%`}></span></div>{/if}
+            {#if earns && lockedPoints(all, closed) > 0}<div class="track h-[.35rem] mt-1" role="progressbar" aria-label={`${choreState.periodLabels[sec.period]} done, points held until it is finished`} aria-valuemin={0} aria-valuemax={prog.total} aria-valuenow={prog.done}><span class="fill bg-[var(--c)]" style:width={`${prog.total ? (prog.done / prog.total) * 100 : 0}%`}></span></div>{/if}
           {/if}
           <ul class="plain-list">
             {#each sec.items as c (c.id)}
               <li class="list-row">
-                <button type="button" class="tick size-11 [&_svg]:size-[1.4rem]" aria-pressed={c.done} aria-label={`${c.title}${c.done ? ', done' : ''}`} onclick={() => send({ action: 'check', id: c.id, done: !c.done })}>
+                <button type="button" class="tick size-11 [&_svg]:size-[1.4rem] disabled:opacity-40 disabled:cursor-not-allowed" aria-pressed={c.done} aria-label={`${c.title}${c.done ? ', done' : ''}`} disabled={block !== ''} title={block} onclick={() => send({ action: 'check', id: c.id, done: !c.done })}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
                 </button>
                 <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.05rem] font-medium {c.done ? 'text-muted line-through' : ''}">{c.title}</span>
                 {#if earns && c.points > 0}<span class="text-[.85rem] [font-weight:650] text-[color:var(--c)] tabular-nums">+{c.points}</span>{/if}
-                {#if choreState.manager}<button type="button" class="ghost small w-auto m-0" disabled={busy} aria-label={`Skip ${c.title} today`} onclick={() => send({ action: 'item_skip', id: c.id, skipped: true })}>Skip</button>{/if}
+                {#if choreState.manager}<button type="button" class="ghost small w-auto m-0" disabled={busy} aria-label={`Skip ${c.title} today`} onclick={() => send({ action: 'item_skip', id: c.id, skipped: true })}>{c.optional && c.done ? 'Not done' : 'Skip'}</button>{/if}
               </li>
             {/each}
           </ul>
@@ -269,7 +275,7 @@
               {#if choreState.manager}<a class="small" href={inboxHref}>Review in inbox</a>{/if}
             </div>
           {/each}
-          <RewardList rewards={rewardsFor(who.id)} {free} owned={owned(who.id)} holding={why} {busy} size="text-[1.05rem]" get={(r) => send({ action: 'redeem', person: who.id, rewardId: r.id })} />
+          <RewardList rewards={rewardsFor(who.id)} room={buyRoom(choreState, who.id)} {free} owned={owned(who.id)} holding={why} {busy} size="text-[1.05rem]" get={(r, quantity) => send({ action: 'redeem', person: who.id, rewardId: r.id, ...(quantity > 1 ? { quantity } : {}) })} />
         </details>
       {/if}
     </section>

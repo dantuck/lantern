@@ -19,6 +19,7 @@
   let every = $state(1);
   let untilDone = $state(false);
   let kept = $state(0);
+  let optional = $state(false);
   // svelte-ignore state_referenced_locally
   let from = $state(weekStart(day));
   // svelte-ignore state_referenced_locally
@@ -95,7 +96,7 @@
   $effect(() => { if (rows) place(); }); // the list grew or shrank, or just appeared
 
   async function pick(c: ChoreTemplate) {
-    if (await send({ action: 'item_add', person, title: c.title, points: c.points, period: c.period, days: c.days, onceDate: c.onceDate, everyWeeks: c.everyWeeks, weekAnchor: c.weekAnchor, untilDone: c.untilDone, keptPoints: c.keptPoints })) { title = ''; active = -1; input?.focus(); } // the list stays open (minus what was just added), ready for the next one
+    if (await send({ action: 'item_add', person, title: c.title, points: c.points, period: c.period, days: c.days, onceDate: c.onceDate, everyWeeks: c.everyWeeks, weekAnchor: c.weekAnchor, untilDone: c.untilDone, keptPoints: c.keptPoints, optional: c.optional })) { title = ''; active = -1; input?.focus(); } // the list stays open (minus what was just added), ready for the next one
   }
   function keys(e: KeyboardEvent) {
     if (e.key === 'Escape') { focused = false; return; }
@@ -115,7 +116,7 @@
     const t = title.trim();
     if (!t) return;
     const schedule = once ? { days: null, onceDate: date } : { days: normalizeDays(days), onceDate: null, everyWeeks: every, weekAnchor: every > 1 ? from : null, untilDone, keptPoints: kept };
-    if (await send({ action: 'item_add', person, title: t, points: Number(points) || 0, period, ...schedule })) { title = ''; input?.focus(); }
+    if (await send({ action: 'item_add', person, title: t, points: Number(points) || 0, period, optional, ...schedule })) { title = ''; input?.focus(); }
   }
 </script>
 
@@ -148,6 +149,6 @@
   </div>
   <Stepper caption="Points" bind:value={points} min={0} max={100} label="Points" />
   <label class="cap-field">Time of day <select class="m-0" bind:value={period} aria-label="Time of day">{#each PERIODS as p (p)}<option value={p}>{labels[p]}</option>{/each}</select></label>
-  <ScheduleFields class="col-span-2" {day} bind:once bind:days bind:date bind:every bind:from bind:untilDone bind:keptPoints={kept} earns={person !== null} />
+  <ScheduleFields class="col-span-2" {day} bind:once bind:days bind:date bind:every bind:from bind:untilDone bind:keptPoints={kept} bind:optional earns={person !== null} />
   <button class="small col-span-2 [&&&]:w-full" type="submit" disabled={busy || !title.trim()}>Add chore</button>
 </form>

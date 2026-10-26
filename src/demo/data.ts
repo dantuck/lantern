@@ -1,6 +1,6 @@
 // Fixture data for /demo. Everything here is invented; nothing is fetched, stored, or tied to a real household.
 // Dates are relative to "now" so the demo always looks current. The demo runs in UTC so "today" matches its clock times.
-import { allowanceFor, itemDue, PERIOD_LABEL, periodRecord, WEEKDAYS_MASK, WEEKENDS_MASK } from '../lib/choreTypes';
+import { allowanceFor, DEFAULT_HOURS, required, itemDue, PERIOD_LABEL, periodRecord, WEEKDAYS_MASK, WEEKENDS_MASK } from '../lib/choreTypes';
 import { DAY_MS, addDays, dayKey, startOfDayMs } from '../lib/dates';
 import type { CalEvent, CalendarData } from '../plugins/calendar/types';
 import type { WeatherData } from '../plugins/calendar/weatherView';
@@ -194,11 +194,11 @@ export const demoAudit = [
 type Period = 'morning' | 'afternoon' | 'evening' | 'any';
 /** [person id or null, all-done bonus per time of day, [chore, points, time of day, ticked already][]] */
 /** A chore that is not every day: weekdays to repeat on, and (for "until done") the points paid on each remaining day. */
-type ChoreOpts = { days?: number; kept?: number };
+type ChoreOpts = { days?: number; kept?: number; optional?: true };
 const ROUTINES: [string | null, Partial<Record<Period, number>>, [string, number, Period, boolean, ChoreOpts?][]][] = [
-  ['agnes', { morning: 3, afternoon: 2, evening: 2 }, [['Make your bed', 1, 'morning', true], ['Brush teeth', 1, 'morning', true], ['Feed Fluffy', 2, 'morning', false], ['Pack your school bag', 1, 'morning', false], ['Ballet bag by the door', 2, 'afternoon', false, { days: WEEKDAYS_MASK }], ['Practice ballet steps', 2, 'afternoon', false, { days: 0b0101010 }], ['Tidy the toy corner', 1, 'evening', false], ['Pick out tomorrow’s outfit', 1, 'evening', false], ['Bath time', 1, 'evening', false]]],
+  ['agnes', { morning: 3, afternoon: 2, evening: 2 }, [['Make your bed', 1, 'morning', true], ['Brush teeth', 1, 'morning', true], ['Feed Fluffy', 2, 'morning', true], ['Pack your school bag', 1, 'morning', false], ['Pack a lunch box (only some days)', 2, 'morning', false, { optional: true }], ['Ballet bag by the door', 2, 'afternoon', false, { days: WEEKDAYS_MASK }], ['Practice ballet steps', 2, 'afternoon', false, { days: 0b0101010 }], ['Tidy the toy corner', 1, 'evening', false], ['Pick out tomorrow’s outfit', 1, 'evening', false], ['Bath time', 1, 'evening', false]]],
   ['margo', { afternoon: 5, evening: 3 }, [['Walk the dog', 2, 'afternoon', true], ['Homework', 3, 'afternoon', false, { days: WEEKDAYS_MASK }], ['Finish science fair poster', 10, 'afternoon', false, { days: WEEKDAYS_MASK, kept: 2 }], ['Empty the dishwasher', 2, 'afternoon', false], ['Set the table', 1, 'evening', false], ['Practice soccer drills', 2, 'evening', false, { days: 0b0101010 }], ['Take out the recycling', 2, 'evening', false, { days: 0b0010000 }]]],
-  ['edith', { morning: 3, evening: 2 }, [['Tidy the lab bench', 2, 'morning', false], ['Feed the goldfish', 1, 'morning', false], ['Make your bed', 1, 'morning', true], ['Piano practice', 2, 'evening', false, { days: WEEKDAYS_MASK }], ['Put dirty clothes in the hamper', 1, 'evening', false], ['Clean your room', 3, 'evening', false, { days: WEEKENDS_MASK }]]],
+  ['edith', { morning: 3, evening: 2 }, [['Tidy the lab bench', 2, 'morning', false], ['Feed the goldfish', 1, 'morning', false], ['Make your bed', 1, 'morning', true], ['Pack a lunch box (only some days)', 2, 'morning', true, { optional: true }], ['Piano practice', 2, 'evening', false, { days: WEEKDAYS_MASK }], ['Put dirty clothes in the hamper', 1, 'evening', false], ['Clean your room', 3, 'evening', false, { days: WEEKENDS_MASK }]]],
   ['gru', { evening: 2 }, [['Take out the trash', 1, 'evening', false], ['Rocket repairs', 1, 'evening', false], ['Wash the dishes', 2, 'evening', false], ['Mow the lawn', 3, 'afternoon', false, { days: WEEKENDS_MASK }], ['Check the freeze ray', 1, 'morning', true, { days: 0b0000010 }]]],
   ['lucy', { morning: 2 }, [['Pack lunches', 2, 'morning', true], ['Water the herb garden', 1, 'morning', false], ['Sort the mail', 1, 'evening', false], ['Laundry', 2, 'afternoon', false, { days: 0b0100100 }]]],
   ['minions', { any: 4 }, [['Peel the bananas', 1, 'any', true], ['Sweep the lair', 1, 'any', false], ['Polish the gadgets', 2, 'any', false], ['Feed the fish tank', 1, 'any', false]]],
@@ -211,29 +211,30 @@ export function demoChores(now = Date.now()): import('../lib/choreTypes').ChoreS
     const items = chores.map(([title, points, period, done, opts], i) => {
       const days = opts?.days ?? null;
       const due = itemDue({ days, onceDate: null }, day);
-      return { id: `c${ri}-${i}`, title, points, done: done && due, period, days, onceDate: null, everyWeeks: 1, weekAnchor: null, untilDone: opts?.kept !== undefined, keptPoints: opts?.kept ?? 0, due, kept: false, skipped: false };
+      return { id: `c${ri}-${i}`, title, points, done: done && due, period, days, onceDate: null, everyWeeks: 1, weekAnchor: null, untilDone: opts?.kept !== undefined, keptPoints: opts?.kept ?? 0, optional: opts?.optional === true, due, kept: false, skipped: false };
     });
     const bonuses = { ...periodRecord(0), ...bonus };
-    const earned = (p: Period) => bonuses[p] > 0 && items.some((i) => i.due && i.period === p) && items.filter((i) => i.due && i.period === p).every((i) => i.done);
+    const earned = (p: Period) => { const need = items.filter((i) => i.due && i.period === p && required(i)); return bonuses[p] > 0 && need.length > 0 && need.every((i) => i.done); };
     return { id: `r${ri}`, person, bonuses, bonusEarned: { morning: earned('morning'), afternoon: earned('afternoon'), evening: earned('evening'), any: earned('any') }, items };
   });
-  const balances: Record<string, number> = { agnes: 14, margo: 31, edith: 8, gru: 3, lucy: 17, minions: 22 };
+  const balances: Record<string, number> = { agnes: 12, margo: 31, edith: 8, gru: 3, lucy: 17, minions: 22 };
   for (const r of routines) if (r.person) for (const i of r.items) if (i.done) balances[r.person] = (balances[r.person] ?? 0) + i.points;
   return {
-    day, manager: true, periodLabels: { ...PERIOD_LABEL }, routines, balances, minutes: { agnes: 45, margo: 20, edith: 10, minions: 15 }, now, timers: {}, sounds: { agnes: 'bubbles' },
+    day, manager: true, periodLabels: { ...PERIOD_LABEL }, periodHours: { ...DEFAULT_HOURS }, dayMs: (7 * 60 + 40) * 60_000, // the demo's morning, so "Morning" is open and the rest are not yet
+     routines, balances, minutes: { agnes: 45, margo: 20, edith: 10, minions: 15 }, now, timers: {}, sounds: { agnes: 'bubbles' },
     allowance: {
       agnes: { weekday: 60, weekend: 90, today: allowanceFor(day, 60, 90), used: 20 },
       margo: { weekday: 45, weekend: null, today: 45, used: 0 },
       edith: { weekday: 30, weekend: 60, today: allowanceFor(day, 30, 60), used: 10 },
     },
+    buyCap: { margo: { limit: 60, bought: 10 } }, // Margo has already bought 10 minutes today, so 50 are left
     rewards: [
       { id: 'r1', name: 'Pick the movie', cost: 10, minutes: 0, people: null, hidden: false },
-      { id: 'r2', name: 'Extra screen time', cost: 20, minutes: 30, people: null, hidden: false },
+      { id: 'r2', name: 'Screen time (5 minutes)', cost: 2, minutes: 5, people: null, hidden: false }, // take it several times: ×10 is 20 points for 50 minutes
       { id: 'r4', name: 'New ballet shoes', cost: 30, minutes: 0, people: ['agnes'], hidden: false }, // only Agnes sees it
       { id: 'r3', name: 'Ice cream trip', cost: 40, minutes: 0, people: null, hidden: false },
       { id: 'r5', name: 'Stay up 30 minutes late', cost: 15, minutes: 0, people: null, hidden: false },
       { id: 'r6', name: 'Choose dinner', cost: 25, minutes: 0, people: null, hidden: false },
-      { id: 'r7', name: '15 minutes of screen time', cost: 8, minutes: 15, people: null, hidden: false },
       { id: 'r8', name: 'Friend sleepover', cost: 60, minutes: 0, people: ['margo', 'edith'], hidden: false },
       { id: 'r9', name: 'Skip one chore', cost: 35, minutes: 0, people: null, hidden: true }, // paused by a manager
     ],

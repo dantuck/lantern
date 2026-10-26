@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import FeatherIcon from './FeatherIcon.svelte';
-  import { holdingLabel, lockedPoints, onToday, PERIOD_LABEL, plural, ptsLabel, PERIODS, type ChoreState } from '../lib/choreTypes';
+  import { closedPeriods, tally, holdingLabel, lockedPoints, onToday, PERIOD_LABEL, plural, ptsLabel, PERIODS, type ChoreState } from '../lib/choreTypes';
   import type { Person } from '../lib/people';
 
   /** The manager's landing page: what is left to set up, what needs them now, and how everyone's day is going. */
-  let { chores, people, demo = false, inboxHref, go, openChores }: {
-    chores: ChoreState; people: Person[]; demo?: boolean; inboxHref: string; go: (tab: 'chores' | 'rewards' | 'people' | 'goals') => void; openChores: (person: string) => void;
+  let { chores, people, demo = false, busy = false, send, inboxHref, go, openChores }: {
+    chores: ChoreState; people: Person[]; demo?: boolean; busy?: boolean; send: (payload: Record<string, unknown>) => Promise<boolean>; inboxHref: string; go: (tab: 'chores' | 'rewards' | 'people' | 'goals') => void; openChores: (person: string) => void;
   } = $props();
 
   const peopleHref = demo ? '/demo/admin#people' : '/admin#people';
@@ -37,14 +37,19 @@
   const showGuide = $derived(!ready || (!hidden && doneCount < steps.length));
 
   // --- Today ---
+  const closed = $derived(closedPeriods(chores.periodHours, chores.dayMs));
   const cards = $derived(people.map((p) => {
     const items = chores.routines.filter((r) => r.person === p.id).flatMap((r) => r.items);
     const today = items.filter(onToday);
     return {
-      p, total: today.length, done: today.filter((i) => i.done).length, points: chores.balances[p.id] ?? 0, held: lockedPoints(items),
-      holding: holdingLabel(items, chores.periodLabels), minutes: chores.minutes[p.id] ?? 0, timer: chores.timers[p.id] !== undefined && chores.timers[p.id]!.endsAt > chores.now,
+      p, total: tally(today).total, done: tally(today).done, points: chores.balances[p.id] ?? 0, held: lockedPoints(items, closed),
+      holding: holdingLabel(items, chores.periodLabels, closed), minutes: chores.minutes[p.id] ?? 0, timer: chores.timers[p.id] !== undefined && chores.timers[p.id]!.endsAt > chores.now,
     };
   }));
+
+  // --- Optional chores ticked today ---
+  // On the honor system nothing waits for a manager, but a tick that was not honest can be taken back here with one tap.
+  const optionalTicks = $derived(people.flatMap((p) => chores.routines.filter((r) => r.person === p.id).flatMap((r) => r.items.filter((i) => i.optional && i.done && onToday(i)).map((item) => ({ item, person: p })))));
 
   // --- Needs you ---
   const reached = $derived(chores.goals.filter((g) => !g.claimed && g.progress >= g.target));
@@ -92,6 +97,21 @@
     </ul>
   {/if}
 </section>
+
+{#if optionalTicks.length > 0}
+  <section class="card" aria-labelledby="optional-h">
+    <h2 class="mt-0 mb-1" id="optional-h">Optional chores ticked today</h2>
+    <p class="note mt-0 mb-2">Nothing to approve. If one was not really done (no lunch box today), take it back and the points go with it.</p>
+    <ul class="plain-list">
+      {#each optionalTicks as t (t.item.id)}
+        <li class="list-row">
+          <span class="min-w-0 flex-1 [overflow-wrap:anywhere]"><strong style:color={t.person.color}>{t.person.name}</strong>: {t.item.title}{#if t.item.points > 0}<span class="note"> · +{t.item.points}</span>{/if}</span>
+          <button type="button" class="ghost small w-auto m-0" disabled={busy} aria-label={`Take back ${t.item.title} for ${t.person.name}`} onclick={() => send({ action: 'item_skip', id: t.item.id, skipped: true })}>Not really done</button>
+        </li>
+      {/each}
+    </ul>
+  </section>
+{/if}
 
 {#if cards.length > 0}
   <section class="card" aria-labelledby="today-h">
