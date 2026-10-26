@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.19.0](https://github.com/dantuck/lantern/compare/v0.18.0...v0.19.0) (2026-10-26)
+
+
+### Added
+
+* **chores:** repeat until finished, with automatic daily points ([f9408db](https://github.com/dantuck/lantern/commit/f9408db97b5740015ca12be835e136557b216705))
+
 ## [0.18.0](https://github.com/dantuck/lantern/compare/v0.17.1...v0.18.0) (2026-10-25)
 
 
