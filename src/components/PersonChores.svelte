@@ -91,26 +91,33 @@
   let menu = $state<HTMLElement>();
   let picked = $state<number | null>(null); // minutes awaiting confirmation
   const fromAllowance = $derived(Math.min(picked ?? 0, allowance ? left : 0));
-  let used = $state(false); // spent: the thank-you shows for a moment before the menu closes
-  let extended = $state(false); // the minutes were added to a timer that was already running
-  let closeTimer: ReturnType<typeof setTimeout> | undefined;
+  let starting = $state<number | null>(null); // seconds left in the get-ready countdown before the timer really starts
+  let startTick: ReturnType<typeof setInterval> | undefined;
+  const cancelStart = () => { clearInterval(startTick); starting = null; };
+  /** A short 3, 2, 1 in the dialog, then the real timer starts. "Not yet" during it backs out without spending anything. */
+  function beginUse() {
+    if (picked === null || starting !== null) return;
+    unlockAudio(); // this tap is the one that lets a browser get ready to play sound later
+    starting = 3;
+    startTick = setInterval(() => {
+      if (starting !== null && starting > 1) { starting -= 1; return; }
+      clearInterval(startTick); // the last number stays up while the timer is started
+      void confirmUse();
+    }, 1000);
+  }
   async function confirmUse() {
     if (picked === null) return;
     const m = picked;
-    unlockAudio(); // a tap is the only time a browser lets a page get ready to play sound, and time's up rings later
-    extended = timerRunning(timer, clock.now);
-    if (!(await send({ action: 'use_time', person: who, minutes: m }))) return;
-    used = true;
-    closeTimer = setTimeout(() => menu?.hidePopover(), 1800);
+    const ok = await send({ action: 'use_time', person: who, minutes: m });
+    starting = null;
+    if (ok) menu?.hidePopover(); // the timer window takes over from here
   }
-  $effect(() => () => clearTimeout(closeTimer));
+  $effect(() => () => clearInterval(startTick));
   /** Every way of closing the menu lands here: forget the pending step so it reopens fresh. */
   function menuToggled(e: Event) {
     if ((e as ToggleEvent).newState !== 'closed') return;
-    clearTimeout(closeTimer);
+    cancelStart();
     picked = null;
-    used = false;
-    extended = false;
   }
 
   // Spending screen time: a popover (like the Display menu) of 5 minute blocks, plus the exact remainder when it is not a multiple of 5.
@@ -177,8 +184,14 @@
           <div class="mt-[.35rem] max-[34rem]:mt-0 max-[34rem]:[grid-column:2] max-[34rem]:[grid-row:1/span_2]">
             <button type="button" class="small use-btn" disabled={busy} popovertarget="use-menu">Use</button>
             <div id="use-menu" class="use-menu" popover bind:this={menu} ontoggle={menuToggled}>
-              {#if used}
-                <div class="use-hooray" role="status"><span class="use-big" aria-hidden="true"><FeatherIcon name="award" /></span><p class="m-0 text-[1.2rem] font-bold">Enjoy your screen time, {me.name}!</p><p class="note m-0">{picked} minutes of screen time, {extended ? 'added to your timer' : 'starting now'}.</p></div>
+              {#if starting !== null}
+                <div class="use-count" role="status" aria-live="assertive">
+                  <span class="use-big" aria-hidden="true"><FeatherIcon name="award" /></span>
+                  <p class="m-0 text-[1.2rem] font-bold">Enjoy your screen time, {me.name}!</p>
+                  <p class="note m-0">{picked} minutes of screen time, starting in…</p>
+                  {#key starting}<p class="use-big-n use-tick">{starting}</p>{/key}
+                </div>
+                <div class="flex justify-center mt-3"><button type="button" class="ghost small use-back" disabled={busy} onclick={cancelStart}>Not yet</button></div>
               {:else if picked === null}
                 <p class="use-title">How much screen time do you want to use?</p>
                 <p class="use-big-n">{chosen}<span> min</span></p>
@@ -198,9 +211,9 @@
                 <p class="use-key"><span class="use-dot left"></span>left for later <span class="use-dot spent"></span>using now</p>
                 <p class="m-0 mt-2 text-center font-semibold">{minutes - picked > 0 ? `You'll still have ${minutes - picked} min left!` : "That's all your time. Make it count!"}</p>
                 <p class="note m-0 text-center">{#if fromAllowance > 0}{fromAllowance} from today's time{/if}{#if fromAllowance > 0 && picked > fromAllowance}, {/if}{#if picked > fromAllowance}{picked - fromAllowance} from your saved-up time{/if}</p>
-                <div class="grid gap-2 mt-3 justify-items-center">
-                  <button type="button" class="use-go" disabled={busy} onclick={confirmUse}>Let's go!</button>
+                <div class="flex items-center gap-2 mt-3">
                   <button type="button" class="ghost small use-back" onclick={() => (picked = null)}>Not yet</button>
+                  <button type="button" class="use-go flex-1 w-auto" disabled={busy} onclick={beginUse}>Let's go!</button>
                 </div>
               {/if}
             </div>
@@ -210,7 +223,7 @@
     </div>
   </header>
 
-  <TimerCard name={me.name} {timer} now={clock.now} {sound} canAddMore={minutes >= 5} {busy} stop={stopTimer} addMore={addMore} bind:muted />
+  <TimerCard name={me.name} {timer} now={clock.now} {sound} available={minutes} {busy} stop={stopTimer} addMore={addMore} bind:muted />
 
   <div class="grid {choreState.manager && editing ? 'grid-cols-[minmax(0,1fr)]' : 'grid-cols-[minmax(0,3fr)_minmax(0,2fr)] max-[52rem]:grid-cols-[minmax(0,1fr)]'} gap-x-6 items-start">
     <div>
