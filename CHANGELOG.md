@@ -7,6 +7,18 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.23.0](https://github.com/dantuck/lantern/compare/v0.22.0...v0.23.0) (2026-10-27)
+
+
+### Added
+
+* **push:** add a test notification button to manager alerts ([60362f2](https://github.com/dantuck/lantern/commit/60362f2f689ab05bcea06216d881d25bdb041734))
+
+
+### Fixed
+
+* **push:** rename the hoisted VAPID keys so they do not clash with the subscription keys ([ed1fde7](https://github.com/dantuck/lantern/commit/ed1fde7973b3aa8e23bd5077ee9339f956153420))
+
 ## [0.22.0](https://github.com/dantuck/lantern/compare/v0.21.0...v0.22.0) (2026-10-27)
 
 
