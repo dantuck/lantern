@@ -301,7 +301,7 @@ describe('push alerts', () => {
   it('shows the message it was sent', async () => {
     const sw = boot();
     await push(sw, { title: "Time's up, Agnes!", body: 'Screen time is finished.', url: '/chores/agnes', tag: 'timer-agnes' });
-    expect(sw.shown).toEqual([{ title: "Time's up, Agnes!", options: { body: 'Screen time is finished.', tag: 'timer-agnes', icon: '/icons/icon-192.png', data: { url: '/chores/agnes' } } }]);
+    expect(sw.shown).toEqual([{ title: "Time's up, Agnes!", options: { body: 'Screen time is finished.', tag: 'timer-agnes', icon: '/icons/icon-192.png', renotify: true, data: { url: '/chores/agnes' } } }]);
   });
   it('always shows something, even for an empty or unreadable message (browsers drop subscriptions that stay silent)', async () => {
     const sw = boot();
