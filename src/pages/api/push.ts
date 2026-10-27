@@ -3,8 +3,9 @@ import { env } from 'cloudflare:workers';
 import { z } from 'zod';
 import { loadPeople } from '../../lib/peopleStore';
 import { isOn } from '../../lib/features';
+import { LIMITS, hit } from '../../lib/rateLimit';
 import { isAdmin, json, readJson } from '../../lib/http';
-import { managerSubscribed, pushKeys, removeManagerSubscription, removeSubscription, saveManagerSubscription, saveSubscription, subscribedPeople } from '../../lib/push';
+import { managerSubscribed, pushKeys, removeManagerSubscription, removeSubscription, saveManagerSubscription, saveSubscription, sendManagerTest, subscribedPeople } from '../../lib/push';
 
 const person = z.string().min(1).max(64);
 const endpoint = z.string().min(1).max(1024);
@@ -16,6 +17,7 @@ const body = z.discriminatedUnion('action', [
   z.object({ action: z.literal('manager_status'), endpoint }),
   z.object({ action: z.literal('manager_subscribe'), subscription: z.object({ endpoint, keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) }) }) }),
   z.object({ action: z.literal('manager_unsubscribe'), endpoint }),
+  z.object({ action: z.literal('manager_test'), endpoint }),
 ]);
 
 const off = (locals: App.Locals) => !isOn(locals.disabled, 'chores');
@@ -29,14 +31,15 @@ export const GET: APIRoute = ({ locals }) => {
 
 /** Middleware has already required a session and a same-origin Origin. Any member may sign a device up for alerts, as they may start a timer. */
 export const POST: APIRoute = async ({ request, locals }) => {
-  if (off(locals) || !pushKeys(env)) return json({ error: 'not_found' }, 404);
+  const keys = pushKeys(env);
+  if (off(locals) || !keys) return json({ error: 'not_found' }, 404);
   const raw = await readJson(request, 4096);
   if (raw === null) return json({ error: 'too_large' }, 413);
   const parsed = body.safeParse(raw);
   if (!parsed.success) return json({ error: 'bad_request' }, 400);
   const b = parsed.data;
   const db = env.DB;
-  if (b.action === 'manager_status' || b.action === 'manager_subscribe' || b.action === 'manager_unsubscribe') {
+  if (b.action === 'manager_status' || b.action === 'manager_subscribe' || b.action === 'manager_unsubscribe' || b.action === 'manager_test') {
     if (!isAdmin(locals)) return json({ error: 'forbidden' }, 403);
     const me = locals.user!.id;
     if (b.action === 'manager_subscribe') {
@@ -44,6 +47,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
       const result = await saveManagerSubscription(db, me, { endpoint: address, ...keys });
       if (result !== 'ok') return json({ error: result }, result === 'limit' ? 409 : 400);
       return json({ on: true });
+    }
+    if (b.action === 'manager_test') {
+      if (!(await hit(db, `push-test:${me}`, LIMITS.pushTest))) return json({ error: 'rate_limited' }, 429);
+      const status = await sendManagerTest(db, keys, b.endpoint, me);
+      if (status === null) return json({ error: 'not_found' }, 404);
+      return json({ sent: status >= 200 && status < 300 });
     }
     if (b.action === 'manager_unsubscribe') await removeManagerSubscription(db, b.endpoint, me);
     return json({ on: await managerSubscribed(db, b.endpoint, me) });

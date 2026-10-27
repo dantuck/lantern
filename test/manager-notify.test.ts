@@ -3,7 +3,7 @@ import { createTestDb } from './d1shim';
 import { resolveLoginUser, updateUser, type User } from '../src/lib/auth/users';
 import { notifyManagers, notifyPrefsFor, setNotify, type Activity, type Channels } from '../src/lib/managerNotify';
 import { activityEmail, type Mail, type Mailer } from '../src/lib/mailer';
-import { managerSubscribed, removeManagerSubscription, saveManagerSubscription, type PushKeys } from '../src/lib/push';
+import { managerSubscribed, removeManagerSubscription, saveManagerSubscription, sendManagerTest, type PushKeys } from '../src/lib/push';
 import { b64uEncode } from '../src/lib/base64url';
 
 const T0 = 1_700_000_000_000;
@@ -114,6 +114,24 @@ describe('manager push notifications', () => {
     expect(await notifyManagers(db, { mailer: null, origin: null, keys: null }, act('timers'), undefined, fakeSend)).toBe(0);
     expect(await managerSubscribed(db, gone.endpoint, a.id)).toBe(true);
     await notifyManagers(db, { mailer: null, origin: null, keys }, act('timers'), undefined, fakeSend);
+    expect(await managerSubscribed(db, gone.endpoint, a.id)).toBe(false);
+  });
+});
+
+describe('manager test notification', () => {
+  it('goes only to a device the manager allowed, and a gone device is forgotten', async () => {
+    const { a, b } = await managers();
+    const keys = await vapid();
+    const mine = await device(5);
+    await saveManagerSubscription(db, a.id, mine);
+    pushes.length = 0;
+    expect(await sendManagerTest(db, keys, mine.endpoint, a.id, fakeSend)).toBe(201);
+    expect(pushes).toEqual([mine.endpoint]);
+    expect(await sendManagerTest(db, keys, mine.endpoint, b.id, fakeSend)).toBeNull(); // someone else's device
+    expect(pushes).toHaveLength(1);
+    const gone = { ...(await device(6)), endpoint: 'https://fcm.googleapis.com/fcm/send/gone' };
+    await saveManagerSubscription(db, a.id, gone);
+    expect(await sendManagerTest(db, keys, gone.endpoint, a.id, fakeSend)).toBe(410);
     expect(await managerSubscribed(db, gone.endpoint, a.id)).toBe(false);
   });
 });

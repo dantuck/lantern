@@ -169,6 +169,15 @@ export async function managerSubscribed(db: D1Database, endpoint: string, userId
   return (await db.prepare('SELECT 1 AS x FROM manager_push WHERE endpoint = ? AND user_id = ?').bind(endpoint, userId).first()) !== null;
 }
 
+/** Sends a test notification to one device a manager has allowed. Returns the push service's status, or null when that device is not theirs. */
+export async function sendManagerTest(db: D1Database, keys: PushKeys, endpoint: string, userId: string, send: typeof fetch = fetch): Promise<number | null> {
+  const sub = await db.prepare('SELECT endpoint, p256dh, auth FROM manager_push WHERE endpoint = ? AND user_id = ?').bind(endpoint, userId).first<PushSubscription>();
+  if (!sub) return null;
+  const status = await sendPushLogged('test', keys, sub, { title: 'Lantern test', body: 'Notifications reach this device.', url: '/admin#alerts', tag: `test-${Date.now()}` }, send);
+  if (status === 404 || status === 410) await removeManagerSubscription(db, endpoint, userId);
+  return status;
+}
+
 /** Stops alerts for a device, for one person or (with no person) for all of them. */
 export async function removeSubscription(db: D1Database, endpoint: string, person?: string): Promise<void> {
   await db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?1 AND (?2 IS NULL OR person = ?2)').bind(endpoint, person ?? null).run();
