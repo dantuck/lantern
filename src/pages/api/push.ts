@@ -31,8 +31,8 @@ export const GET: APIRoute = ({ locals }) => {
 
 /** Middleware has already required a session and a same-origin Origin. Any member may sign a device up for alerts, as they may start a timer. */
 export const POST: APIRoute = async ({ request, locals }) => {
-  const keys = pushKeys(env);
-  if (off(locals) || !keys) return json({ error: 'not_found' }, 404);
+  const vapid = pushKeys(env);
+  if (off(locals) || !vapid) return json({ error: 'not_found' }, 404);
   const raw = await readJson(request, 4096);
   if (raw === null) return json({ error: 'too_large' }, 413);
   const parsed = body.safeParse(raw);
@@ -50,7 +50,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
     if (b.action === 'manager_test') {
       if (!(await hit(db, `push-test:${me}`, LIMITS.pushTest))) return json({ error: 'rate_limited' }, 429);
-      const status = await sendManagerTest(db, keys, b.endpoint, me);
+      const status = await sendManagerTest(db, vapid, b.endpoint, me);
       if (status === null) return json({ error: 'not_found' }, 404);
       return json({ sent: status >= 200 && status < 300 });
     }
