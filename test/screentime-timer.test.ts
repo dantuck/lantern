@@ -5,7 +5,7 @@ import { adjustMinutes, setAllowance } from '../src/lib/rewards';
 import { purgeTimers, setSound, startTimer, stopTimer, timersNow } from '../src/lib/timers';
 import { b64uDecode, b64uEncode } from '../src/lib/base64url';
 import { allowedEndpoint, deliverDue, encryptPayload, pushKeys, removeSubscription, saveSubscription, sendPush, subscribedPeople, type PushKeys } from '../src/lib/push';
-import { formatCountdown, timeLeftMs, timerRunning } from '../src/lib/choreTypes';
+import { formatCountdown, timeLeftMs, timerRunning, urgency } from '../src/lib/choreTypes';
 
 const T = 1_700_000_000_000;
 const MIN = 60_000;
@@ -134,6 +134,14 @@ describe('countdown helpers', () => {
     expect(formatCountdown(400)).toBe('0:01');
     expect(formatCountdown(0)).toBe('0:00');
     expect(formatCountdown(3_725_000)).toBe('1:02:05');
+  });
+  it('warns amber then red as time runs low, scaled down for a short timer', () => {
+    expect(urgency(20 * MIN, 30 * MIN)).toBeNull();
+    expect(urgency(4 * MIN, 30 * MIN)).toBe('low');
+    expect(urgency(50_000, 30 * MIN)).toBe('urgent');
+    expect(urgency(4 * MIN, 5 * MIN)).toBeNull(); // a 5 minute timer is not amber at the start
+    expect(urgency(2 * MIN, 5 * MIN)).toBe('low');
+    expect(urgency(50_000, 5 * MIN)).toBe('urgent');
   });
   it('knows whether a timer is running', () => {
     const t = { startedAt: 0, endsAt: 100, minutes: 1 };

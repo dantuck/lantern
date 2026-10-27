@@ -15,6 +15,7 @@
   --accent-fg: #ffffff;
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
   --danger: #c62f3a;
+  --warn: #a8610a;
   --ring: color-mix(in srgb, var(--accent) 45%, transparent);
   --shadow-sm: 0 1px 2px rgb(29 24 19 / .05), 0 1px 1px rgb(29 24 19 / .03);
   --shadow-md: 0 1px 2px rgb(29 24 19 / .04), 0 8px 24px -8px rgb(29 24 19 / .12);
@@ -34,6 +35,7 @@
     --accent: #ff9a3c;
     --accent-fg: #2a1500;
     --danger: #f0707a;
+    --warn: #f2b04a;
     --shadow-sm: 0 1px 2px rgb(0 0 0 / .4);
     --shadow-md: 0 1px 2px rgb(0 0 0 / .4), 0 12px 32px -12px rgb(0 0 0 / .6);
   }
@@ -50,6 +52,7 @@
   --accent: #ff9a3c;
   --accent-fg: #2a1500;
   --danger: #f0707a;
+  --warn: #f2b04a;
   --shadow-sm: 0 1px 2px rgb(0 0 0 / .4);
   --shadow-md: 0 1px 2px rgb(0 0 0 / .4), 0 12px 32px -12px rgb(0 0 0 / .6);
 }
@@ -95,7 +98,7 @@ input, select {
   border: 1px solid var(--border); background: var(--card); color: var(--fg);
   transition: border-color .15s, box-shadow .15s;
 }
-input:hover, select:hover { border-color: color-mix(in srgb, var(--muted) 50%, var(--border)); }
+@media (hover: hover) { input:hover, select:hover { border-color: color-mix(in srgb, var(--muted) 50%, var(--border)); } }
 input:focus-visible, select:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--ring); }
 button {
   width: 100%; padding: .7rem 1rem; margin-top: .75rem; border-radius: var(--radius-sm);
@@ -104,7 +107,7 @@ button {
   transition: filter .15s, transform .05s, background .15s, border-color .15s;
 }
 button, a, select, summary { touch-action: manipulation; }
-button:hover { filter: brightness(1.08); }
+@media (hover: hover) { button:hover { filter: brightness(1.08); } } /* touch screens keep :hover after a tap */
 button:active { transform: translateY(1px); }
 button:disabled { opacity: .45; cursor: default; filter: none; transform: none; }
 input[type="color"] { padding: .25rem; cursor: pointer; }
@@ -112,7 +115,7 @@ input[type="color"] { padding: .25rem; cursor: pointer; }
 .stepper-in { margin: 0; padding-inline: .25rem; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; -moz-appearance: textfield; appearance: textfield; }
 .stepper-in::-webkit-inner-spin-button, .stepper-in::-webkit-outer-spin-button { -webkit-appearance: none; appearance: none; margin: 0; width: 0; }
 button.stepper-btn { width: auto; min-height: 2.75rem; margin: 0; padding: 0; font-size: 1.25rem; line-height: 1; box-shadow: none; background: var(--card-2); border-color: var(--border); color: var(--fg); }
-button.stepper-btn:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); filter: none; }
+@media (hover: hover) { button.stepper-btn:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); filter: none; } }
 
 /* Navigation: the side rail, tab bar and More sheet are UnoCSS shortcuts (uno.config.ts), used in layouts/Base.astro. */
 .wall-exit { display: none; }
@@ -147,14 +150,14 @@ html[data-wall] .wall-exit {
   display: grid; place-items: center; position: fixed; right: max(.75rem, env(safe-area-inset-right)); bottom: max(.75rem, env(safe-area-inset-bottom)); z-index: 30;
   width: 3rem; height: 3rem; margin: 0; padding: 0; border-radius: 50%; background: var(--card); color: var(--muted); border: 1px solid var(--border); box-shadow: var(--shadow-md); opacity: .55;
 }
-html[data-wall] .wall-exit:hover { opacity: 1; filter: none; }
+@media (hover: hover) { html[data-wall] .wall-exit:hover { opacity: 1; filter: none; } }
 
 /* Tables ------------------------------------------------------------------- */
 table { width: 100%; border-collapse: collapse; font-size: .93rem; }
 th, td { text-align: left; padding: .65rem .6rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
 tr:last-child td { border-bottom: 0; }
 th { color: var(--muted); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; }
-tbody tr:hover td { background: color-mix(in srgb, var(--card-2) 60%, transparent); }
+@media (hover: hover) { tbody tr:hover td { background: color-mix(in srgb, var(--card-2) 60%, transparent); } }
 td form { display: inline; margin: 0; }
 td button { width: auto; padding: .35rem .8rem; margin: 0; font-size: .85rem; }
 @media (pointer: coarse) { td button, .row button, form > button:not(.link) { min-height: 2.75rem; } td button { padding-inline: 1rem; } }
@@ -246,16 +249,16 @@ td .actions { display: flex; gap: .4rem; justify-content: flex-end; flex-wrap: w
 .mini-bar { height: .55rem; border-radius: 999px; background: var(--card-2); overflow: hidden; }
 .mini-bar span { display: block; height: 100%; border-radius: inherit; background: var(--c); }
 a.mini-name { color: var(--fg); text-decoration: none; }
-a.mini-name:hover { color: var(--accent); }
+@media (hover: hover) { a.mini-name:hover { color: var(--accent); } }
 /* The second line under a person's bar: what is left to do, and their points and screen time. */
 .mini-sub { grid-column: 1 / -1; margin: -.35rem 0 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .1rem .75rem; font-size: .85rem; color: var(--muted); }
 /* Chores still to do, one per row like a to-do list; tapping a row ticks it off. The ring in front fills in when it is ticked. */
 .mini-todo { display: flex; flex-direction: column; flex: 1 1 100%; min-width: 0; }
 .mini-chip { display: flex; align-items: center; gap: .65rem; width: 100%; min-height: 2.5rem; margin: 0; padding: .3rem .25rem; border-radius: 0; background: transparent; color: var(--fg); border: 0; border-top: 1px solid var(--border); box-shadow: none; font-size: .95rem; font-weight: 500; text-align: left; }
 .mini-chip:first-child { border-top: 0; }
-.mini-chip:hover:not(:disabled) { filter: none; background: color-mix(in srgb, var(--c) 10%, transparent); }
+@media (hover: hover) { .mini-chip:hover:not(:disabled) { filter: none; background: color-mix(in srgb, var(--c) 10%, transparent); } }
 .mini-chip i { flex: none; width: 1.15rem; height: 1.15rem; border-radius: 50%; border: 2px solid var(--c); }
-.mini-chip:hover:not(:disabled) i { background: color-mix(in srgb, var(--c) 30%, transparent); }
+@media (hover: hover) { .mini-chip:hover:not(:disabled) i { background: color-mix(in srgb, var(--c) 30%, transparent); } }
 @media (pointer: coarse) { .mini-chip { min-height: 2.75rem; } }
 .mini-more { align-self: flex-start; padding: .35rem .25rem; font-size: .85rem; }
 .mini-stats { margin-left: auto; display: inline-flex; gap: .75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -266,7 +269,7 @@ a.mini-name:hover { color: var(--accent); }
 /* Theme toggle: one button that cycles system -> light -> dark and shows the current choice. */
 .theme { display: grid; place-items: center; width: 2.1rem; height: 2.1rem; margin: 0; padding: 0; border-radius: 50%;
   background: transparent; color: var(--muted); border: 0; box-shadow: none; }
-.theme:hover { background: var(--card-2); color: var(--fg); filter: none; }
+@media (hover: hover) { .theme:hover { background: var(--card-2); color: var(--fg); filter: none; } }
 .theme .icon { grid-area: 1 / 1; width: 1.1rem; height: 1.1rem; display: none; }
 .theme[data-state="system"] .i-system, .theme[data-state="light"] .i-light, .theme[data-state="dark"] .i-dark { display: block; }
 .theme.wall-on .icon { display: block; }
@@ -357,18 +360,13 @@ main:focus { outline: none; }
   border-radius: 12px; background: transparent; color: var(--fg); font-size: .85rem; font-weight: 600; box-shadow: none; }
 .seg button { flex-direction: column; gap: .15rem; min-height: 3.5rem; font-size: .78rem; }
 .dm-row { width: 100%; justify-content: flex-start; padding-inline: .8rem; }
-.seg button:hover, .dm-row:hover { background: var(--card-2); filter: none; }
+@media (hover: hover) { .seg button:hover, .dm-row:hover { background: var(--card-2); filter: none; } }
 .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
 html[data-wall] .display-menu { display: none; }
-/* Use screen time (person page): a popover under the Use button, so nothing in the page reflows. It follows the person's colour (--c). */
-.use-menu { --k: var(--c, var(--accent)); margin: auto; width: min(22rem, calc(100vw - 2rem)); max-height: min(30rem, 80dvh); overflow: auto; padding: 1rem;
+/* Use screen time (person page): a popover centred on the screen, so nothing in the page reflows. It follows the person's colour (--c). */
+.use-menu { --k: var(--c, var(--accent)); margin: auto; width: min(26rem, calc(100vw - 2rem)); max-height: min(30rem, 80dvh); overflow: auto; padding: 1rem;
   border-radius: calc(var(--radius) + 4px); box-shadow: var(--shadow-md), 0 24px 60px -20px rgb(0 0 0 / .45); }
 .use-menu::backdrop { background: rgb(20 15 10 / .25); backdrop-filter: blur(2px); }
-.use-btn { anchor-name: --use; }
-/* Where anchor positioning exists, open right under the Use button (flipping if there is no room); otherwise it stays centred. */
-@supports (position-area: bottom) {
-  .use-menu { position-anchor: --use; position-area: bottom span-left; margin: .5rem 0 0; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; }
-}
 /* Fade and rise in and out (top-layer elements need allow-discrete to animate display). */
 .use-menu, .use-menu::backdrop { opacity: 0; transition: opacity .18s ease-out, translate .18s cubic-bezier(.2, .8, .2, 1), overlay .18s allow-discrete, display .18s allow-discrete; }
 .use-menu { translate: 0 -.4rem; }
@@ -393,10 +391,11 @@ input.use-range, input.use-range:hover, input.use-range:focus-visible { border: 
 .use-ends { display: flex; justify-content: space-between; margin: 0 0 .9rem; font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .use-go { width: 100%; min-height: 3.25rem; margin: 0; font-size: 1.15rem; font-weight: 800; }
 .use-back { width: auto; min-height: 3.25rem; margin: 0; padding: 0 1.1rem; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--muted); font-size: .95rem; font-weight: 650; box-shadow: none; }
-.use-back:hover:not(:disabled) { background: var(--card-2); color: var(--fg); border-color: color-mix(in srgb, var(--muted) 50%, var(--border)); filter: none; }
+@media (hover: hover) { .use-back:hover:not(:disabled) { background: var(--card-2); color: var(--fg); border-color: color-mix(in srgb, var(--muted) 50%, var(--border)); filter: none; } }
 .use-big { display: block; font-size: 3rem; }
-.use-hooray { display: grid; justify-items: center; gap: .3rem; padding: 1rem 0; text-align: center; text-wrap: balance; }
-.use-hooray .use-big { animation: use-pop .5s cubic-bezier(.2, 1.4, .4, 1); }
+.use-count { display: grid; justify-items: center; gap: .2rem; padding: .5rem 0; text-align: center; }
+.use-count .use-big-n { font-size: 5rem; margin: .25rem 0; }
+.use-tick { animation: use-pop .5s cubic-bezier(.2, 1.4, .4, 1); }
 @keyframes use-pop { from { transform: scale(.3) rotate(-20deg); opacity: 0; } }
 /* After-balance bar: solid is what stays, striped is what is being used. */
 .use-bar { display: flex; height: 1.1rem; border-radius: 999px; overflow: hidden; background: var(--card-2); border: 1px solid var(--border); }
@@ -406,7 +405,7 @@ input.use-range, input.use-range:hover, input.use-range:focus-visible { border: 
 .use-dot { width: .7rem; height: .7rem; border-radius: 50%; }
 .use-dot.left { background: var(--k); }
 .use-dot.spent { background: color-mix(in srgb, var(--k) 35%, var(--card)); margin-left: .5rem; }
-@media (prefers-reduced-motion: reduce) { .use-menu, .use-menu::backdrop { transition: none; } .use-hooray .use-big { animation: none; } .use-left, .use-range::-webkit-slider-thumb, .use-range::-moz-range-thumb { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .use-menu, .use-menu::backdrop { transition: none; } .use-tick { animation: none; } .use-left, .use-range::-webkit-slider-thumb, .use-range::-moz-range-thumb { transition: none; } }
 
 @media print { .display-menu, .nav, .tabbar, .sheet, .shelf, .jump, .wall-exit, .toast, .skip, .theme-float { display: none !important; } body.has-rail { padding-left: 0; } body { background: #fff; color: #000; } .card { box-shadow: none; break-inside: avoid; } }
 
@@ -421,7 +420,7 @@ input.use-range, input.use-range:hover, input.use-range:focus-visible { border: 
 .install-go { width: auto; margin: 0; padding: .5rem 1rem; }
 .install-go[hidden], .install [data-install-ios][hidden] { display: none; }
 .install-x { width: 2.75rem; height: 2.75rem; margin: 0; padding: 0; flex: none; background: transparent; color: var(--muted); border: 0; box-shadow: none; font-size: 1.5rem; line-height: 1; }
-.install-x:hover { background: var(--card-2); filter: none; }
+@media (hover: hover) { .install-x:hover { background: var(--card-2); filter: none; } }
 @media (min-width: 48rem) { .install { left: 7rem; right: auto; bottom: max(1rem, env(safe-area-inset-bottom)); width: 26rem; } }
 html[data-wall] .install { display: none; }
 @media print { .install { display: none !important; } }
@@ -433,6 +432,33 @@ html[data-wall] .install { display: none; }
 @keyframes shelf-in { from { transform: translateX(100%); } to { transform: none; } }
 /* Screen time timer (person page): a card under the header that counts down, then pulses gently once time is up. It follows the person's colour (--c). */
 .timer-card { margin: 0 0 1.25rem; padding: 1rem 1.25rem; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--c) 40%, var(--border)); background: color-mix(in srgb, var(--c) 10%, var(--card)); box-shadow: var(--shadow-sm); }
+.timer-full { width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; border: 0; color: var(--fg); }
+.timer-full::backdrop { background: none; }
+.timer-full[open] { display: grid; grid-template-rows: auto 1fr auto; gap: 1rem; padding: max(1rem, env(safe-area-inset-top)) 1.25rem max(1.5rem, env(safe-area-inset-bottom)); background: radial-gradient(60rem 40rem at 15% 100%, color-mix(in srgb, var(--c) 28%, transparent), transparent), radial-gradient(50rem 36rem at 90% 0%, color-mix(in srgb, var(--c) 18%, transparent), transparent), color-mix(in srgb, var(--c) 8%, var(--bg)); }
+.timer-controls { display: grid; } /* the Stop row and the +5 question share one cell, so the area is as tall as the taller and nothing above it shifts */
+.tc-pane { grid-area: 1 / 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .6rem; }
+.tc-pane.is-row { flex-direction: row; flex-wrap: wrap; gap: .75rem; }
+.tc-pane.off { visibility: hidden; }
+.timer-card .tc-pane { align-items: flex-start; justify-content: flex-start; }
+.timer-card .tc-pane.is-row { gap: .5rem; }
+.timer-full { --g-border: rgb(255 255 255 / .55); --g-top: rgb(255 255 255 / .5); --g-bottom: rgb(255 255 255 / .18); --g-shadow: inset 0 1px 0 rgb(255 255 255 / .7), inset 0 -1px 0 rgb(0 0 0 / .06), 0 1px 2px rgb(0 0 0 / .12), 0 8px 20px -8px rgb(0 0 0 / .25); }
+.timer-full .glass { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; width: auto; min-height: 3.5rem; margin: 0; padding: 0 1.5rem; border: 1px solid var(--g-border); border-radius: 999px; font-size: 1.1rem; font-weight: 650; color: var(--fg);
+  background: linear-gradient(180deg, var(--g-top), var(--g-bottom)); backdrop-filter: blur(18px) saturate(1.6); -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  box-shadow: var(--g-shadow); transition: transform .12s ease-out, background .12s ease-out; }
+.timer-full .glass:active:not(:disabled) { transform: scale(.96); background: linear-gradient(180deg, rgb(255 255 255 / .32), rgb(255 255 255 / .1)); filter: none; }
+.timer-full .glass:disabled { opacity: .55; }
+.timer-full .glass-primary { color: #fff; border-color: color-mix(in srgb, var(--c) 60%, rgb(255 255 255 / .5)); background: linear-gradient(180deg, color-mix(in srgb, var(--c) 80%, white), var(--c)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .55), 0 8px 20px -8px var(--c); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .timer-full { --g-border: rgb(255 255 255 / .2); --g-top: rgb(255 255 255 / .16); --g-bottom: rgb(255 255 255 / .05); --g-shadow: inset 0 1px 0 rgb(255 255 255 / .25), 0 8px 20px -8px rgb(0 0 0 / .6); } }
+html[data-theme="dark"] .timer-full { --g-border: rgb(255 255 255 / .2); --g-top: rgb(255 255 255 / .16); --g-bottom: rgb(255 255 255 / .05); --g-shadow: inset 0 1px 0 rgb(255 255 255 / .25), 0 8px 20px -8px rgb(0 0 0 / .6); }
+.timer-full.is-done { background: color-mix(in srgb, var(--c) 22%, var(--bg)); }
 .timer-card.is-done { border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 18%, var(--card)); }
 @media (prefers-reduced-motion: no-preference) { .timer-card.is-done { animation: timer-pulse 1.1s ease-in-out infinite alternate; } }
 @keyframes timer-pulse { from { box-shadow: var(--shadow-sm), 0 0 0 0 color-mix(in srgb, var(--c) 45%, transparent); } to { box-shadow: var(--shadow-sm), 0 0 0 .6rem color-mix(in srgb, var(--c) 0%, transparent); } }
+
+/* The countdown warms as time runs low: amber, then red with a slow pulse (still, for reduced motion). */
+.cd-low { --k: var(--warn); }
+.cd-urgent { --k: var(--danger); }
+.cd-num { color: var(--k, inherit); transition: color .6s ease; }
+.cd-bar { background: var(--k, var(--c)); transition: background .6s ease; }
+@media (prefers-reduced-motion: no-preference) { .cd-urgent .cd-num { animation: cd-pulse 1s ease-in-out infinite alternate; } }
+@keyframes cd-pulse { from { opacity: 1; } to { opacity: .62; } }

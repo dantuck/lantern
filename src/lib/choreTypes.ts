@@ -374,6 +374,11 @@ export const LEDGER_LABEL: Record<LedgerEntry['kind'], string> = { chore: 'Chore
 export const timeLeftMs = (t: Pick<Timer, 'endsAt'>, now: number): number => Math.max(0, t.endsAt - now);
 
 /** "12:05" for 12 minutes 5 seconds, or "1:02:05" past an hour. Rounds up so it never shows 0:00 while time remains. */
+/** How worried the countdown should look: red in the last minute, amber in the last five. A short timer uses a quarter and a half of itself, so it does not start out warning. */
+export function urgency(leftMs: number, spanMs: number): 'urgent' | 'low' | null {
+  return leftMs <= Math.min(60_000, spanMs / 4) ? 'urgent' : leftMs <= Math.min(300_000, spanMs / 2) ? 'low' : null;
+}
+
 export function formatCountdown(ms: number): string {
   const total = Math.ceil(Math.max(0, ms) / 1000);
   const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = total % 60;
