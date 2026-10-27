@@ -7,6 +7,18 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.22.0](https://github.com/dantuck/lantern/compare/v0.21.0...v0.22.0) (2026-10-27)
+
+
+### Added
+
+* **chores:** full-screen glass timer with a get-ready countdown and a gentle low-time warning ([916d20c](https://github.com/dantuck/lantern/commit/916d20c573f504f1cb780afb3c46c2e7c537d073))
+
+
+### Fixed
+
+* **push:** log rejected sends and re-alert on Android when a tag repeats ([f8a482a](https://github.com/dantuck/lantern/commit/f8a482a140443e790a9f8ceda54c96dd878f9c20))
+
 ## [0.21.0](https://github.com/dantuck/lantern/compare/v0.20.0...v0.21.0) (2026-10-26)
 
 
