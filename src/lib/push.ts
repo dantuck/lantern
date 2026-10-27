@@ -87,6 +87,18 @@ export async function sendPush(keys: PushKeys, sub: PushSubscription, msg: PushM
   return res.status;
 }
 
+/** `sendPush`, but a failure or an unexpected answer is logged (it would otherwise be invisible). Returns the status, or 0 if nothing was sent. */
+export async function sendPushLogged(label: string, keys: PushKeys, sub: PushSubscription, msg: PushMessage, send: typeof fetch = fetch, nowMs = Date.now()): Promise<number> {
+  try {
+    const status = await sendPush(keys, sub, msg, send, nowMs);
+    if (status !== 404 && status !== 410 && (status < 200 || status >= 300)) console.error(`${label} push rejected`, status, new URL(sub.endpoint).host);
+    return status;
+  } catch (e) {
+    console.error(`${label} push failed`, String(e));
+    return 0;
+  }
+}
+
 /** How late an alert may still go out. Past this (the schedule was down) it is skipped rather than arriving confusingly late. */
 const STALE_MS = 15 * 60_000;
 const MAX_SUBSCRIPTIONS = 100;
@@ -107,8 +119,7 @@ export async function deliverDue(db: D1Database, keys: PushKeys, now = Date.now(
     const name = names.get(t.person) ?? 'Someone';
     const msg: PushMessage = { title: `Time's up, ${name}!`, body: 'Screen time is finished.', url: `/chores/${encodeURIComponent(t.person)}`, tag: `timer-${t.person}` };
     await Promise.all(subs.results.map(async (sub) => {
-      let status = 0;
-      try { status = await sendPush(keys, sub, msg, send, now); } catch { /* one bad subscription must not stop the rest */ }
+      const status = await sendPushLogged('timer', keys, sub, msg, send, now); // one bad subscription must not stop the rest
       if (status === 404 || status === 410) await removeSubscription(db, sub.endpoint);
       else if (status >= 200 && status < 300) sent++;
     }));

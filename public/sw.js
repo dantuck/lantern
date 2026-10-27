@@ -58,6 +58,7 @@ self.addEventListener('push', (event) => {
     body: typeof msg.body === 'string' ? msg.body : 'Screen time is finished.',
     tag: typeof msg.tag === 'string' ? msg.tag : 'timer',
     icon: '/icons/icon-192.png',
+    renotify: true, // a later alert with the same tag still sounds on Android instead of replacing the first silently
     data: { url: typeof msg.url === 'string' && msg.url.startsWith('/') && !msg.url.startsWith('//') ? msg.url : '/' },
   };
   event.waitUntil(self.registration.showNotification(title, options));

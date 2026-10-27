@@ -3,7 +3,7 @@
 // never reaches the person who tapped.
 import { addInbox } from './inbox';
 import { activityEmail, type Mailer } from './mailer';
-import { removeManagerSubscription, sendPush, type PushKeys, type PushSubscription } from './push';
+import { removeManagerSubscription, sendPushLogged, type PushKeys, type PushSubscription } from './push';
 
 export const KINDS = ['rewards', 'timers'] as const;
 export const CHANNELS = ['email', 'push'] as const;
@@ -67,8 +67,7 @@ export async function notifyManagers(db: D1Database, via: Channels, activity: Ac
         const subs = await db.prepare('SELECT endpoint, p256dh, auth FROM manager_push WHERE user_id = ?').bind(r.id).all<PushSubscription>();
         for (const sub of subs.results) {
           jobs.push((async () => {
-            let status = 0;
-            try { status = await sendPush(keys, sub, msg, send); } catch { /* one bad device must not stop the rest */ }
+            const status = await sendPushLogged('manager', keys, sub, msg, send); // one bad device must not stop the rest
             if (status === 404 || status === 410) await removeManagerSubscription(db, sub.endpoint, r.id);
             else if (status >= 200 && status < 300) sent++;
           })());
