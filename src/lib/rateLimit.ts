@@ -16,6 +16,8 @@ export const LIMITS = {
   elevateRequest: { max: 10, windowMs: 15 * MINUTE },
   elevateApprove: { max: 10, windowMs: 15 * MINUTE },
   inviteLinkIp: { max: 20, windowMs: 15 * MINUTE },
+  // A manager's "send a test notification" button, per manager.
+  pushTest: { max: 10, windowMs: 15 * MINUTE },
 } satisfies Record<string, Limit>;
 
 /**

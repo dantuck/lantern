@@ -90,6 +90,15 @@ export async function isManagerSubscribed(): Promise<boolean> {
 /** Signs this device up for the manager's notifications (reward requests, timers). */
 export const enableManagerPush = () => subscribeWith({ action: 'manager_subscribe' });
 
+/** Sends a test notification to this device. 'sent' only means the push service accepted it; the person still has to see it arrive. */
+export async function testManagerPush(): Promise<'sent' | 'failed' | 'limit'> {
+  const sub = await currentSubscription();
+  if (!sub) return 'failed';
+  const res = await post({ action: 'manager_test', endpoint: sub.endpoint });
+  if (res?.status === 429) return 'limit';
+  return res?.ok && ((await res.json()) as { sent?: boolean }).sent === true ? 'sent' : 'failed';
+}
+
 /** Stops the manager's notifications on this device. The browser's subscription is dropped too unless a person's alerts still use it. */
 export async function disableManagerPush(): Promise<boolean> {
   try {
