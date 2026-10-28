@@ -1,4 +1,4 @@
-// Tells opted-in managers when a reward is requested or a screen time timer is started, extended or stopped, by email, by push
+// Tells opted-in managers when a reward is requested or a screen time timer is started, extended, stopped or runs out, by email, by push
 // notification, or both, as each manager chose. Sending is best effort: it runs after the response, and a failure is logged and
 // never reaches the person who tapped.
 import { addInbox } from './inbox';
@@ -47,30 +47,41 @@ export interface Activity { kind: NotifyKind; headline: string; detail: string; 
 /** What can be sent with: either may be missing, which just skips that channel. */
 export interface Channels { mailer: Mailer | null; origin: string | null; keys: PushKeys | null }
 
-/** Puts `activity` in the managers' inbox, then sends it to every manager who wants it, on the channels they chose. Resolves once every send has settled; it never rejects. The return value counts only emails and pushes sent. */
-export async function notifyManagers(db: D1Database, via: Channels, activity: Activity, exceptId?: string, send: typeof fetch = fetch): Promise<number> {
+/** Puts each activity in the managers' inbox, then sends it to every manager who wants it, on the channels they chose. Who wants what, and each manager's devices, are looked up once however many activities there are. Resolves once every send has settled; it never rejects. The return value counts only emails and pushes sent. */
+export async function notifyManagers(db: D1Database, via: Channels, activity: Activity | Activity[], exceptId?: string, send: typeof fetch = fetch): Promise<number> {
+  const all = Array.isArray(activity) ? activity : [activity];
   let sent = 0;
   try {
     // The inbox is the record; a failure there must not stop the alerts, and it runs alongside them.
-    const jobs: Promise<void>[] = [addInbox(db, activity).catch((e) => console.error('inbox add failed', String(e)))];
+    const jobs: Promise<void>[] = all.map((a) => addInbox(db, a).catch((e) => console.error('inbox add failed', String(e))));
+    const kinds = [...new Set(all.map((a) => a.kind))];
     if (via.mailer && via.origin) {
       const mailer = via.mailer;
-      const mail = activityEmail(activity.headline, activity.detail, `${via.origin}${activity.path}`);
-      for (const r of await recipients(db, activity.kind, 'email', exceptId)) {
-        jobs.push(mailer.send({ to: r.email, ...mail }).then(() => { sent++; }, (e) => console.error('activity mail failed', String(e))));
+      const who = new Map(await Promise.all(kinds.map(async (k) => [k, await recipients(db, k, 'email', exceptId)] as const)));
+      for (const a of all) {
+        const mail = activityEmail(a.headline, a.detail, `${via.origin}${a.path}`);
+        for (const r of who.get(a.kind) ?? []) {
+          jobs.push(mailer.send({ to: r.email, ...mail }).then(() => { sent++; }, (e) => console.error('activity mail failed', String(e))));
+        }
       }
     }
     if (via.keys) {
       const keys = via.keys;
-      const msg = { title: activity.headline, body: activity.detail, url: activity.path, tag: `${activity.kind}:${activity.path}` };
-      for (const r of await recipients(db, activity.kind, 'push', exceptId)) {
-        const subs = await db.prepare('SELECT endpoint, p256dh, auth FROM manager_push WHERE user_id = ?').bind(r.id).all<PushSubscription>();
-        for (const sub of subs.results) {
-          jobs.push((async () => {
-            const status = await sendPushLogged('manager', keys, sub, msg, send); // one bad device must not stop the rest
-            if (status === 404 || status === 410) await removeManagerSubscription(db, sub.endpoint, r.id);
-            else if (status >= 200 && status < 300) sent++;
-          })());
+      const who = new Map(await Promise.all(kinds.map(async (k) => [k, await recipients(db, k, 'push', exceptId)] as const)));
+      const devices = new Map<string, PushSubscription[]>();
+      for (const r of new Set([...who.values()].flat())) {
+        devices.set(r.id, (await db.prepare('SELECT endpoint, p256dh, auth FROM manager_push WHERE user_id = ?').bind(r.id).all<PushSubscription>()).results);
+      }
+      for (const a of all) {
+        const msg = { title: a.headline, body: a.detail, url: a.path, tag: `${a.kind}:${a.path}` };
+        for (const r of who.get(a.kind) ?? []) {
+          for (const sub of devices.get(r.id) ?? []) {
+            jobs.push((async () => {
+              const status = await sendPushLogged('manager', keys, sub, msg, send); // one bad device must not stop the rest
+              if (status === 404 || status === 410) await removeManagerSubscription(db, sub.endpoint, r.id);
+              else if (status >= 200 && status < 300) sent++;
+            })());
+          }
         }
       }
     }

@@ -281,11 +281,11 @@ describe('the time-is-up alert', () => {
   it('is sent once when a timer finishes, to the devices following that person', async () => {
     const { browser, keys, sent, fake } = await setup();
     await startTimer(db, 'agnes', 10, WED, T);
-    expect(await deliverDue(db, keys, T + 5 * MIN, fake)).toBe(0); // not finished yet
+    expect((await deliverDue(db, keys, T + 5 * MIN, fake)).sent).toBe(0); // not finished yet
     expect(sent).toHaveLength(0);
-    expect(await deliverDue(db, keys, T + 10 * MIN + 20_000, fake)).toBe(1);
+    expect((await deliverDue(db, keys, T + 10 * MIN + 20_000, fake)).sent).toBe(1);
     expect(JSON.parse(await decrypt(browser, sent[0]!.body))).toEqual({ title: "Time's up, Agnes!", body: 'Screen time is finished.', url: '/chores/agnes', tag: 'timer-agnes' });
-    expect(await deliverDue(db, keys, T + 11 * MIN, fake)).toBe(0); // the next minute's run does not send it again
+    expect((await deliverDue(db, keys, T + 11 * MIN, fake)).sent).toBe(0); // the next minute's run does not send it again
     expect(sent).toHaveLength(1);
   });
 
@@ -306,12 +306,23 @@ describe('the time-is-up alert', () => {
     expect(sent).toHaveLength(2);
   });
 
+  it('reports which timers it announced, once each, and none that were stopped or stale', async () => {
+    const { keys, fake } = await setup();
+    await startTimer(db, 'agnes', 10, WED, T);
+    expect((await deliverDue(db, keys, T + 5 * MIN, fake)).finished).toEqual([]);
+    expect((await deliverDue(db, keys, T + 10 * MIN + 20_000, fake)).finished).toEqual([{ person: 'agnes', name: 'Agnes' }]);
+    expect((await deliverDue(db, keys, T + 11 * MIN, fake)).finished).toEqual([]);
+    await startTimer(db, 'agnes', 5, WED, T + 12 * MIN);
+    await stopTimer(db, 'agnes', T + 13 * MIN);
+    expect((await deliverDue(db, keys, T + 30 * MIN, fake)).finished).toEqual([]);
+  });
+
   it('is skipped, not sent hours late, when the schedule was down', async () => {
     const { keys, sent, fake } = await setup();
     await startTimer(db, 'agnes', 5, WED, T);
-    expect(await deliverDue(db, keys, T + 3 * 60 * MIN, fake)).toBe(0);
+    expect((await deliverDue(db, keys, T + 3 * 60 * MIN, fake)).sent).toBe(0);
     expect(sent).toHaveLength(0);
-    expect(await deliverDue(db, keys, T + 3 * 60 * MIN + MIN, fake)).toBe(0); // and it is not retried
+    expect((await deliverDue(db, keys, T + 3 * 60 * MIN + MIN, fake)).sent).toBe(0); // and it is not retried
   });
 
   it('forgets a device the push service says is gone, and keeps one that merely failed', async () => {
