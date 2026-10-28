@@ -105,26 +105,30 @@ const MAX_SUBSCRIPTIONS = 100;
 
 /**
  * Sends the "time is up" alert for every timer that has finished and not yet been announced. Run once a minute by the cron trigger.
- * Each timer is claimed first, in one step, so two overlapping runs cannot send the same alert twice.
+ * Each timer is claimed first, in one step, so two overlapping runs cannot send the same alert twice. Returns how many pushes went out
+ * and which timers were announced, so the caller can tell the managers too.
  */
-export async function deliverDue(db: D1Database, keys: PushKeys, now = Date.now(), send: typeof fetch = fetch): Promise<number> {
+export async function deliverDue(db: D1Database, keys: PushKeys, now = Date.now(), send: typeof fetch = fetch): Promise<{ sent: number; finished: { person: string; name: string }[] }> {
   const due = await db.prepare('SELECT person, ends_at FROM screentime_timers WHERE ends_at <= ? AND notified_at IS NULL').bind(now).all<{ person: string; ends_at: number }>();
-  if (due.results.length === 0) return 0;
+  const none = { sent: 0, finished: [] };
+  if (due.results.length === 0) return none;
   const names = new Map((await loadPeople(db)).map((p) => [p.id, p.name]));
   let sent = 0;
-  for (const t of due.results) {
+  const finished: { person: string; name: string }[] = [];
+  await Promise.all(due.results.map(async (t) => {
     const claim = await db.prepare('UPDATE screentime_timers SET notified_at = ? WHERE person = ? AND ends_at = ? AND notified_at IS NULL').bind(now, t.person, t.ends_at).run();
-    if ((claim.meta.changes ?? 0) === 0 || now - t.ends_at > STALE_MS) continue;
-    const subs = await db.prepare('SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE person = ?').bind(t.person).all<PushSubscription>();
+    if ((claim.meta.changes ?? 0) === 0 || now - t.ends_at > STALE_MS) return;
     const name = names.get(t.person) ?? 'Someone';
+    finished.push({ person: t.person, name });
+    const subs = await db.prepare('SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE person = ?').bind(t.person).all<PushSubscription>();
     const msg: PushMessage = { title: `Time's up, ${name}!`, body: 'Screen time is finished.', url: `/chores/${encodeURIComponent(t.person)}`, tag: `timer-${t.person}` };
     await Promise.all(subs.results.map(async (sub) => {
       const status = await sendPushLogged('timer', keys, sub, msg, send, now); // one bad subscription must not stop the rest
       if (status === 404 || status === 410) await removeSubscription(db, sub.endpoint);
       else if (status >= 200 && status < 300) sent++;
     }));
-  }
-  return sent;
+  }));
+  return { sent, finished };
 }
 
 /** Whether `sub` is a well-formed subscription to a known push service. */

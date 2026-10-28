@@ -226,7 +226,7 @@ Under **Admin → Your alerts**, each manager chooses what they hear about and h
 | About | When |
 |---|---|
 | Reward requests | Someone asks to spend points. |
-| Screen time timers | A timer is started, extended or stopped. |
+| Screen time timers | A timer is started, extended, stopped or runs out. The run-out alert needs the [time-is-up alerts](#time-is-up-alerts) set up and arrives within about a minute. |
 
 Each can go by **email** (through Resend) or by **push notification** to a device the manager has allowed on that page.
 Everything is off until a manager turns it on. A manager is not told about their own actions. Push needs the same VAPID
