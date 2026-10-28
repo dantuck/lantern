@@ -3,6 +3,7 @@
   import { hold } from '../lib/holdRefresh.svelte';
   import { untrack } from 'svelte';
   import { formatCountdown, timeLeftMs, urgency, type Sound, type Timer } from '../lib/choreTypes';
+  import { keepAwake } from '../lib/keepAwake';
   import { audioReady, onAudioChange, playSound, soundLengthMs, unlockAudio } from '../lib/chime';
 
   // The countdown for one person: big numbers while it runs, then a "time's up" panel that rings this device (unless it is muted) until
@@ -55,15 +56,12 @@
   const restore = $derived(timer ? `${timer.startedAt}:${done}` : ''); // a new timer, or time running out
   $effect(() => { if (restore) { minimized = false; askedAt = null; } });
 
-  // Keep the screen on while counting, so a tablet that would have gone to sleep is still awake to ring.
+  // Keep the screen on while counting, so a tablet that would have gone to sleep is still awake to ring. Assumed fine until it says otherwise.
+  let awake = $state(true);
   $effect(() => {
     if (!running) return;
-    let lock: WakeLockSentinel | null = null;
-    const take = async () => { try { lock = (await navigator.wakeLock?.request('screen')) ?? null; } catch { /* refused: the screen may sleep */ } };
-    const back = () => { if (document.visibilityState === 'visible') void take(); };
-    void take();
-    document.addEventListener('visibilitychange', back);
-    return () => { document.removeEventListener('visibilitychange', back); void lock?.release().catch(() => {}); };
+    const stop = keepAwake((held) => (awake = held));
+    return () => { stop(); awake = true; };
   });
 
   // The browser only lets a page make sound after a tap, so any tap on this page wakes the audio engine for later.
@@ -101,6 +99,10 @@
     if (!muted) playSound(sound);
   }
 </script>
+
+{#snippet sleepNote(cls: string)}
+  <p class="note m-0 {cls}">This screen may go to sleep before time is up. Tap anywhere to try again, or set Auto-Lock to Never in Settings.</p>
+{/snippet}
 
 {#snippet muteButton(cls: string, labelled: boolean)}
   <button type="button" class={cls} aria-pressed={muted} aria-label={muteLabel} onclick={toggleMute}><FeatherIcon name={muted ? 'bell-off' : 'bell'} />{#if labelled} <span class="text-[.95rem]">{muted ? 'Sound off' : 'Sound on'}</span>{/if}</button>
@@ -143,6 +145,7 @@
         <p class="sr-only" role="status">{spoken}</p>
         <div class="track h-[1rem] w-[min(32rem,80vw)]" role="presentation"><span class="fill cd-bar" style:width={`${pct}%`}></span></div>
         {#if !ready && !muted}<p class="note m-0">Tap anywhere once so this device can ring when time is up.</p>{/if}
+        {#if !awake}{@render sleepNote('')}{/if}
       {/if}
     </div>
     {@render controls(true)}
@@ -167,6 +170,7 @@
     {#if running}
       <div class="track h-[.7rem] mt-3" role="presentation"><span class="fill cd-bar" style:width={`${pct}%`}></span></div>
       {#if !ready && !muted}<p class="note m-0 mt-2">Tap anywhere on this page once so this device can ring when time is up.</p>{/if}
+      {#if !awake}{@render sleepNote('mt-2')}{/if}
     {/if}
     <div class="mt-3">{@render controls(false)}</div>
   </section>

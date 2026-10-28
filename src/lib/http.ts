@@ -3,7 +3,7 @@ import type { User } from './auth/users';
 const PUBLIC_EXACT = new Set([
   '/welcome', '/demo', '/theme-init.js', '/login', '/auth/request', '/auth/verify', '/auth/confirm', '/auth/code',
   '/auth/invite', '/auth/invite/confirm',
-  '/manifest.webmanifest', '/sw.js', '/offline.html', '/offline.css', '/favicon.svg', '/apple-touch-icon.png', '/robots.txt',
+  '/manifest.webmanifest', '/sw.js', '/offline.html', '/offline.css', '/favicon.svg', '/nosleep.mp4', '/apple-touch-icon.png', '/robots.txt',
 ]);
 const PUBLIC_PREFIX = ['/demo/', '/icons/', '/_astro/'];
 
