@@ -7,6 +7,14 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.24.0](https://github.com/dantuck/lantern/compare/v0.23.0...v0.24.0) (2026-10-28)
+
+
+### Added
+
+* **chores:** keep the screen awake with a video fallback and say when it cannot ([7488bbf](https://github.com/dantuck/lantern/commit/7488bbf1e16c6d23af557c75f8ea9a0c8d230feb))
+* **push:** tell managers when a screen time timer runs out ([4952bab](https://github.com/dantuck/lantern/commit/4952babe46649bf0bd14cb4e3bba9a1d9962f128))
+
 ## [0.23.0](https://github.com/dantuck/lantern/compare/v0.22.0...v0.23.0) (2026-10-27)
 
 
