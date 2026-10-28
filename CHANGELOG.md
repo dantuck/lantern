@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.24.1](https://github.com/dantuck/lantern/compare/v0.24.0...v0.24.1) (2026-10-28)
+
+
+### Fixed
+
+* **build:** skip binary files in the external host scan ([634da49](https://github.com/dantuck/lantern/commit/634da49f9d1408636d90bd336b219bb1614bda46))
+
 ## [0.24.0](https://github.com/dantuck/lantern/compare/v0.23.0...v0.24.0) (2026-10-28)
 
 
