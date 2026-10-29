@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.25.0](https://github.com/dantuck/lantern/compare/v0.24.1...v0.25.0) (2026-10-29)
+
+
+### Added
+
+* **rewards:** add reward descriptions, drawer editing and a reach-aware cost estimator ([fefe227](https://github.com/dantuck/lantern/commit/fefe227fecc63ea69554aef68b96819ae75c08a4))
+
 ## [0.24.1](https://github.com/dantuck/lantern/compare/v0.24.0...v0.24.1) (2026-10-28)
 
 
