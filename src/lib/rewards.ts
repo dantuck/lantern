@@ -50,10 +50,10 @@ export async function lockedFor(db: D1Database, person: string, day: string, now
 
 export async function rewardState(db: D1Database, day: string, now = Date.now()): Promise<Pick<ChoreState, 'rewards' | 'goals' | 'balances' | 'minutes' | 'allowance' | 'buyCap' | 'now' | 'timers' | 'sounds' | 'pending' | 'recent'>> {
   const [rows, links, ledger, pendingRows, recentRows, goalRows, bankRows, allowanceRows, usedRows, timerRows, soundRows, capRows, bought] = await Promise.all([
-    db.prepare('SELECT id, name, cost, minutes, scoped, hidden FROM rewards ORDER BY cost, created_at, id').all<{ id: string; name: string; cost: number; minutes: number; scoped: number; hidden: number }>(),
+    db.prepare('SELECT id, name, description, cost, minutes, scoped, hidden FROM rewards ORDER BY cost, created_at, id').all<{ id: string; name: string; description: string; cost: number; minutes: number; scoped: number; hidden: number }>(),
     db.prepare('SELECT reward_id, person FROM reward_people').all<{ reward_id: string; person: string }>(),
     db.prepare('SELECT person, SUM(delta) AS n FROM reward_ledger GROUP BY person').all<{ person: string; n: number }>(),
-    db.prepare("SELECT id, person, reward_name AS rewardName, cost, minutes, requested_at AS requestedAt FROM redemptions WHERE status = 'pending' ORDER BY requested_at, id").all<Redemption>(),
+    db.prepare("SELECT id, person, reward_name AS rewardName, reward_description AS rewardDescription, cost, minutes, requested_at AS requestedAt FROM redemptions WHERE status = 'pending' ORDER BY requested_at, id").all<Redemption>(),
     db.prepare('SELECT id, person, delta, kind, note, at FROM reward_ledger ORDER BY at DESC, id LIMIT ?').bind(RECENT).all<LedgerEntry>(),
     db.prepare(goalsSql()).all<GoalRow>(),
     db.prepare('SELECT person, SUM(delta) AS n FROM screentime_ledger GROUP BY person').all<{ person: string; n: number }>(),
@@ -66,7 +66,7 @@ export async function rewardState(db: D1Database, day: string, now = Date.now())
   ]);
   const peopleOf = new Map<string, string[]>();
   for (const l of links.results) peopleOf.set(l.reward_id, [...(peopleOf.get(l.reward_id) ?? []), l.person]);
-  const rewards: Reward[] = rows.results.map((r) => ({ id: r.id, name: r.name, cost: r.cost, minutes: r.minutes, people: r.scoped ? peopleOf.get(r.id) ?? [] : null, hidden: r.hidden === 1 }));
+  const rewards: Reward[] = rows.results.map((r) => ({ id: r.id, name: r.name, description: r.description, cost: r.cost, minutes: r.minutes, people: r.scoped ? peopleOf.get(r.id) ?? [] : null, hidden: r.hidden === 1 }));
   const goals: Goal[] = goalRows.results.map((g) => ({ id: g.id, name: g.name, target: g.target, progress: Math.min(g.progress, g.target), claimed: g.claimed_at !== null }));
   const balances: Record<string, number> = {};
   for (const r of ledger.results) balances[r.person] = r.n;
@@ -93,20 +93,25 @@ export async function rewardState(db: D1Database, day: string, now = Date.now())
  * out to keep an existing reward's scope as it is. An empty array means nobody.
  */
 export async function saveReward(
-  db: D1Database, input: { name: string; cost: number; minutes?: number; people?: string[] | null; hidden?: boolean }, id?: string, now = Date.now(),
+  db: D1Database, input: { name: string; description?: string; cost: number; minutes?: number; people?: string[] | null; hidden?: boolean }, id?: string, now = Date.now(),
 ): Promise<'ok' | 'limit' | 'not_found'> {
+  // The optional fields only change when given, so an edit that leaves one out keeps it.
+  const optional: [string, string | number][] = [];
+  if (input.description !== undefined) optional.push(['description', input.description]);
+  if (input.minutes !== undefined) optional.push(['minutes', input.minutes]);
+  if (input.hidden !== undefined) optional.push(['hidden', input.hidden ? 1 : 0]);
   let rewardId = id;
   if (id) {
-    const r = await db.prepare('UPDATE rewards SET name = ?, cost = ? WHERE id = ?').bind(input.name, input.cost, id).run();
+    const set = ['name', 'cost', ...optional.map(([c]) => c)].map((c) => `${c} = ?`).join(', ');
+    const r = await db.prepare(`UPDATE rewards SET ${set} WHERE id = ?`).bind(input.name, input.cost, ...optional.map(([, v]) => v), id).run();
     if ((r.meta.changes ?? 0) === 0) return 'not_found';
   } else {
     const count = await db.prepare('SELECT COUNT(*) AS n FROM rewards').first<{ n: number }>();
     if ((count?.n ?? 0) >= MAX_REWARDS) return 'limit';
     rewardId = crypto.randomUUID();
-    await db.prepare('INSERT INTO rewards (id, name, cost, created_at) VALUES (?, ?, ?, ?)').bind(rewardId, input.name, input.cost, now).run();
+    const cols = ['id', 'name', 'cost', 'created_at', ...optional.map(([c]) => c)];
+    await db.prepare(`INSERT INTO rewards (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).bind(rewardId, input.name, input.cost, now, ...optional.map(([, v]) => v)).run();
   }
-  if (input.minutes !== undefined) await db.prepare('UPDATE rewards SET minutes = ? WHERE id = ?').bind(input.minutes, rewardId).run();
-  if (input.hidden !== undefined) await db.prepare('UPDATE rewards SET hidden = ? WHERE id = ?').bind(input.hidden ? 1 : 0, rewardId).run();
   if (input.people !== undefined) {
     await db.prepare('DELETE FROM reward_people WHERE reward_id = ?').bind(rewardId).run();
     await db.prepare('UPDATE rewards SET scoped = ? WHERE id = ?').bind(input.people === null ? 0 : 1, rewardId).run();
@@ -128,7 +133,7 @@ export async function removeReward(db: D1Database, id: string): Promise<boolean>
 export async function requestRedemption(
   db: D1Database, person: string, rewardId: string, now = Date.now(), day = dayKey(now, householdZone), quantity = 1,
 ): Promise<'ok' | 'not_found' | 'not_eligible' | 'insufficient' | 'locked' | 'limit' | 'daily_limit'> {
-  const reward = await db.prepare('SELECT name, cost, minutes, scoped, hidden FROM rewards WHERE id = ?').bind(rewardId).first<{ name: string; cost: number; minutes: number; scoped: number; hidden: number }>();
+  const reward = await db.prepare('SELECT name, description, cost, minutes, scoped, hidden FROM rewards WHERE id = ?').bind(rewardId).first<{ name: string; description: string; cost: number; minutes: number; scoped: number; hidden: number }>();
   if (!reward || reward.hidden) return 'not_found';
   if (reward.scoped) {
     const mine = await db
@@ -152,8 +157,8 @@ export async function requestRedemption(
   if (verdict !== 'ok') return verdict;
   const id = crypto.randomUUID();
   await db
-    .prepare('INSERT INTO redemptions (id, person, reward_name, cost, minutes, requested_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(id, person, name, cost, minutes, now)
+    .prepare('INSERT INTO redemptions (id, person, reward_name, reward_description, cost, minutes, requested_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(id, person, name, reward.description, cost, minutes, now)
     .run();
   if (instant) await settle(db, id, { person, reward_name: name, cost, minutes }, true, now);
   return 'ok';

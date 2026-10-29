@@ -1,7 +1,7 @@
 <script lang="ts">
   import { flushSync, tick } from 'svelte';
   import Masonry from './Masonry.svelte';
-  import Panel from './Panel.svelte';
+  import Sheet from './Sheet.svelte';
   import RoutineEditor from './RoutineEditor.svelte';
   import ConfirmButton from './ConfirmButton.svelte';
   import Stepper from './Stepper.svelte';
@@ -44,10 +44,6 @@
     else tab = t;
   };
   const show = (t: Tab) => { swap(t); try { window.history.replaceState(null, '', `#${t}`); } catch { /* the section still changes */ } };
-
-  /** Which "add" form is open: it opens beside the list on wide screens and in a sheet on phones. */
-  let adding = $state<'goal' | 'reward' | null>(null);
-  const closeAdd = (what: 'goal' | 'reward') => { adding = null; void focusBack(`add-${what}`); };
 
   const nameOf = (id: string | null) => (id ? people.find((p) => p.id === id)?.name ?? 'Unknown' : 'Anyone');
 
@@ -112,35 +108,30 @@
     return names.length > 0 ? `Only ${names.join(', ')}` : 'Nobody can ask yet (pick someone)';
   }
 
-  let rewardName = $state('');
-  let rewardScope = $state<string[] | null>(null);
-  let rewardCost = $state(10);
-  let rewardMinutes = $state(0);
-  async function addReward(e: SubmitEvent) {
+  /** The reward being added or edited in the sheet, as a draft that only saves on "Save" (`id` is set when editing). */
+  type RewardDraft = { id?: string; name: string; description: string; cost: number; minutes: number; people: string[] | null; hidden: boolean };
+  let rewardDraft = $state<RewardDraft | null>(null);
+  const newReward = (): RewardDraft => ({ name: '', description: '', cost: 10, minutes: 0, people: null, hidden: false });
+  const editReward = (r: Reward): RewardDraft => ({ id: r.id, name: r.name, description: r.description, cost: r.cost, minutes: r.minutes, people: r.people && [...r.people], hidden: r.hidden });
+  const closeReward = () => { const id = rewardDraft?.id; rewardDraft = null; void focusBack(id ? `edit-reward-${id}` : 'add-reward'); };
+  const dropReward = () => { const id = rewardDraft?.id; rewardDraft = null; if (id) void send({ action: 'reward_remove', id }); };
+  async function saveRewardDraft(e: SubmitEvent) {
     e.preventDefault();
-    if (await send({ action: 'reward_save', name: rewardName.trim(), cost: rewardCost, minutes: rewardMinutes, people: rewardScope })) { rewardName = ''; rewardScope = null; rewardMinutes = 0; closeAdd('reward'); }
+    const d = rewardDraft;
+    if (!d || d.name.trim() === '') return;
+    if (await send({ action: 'reward_save', ...(d.id ? { id: d.id } : {}), name: d.name.trim(), description: d.description.trim(), cost: d.cost, minutes: d.minutes, people: d.people, hidden: d.hidden })) closeReward();
   }
 
-  /** The one goal or reward being edited, as a draft that only saves on "Save". Everything else stays a read-only summary. */
-  type Edit = { id: string; name: string } & ({ kind: 'goal'; target: number } | { kind: 'reward'; cost: number; minutes: number; people: string[] | null; hidden: boolean });
-  let edit = $state<Edit | null>(null);
-  const startEdit = (r: Reward) => (edit = { kind: 'reward', id: r.id, name: r.name, cost: r.cost, minutes: r.minutes, people: r.people && [...r.people], hidden: r.hidden });
-  const stopEdit = () => { if (!edit) return; const { kind, id } = edit; edit = null; void focusBack(`edit-${kind}-${id}`); };
-  async function saveEdit(e: SubmitEvent) {
+  /** The goal being added or edited in the sheet, as a draft that only saves on "Save" (`id` is set when editing; a claimed goal cannot change). */
+  type GoalDraft = { id?: string; name: string; target: number; claimed: boolean };
+  let goalDraft = $state<GoalDraft | null>(null);
+  const closeGoal = () => { const id = goalDraft?.id; goalDraft = null; void focusBack(id ? `edit-goal-${id}` : 'add-goal'); };
+  const dropGoal = () => { const id = goalDraft?.id; goalDraft = null; if (id) void send({ action: 'goal_remove', id }); };
+  async function saveGoalDraft(e: SubmitEvent) {
     e.preventDefault();
-    if (!edit) return;
-    const { id, name } = edit;
-    const saved = await send(edit.kind === 'goal'
-      ? { action: 'goal_save', id, name: name.trim(), target: edit.target }
-      : { action: 'reward_save', id, name: name.trim(), cost: edit.cost, minutes: edit.minutes, people: edit.people, hidden: edit.hidden });
-    if (saved) stopEdit();
-  }
-
-  let goalName = $state('');
-  let goalTarget = $state(100);
-  async function addGoal(e: SubmitEvent) {
-    e.preventDefault();
-    if (await send({ action: 'goal_save', name: goalName.trim(), target: goalTarget })) { goalName = ''; closeAdd('goal'); }
+    const d = goalDraft;
+    if (!d || d.claimed || d.name.trim() === '') return;
+    if (await send({ action: 'goal_save', ...(d.id ? { id: d.id } : {}), name: d.name.trim(), target: d.target })) closeGoal();
   }
 
   /** The person whose points or screen time is being adjusted; empty until "Adjust" is tapped on their card. */
@@ -199,7 +190,6 @@
 {#if error}<p class="notice error sticky top-2 z-30" role="alert">{error}</p>{/if}
 {#key pipe.saved}{#if pipe.saved > 0 && !error}<p class="notice toast" role="status">Saved</p>{/if}{/key}
 
-
 <nav class="sticky top-0 z-20 pt-2 pb-2 bg-bg" aria-label="Manage sections">
   <div class="seg-group w-full max-[40rem]:flex min-[40rem]:w-auto overflow-x-auto">
     {#each TABS as [id, label] (id)}
@@ -207,16 +197,6 @@
     {/each}
   </div>
 </nav>
-
-{#snippet editActions(removeLabel: string, remove: Record<string, unknown>, canSave: boolean)}
-  <div class="flex flex-wrap items-center justify-between gap-2">
-    <ConfirmButton ariaLabel={removeLabel} disabled={busy} onconfirm={() => { edit = null; send(remove); }} />
-    <span class="flex gap-2">
-      <button type="button" class="ghost small" onclick={stopEdit}>Cancel</button>
-      <button type="submit" class="small" disabled={busy || !canSave}>Save</button>
-    </span>
-  </div>
-{/snippet}
 
 {#if tab === 'overview'}
 <div id="overview" class="grid gap-0">
@@ -228,29 +208,17 @@
 <section class="card" id="goals">
   <div class="flex items-center justify-between gap-2 mb-1">
     <h2 class="m-0">Household goals</h2>
-    <button type="button" id="add-goal" class="small" aria-expanded={adding === 'goal'} onclick={() => (adding = adding === 'goal' ? null : 'goal')}>+ Add goal</button>
+    <button type="button" id="add-goal" class="small" aria-haspopup="dialog" onclick={() => (goalDraft = { name: '', target: 100, claimed: false })}>+ Add goal</button>
   </div>
   {@render help('goals', 'A target everyone works toward together. Every point anyone earns counts, and spending points on personal rewards does not lower it. When a goal is reached, treat the household, then mark it as enjoyed.')}
-  {#if adding === 'goal'}
-    <Panel title="Add a goal" onclose={() => closeAdd('goal')}>{@render goalForm()}</Panel>
-  {/if}
   {#if choreState.goals.length === 0}<p class="note">No goals yet. Set a target the whole household works toward, like a family pizza night.</p>{/if}
-  <ul class="plain-list grid gap-3 grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] {edit ? 'items-start' : ''}">
+  <ul class="plain-list grid gap-3 grid-cols-[repeat(auto-fill,minmax(17rem,1fr))]">
     {#each choreState.goals as g (g.id)}
 
-        {#if edit?.kind === 'goal' && edit.id === g.id}
-          <li class="edit-card [&&]:m-0">
-            <form class="grid gap-3" onsubmit={saveEdit}>
-              <input class="m-0" bind:value={edit.name} maxlength="60" required aria-label="Goal" autocomplete="off" disabled={g.claimed} />
-              <Stepper caption="Target points" bind:value={edit.target} min={1} max={1000000} step={10} label={`Target for ${g.name}`} />
-              {@render editActions(`Remove ${g.name}`, { action: 'goal_remove', id: g.id }, !g.claimed && edit.name.trim() !== '')}
-            </form>
-          </li>
-        {:else}
           <li class="edit-card [&&]:m-0 [&&]:content-between">
             <div class="flex items-start justify-between gap-2">
               <strong class="min-w-0 break-words">{g.name}</strong>
-              <button type="button" id={`edit-goal-${g.id}`} class="small m-0 flex-none pointer-coarse:min-h-11 pointer-coarse:px-5" disabled={busy || edit !== null} aria-label={`Edit ${g.name}`} onclick={() => (edit = { kind: 'goal', id: g.id, name: g.name, target: g.target })}>Edit</button>
+              <button type="button" id={`edit-goal-${g.id}`} class="small m-0 flex-none pointer-coarse:min-h-11 pointer-coarse:px-5" disabled={busy} aria-haspopup="dialog" aria-label={`Edit ${g.name}`} onclick={() => (goalDraft = { id: g.id, name: g.name, target: g.target, claimed: g.claimed })}>Edit</button>
             </div>
             <div class="track h-2 [&&]:bg-line" role="img" aria-label={`${g.progress} of ${g.target} points`}><span class="fill bg-accent" style:width={`${Math.min(100, (g.progress / g.target) * 100)}%`}></span></div>
             <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -260,7 +228,6 @@
               {:else if g.progress >= g.target}<button type="button" class="small" disabled={busy} onclick={() => send({ action: 'goal_claim', id: g.id })}>Mark as enjoyed</button>{/if}
             </div>
           </li>
-        {/if}
     {/each}
   </ul>
 </section>
@@ -341,30 +308,26 @@
 </section>
 {/if}
 
-{#snippet goalForm()}
-  <form class="grid grid-cols-2 gap-3" onsubmit={addGoal}>
-            <input class="m-0 col-span-2" bind:value={goalName} maxlength="60" required placeholder="New goal, e.g. Family pizza night" aria-label="New goal" autocomplete="off" />
-            <Stepper caption="Target points" class="col-span-2" bind:value={goalTarget} min={1} max={1000000} step={10} label="Target in points" />
-            <span class="col-span-2 flex justify-end gap-2">
-              <button type="button" class="ghost small" onclick={() => closeAdd('goal')}>Cancel</button>
-              <button type="submit" class="small" disabled={busy || !goalName.trim()}>Add goal</button>
-            </span>
-          </form>
+{#snippet drawerFooter(form: string, saveLabel: string, cannotSave: boolean, close: () => void, remove: (() => void) | undefined, removeLabel: string)}
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    {#if remove}<ConfirmButton ariaLabel={removeLabel} disabled={busy} onconfirm={remove} />{/if}
+    <span class="flex gap-2 ml-auto">
+      <button type="button" class="ghost small" onclick={close}>Cancel</button>
+      <button type="submit" {form} class="small" disabled={busy || cannotSave}>{saveLabel}</button>
+    </span>
+  </div>
 {/snippet}
 
-{#snippet rewardForm()}
-  <form class="grid grid-cols-2 gap-3" onsubmit={addReward}>
-            <input class="m-0 col-span-2" bind:value={rewardName} maxlength="60" required placeholder="New reward, e.g. Movie night pick" aria-label="New reward" autocomplete="off" />
-            <Stepper caption="Cost (points)" bind:value={rewardCost} min={1} max={100000} label="Cost in points" />
-            <Stepper caption="Screen time it gives (min)" presets={[15, 30, 60]} bind:value={rewardMinutes} min={0} max={1440} step={5} label="Screen time minutes it gives (0 for none)" />
-            <div class="col-span-2"><CostCalculator routines={choreState.routines} {people} minutes={rewardMinutes} apply={(n) => (rewardCost = n)} open /></div>
-            <div class="col-span-2">{@render scope(rewardScope, (ids) => (rewardScope = ids))}</div>
-            <span class="col-span-2 flex justify-end gap-2">
-              <button type="button" class="ghost small" onclick={() => closeAdd('reward')}>Cancel</button>
-              <button type="submit" class="small" disabled={busy || !rewardName.trim()}>Add reward</button>
-            </span>
-          </form>
-{/snippet}
+{#if goalDraft}
+  {@const d = goalDraft}
+  <Sheet title={d.id ? `Edit ${d.name.trim() || 'goal'}` : 'Add a goal'} drawer onclose={closeGoal}>
+    <form id="goal-form" class="grid gap-3" onsubmit={saveGoalDraft}>
+      <input class="m-0" bind:value={d.name} maxlength="60" placeholder="Goal, e.g. Family pizza night" aria-label="Goal" autocomplete="off" disabled={d.claimed} />
+      <Stepper caption="Target points" bind:value={d.target} min={1} max={1000000} step={10} label="Target in points" />
+    </form>
+    {#snippet footer()}{@render drawerFooter('goal-form', d.id ? 'Save' : 'Add goal', d.claimed || d.name.trim() === '', closeGoal, d.id ? dropGoal : undefined, `Remove ${d.name.trim() || 'goal'}`)}{/snippet}
+  </Sheet>
+{/if}
 
 {#snippet scope(ids: string[] | null, set: (ids: string[] | null) => void)}
   <div class="grid gap-2 flex-[1_1_100%]" role="group" aria-label="Who can ask">
@@ -393,39 +356,17 @@
 <section class="card" id="rewards">
   <div class="flex items-center justify-between gap-2 mb-1">
     <h2 class="m-0">Rewards</h2>
-    <button type="button" id="add-reward" class="small" aria-expanded={adding === 'reward'} onclick={() => (adding = adding === 'reward' ? null : 'reward')}>+ Add reward</button>
+    <button type="button" id="add-reward" class="small" aria-haspopup="dialog" onclick={() => (rewardDraft = newReward())}>+ Add reward</button>
   </div>
   {@render help('rewards', 'What points can be spent on. Anyone can get a reward they can afford, unless you limit it to certain people, in which case only they see it. A reward with screen time is given at once, with nothing for you to approve; any other reward waits in the inbox, and nothing is deducted until you approve it. Points earned in a time of day (like before school) can only be spent once every chore in it is done.')}
-  {#if adding === 'reward'}
-    <Panel title="Add a reward" onclose={() => closeAdd('reward')}>{@render rewardForm()}</Panel>
-  {/if}
   {#if choreState.rewards.length === 0}<p class="note">No rewards yet. Add something points can be spent on, like a movie night pick or extra screen time.</p>{/if}
-  <ul class="plain-list grid gap-3 grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] {edit ? 'items-start' : ''}">
+  <ul class="plain-list grid gap-3 grid-cols-[repeat(auto-fill,minmax(17rem,1fr))]">
     {#each choreState.rewards as r (r.id)}
 
-        {#if edit?.kind === 'reward' && edit.id === r.id}
-          <li class="edit-card [&&]:m-0">
-            <form class="grid gap-3" onsubmit={saveEdit}>
-              <div class="grid gap-2">
-                <input class="m-0" bind:value={edit.name} maxlength="60" required aria-label="Reward" autocomplete="off" />
-                <div class="grid gap-3">
-                  <Stepper caption="Cost (points)" bind:value={edit.cost} min={1} max={100000} label={`Cost of ${r.name}`} />
-                  <div title="Minutes of screen time it gives at once (0 for none)"><Stepper caption="Screen time it gives (min)" presets={[15, 30, 60]} bind:value={edit.minutes} min={0} max={1440} step={5} label={`Screen time minutes for ${r.name}`} /></div>
-                </div>
-                <CostCalculator routines={choreState.routines} {people} minutes={edit.minutes} apply={(n) => { if (edit?.kind === 'reward') edit.cost = n; }} />
-              </div>
-              {@render scope(edit.people, (ids) => { if (edit?.kind === 'reward') edit.people = ids; })}
-              <div class="flex items-center justify-between gap-3 pointer-coarse:min-h-11">
-                <span id={`hide-${r.id}`}>Hidden<span class="note block">Nobody can ask for it while it's on</span></span>
-                <Switch checked={edit.hidden} labelledby={`hide-${r.id}`} onchange={(on) => { if (edit?.kind === 'reward') edit.hidden = on; }} />
-              </div>
-              {@render editActions(`Remove ${r.name}`, { action: 'reward_remove', id: r.id }, edit.name.trim() !== '')}
-            </form>
-          </li>
-        {:else}
           <li class="edit-card [&&]:m-0 !grid-cols-[minmax(0,1fr)_auto] items-center" class:opacity-60={r.hidden}>
             <div class="min-w-0">
               <strong class="break-words">{r.name}</strong>{#if r.hidden}<span class="note"> · Hidden</span>{/if}
+              {#if r.description}<div class="note break-words">{r.description}</div>{/if}
               <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
                 <span class="note whitespace-nowrap"><FeatherIcon name="star" /> {ptsLabel(r.cost)}</span>
                 {#if r.minutes > 0}<span class="pill"><FeatherIcon name="clock" /> +{r.minutes} min<span class="sr-only"> of screen time</span></span>{/if}
@@ -433,12 +374,35 @@
               </div>
               <div class="note">{scopeLabel(r.people)}</div>
             </div>
-            <button type="button" id={`edit-reward-${r.id}`} class="small m-0 pointer-coarse:min-h-11 pointer-coarse:px-5" disabled={busy || edit !== null} aria-label={`Edit ${r.name}`} onclick={() => startEdit(r)}>Edit</button>
+            <button type="button" id={`edit-reward-${r.id}`} class="small m-0 pointer-coarse:min-h-11 pointer-coarse:px-5" disabled={busy} aria-haspopup="dialog" aria-label={`Edit ${r.name}`} onclick={() => (rewardDraft = editReward(r))}>Edit</button>
           </li>
-        {/if}
     {/each}
   </ul>
 </section>
+{/if}
+
+{#if rewardDraft}
+  {@const d = rewardDraft}
+  <Sheet title={d.id ? `Edit ${d.name.trim() || 'reward'}` : 'Add a reward'} drawer onclose={closeReward}>
+    <form id="reward-form" class="grid gap-3" novalidate onsubmit={saveRewardDraft}>
+      <input class="m-0" bind:value={d.name} maxlength="60" placeholder="Reward, e.g. Movie night pick" aria-label="Reward" autocomplete="off" />
+      <input class="m-0" bind:value={d.description} maxlength="200" placeholder="Description (optional)" aria-label="Description" autocomplete="off" />
+      <Stepper caption="Cost (points)" bind:value={d.cost} min={1} max={100000} label="Cost in points" />
+      <div title="Minutes of screen time it gives at once (0 for none)"><Stepper caption="Screen time it gives (min)" presets={[15, 30, 60]} bind:value={d.minutes} min={0} max={1440} step={5} label="Screen time minutes it gives (0 for none)" /></div>
+    </form>
+    <div class="grid gap-3 mt-3">
+      <!-- Outside the form: a way to suggest a cost must never get in the way of saving. -->
+      <CostCalculator routines={choreState.routines} {people} rewards={choreState.rewards} skip={d.id} minutes={d.minutes} cost={d.cost} apply={(n) => (d.cost = n)} />
+      {@render scope(d.people, (ids) => (d.people = ids))}
+      {#if d.id}
+        <div class="flex items-center justify-between gap-3 pointer-coarse:min-h-11">
+          <span id="reward-hidden">Hidden<span class="note block">Nobody can ask for it while it's on</span></span>
+          <Switch checked={d.hidden} labelledby="reward-hidden" onchange={(on) => (d.hidden = on)} />
+        </div>
+      {/if}
+    </div>
+    {#snippet footer()}{@render drawerFooter('reward-form', d.id ? 'Save' : 'Add reward', d.name.trim() === '', closeReward, d.id ? dropReward : undefined, `Remove ${d.name.trim() || 'reward'}`)}{/snippet}
+  </Sheet>
 {/if}
 
 {#if tab === 'people'}

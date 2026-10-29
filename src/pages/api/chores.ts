@@ -48,7 +48,7 @@ const managerBody = z.discriminatedUnion('action', [
   z.object({ action: z.literal('period_labels_set'), labels: z.object({ morning: periodLabel.optional(), afternoon: periodLabel.optional(), evening: periodLabel.optional(), any: periodLabel.optional() }) }),
   z.object({ action: z.literal('period_hours_set'), hours: z.object(Object.fromEntries(HOURS_PERIODS.map((k) => [k, z.object({ from: z.number().int(), to: z.number().int() }).refine(validHours, 'A time of day must end after it starts, within the day').optional()]))) }),
   z.object({ action: z.literal('bonus_set'), person, period, bonus: z.number().int().min(0).max(1000) }),
-  z.object({ action: z.literal('reward_save'), id: id.optional(), name: z.string().trim().min(1).max(60), cost: z.number().int().min(1).max(100_000), minutes: z.number().int().min(0).max(1440).optional(), people: z.array(person).max(40).nullable().optional(), hidden: z.boolean().optional() }),
+  z.object({ action: z.literal('reward_save'), id: id.optional(), name: z.string().trim().min(1).max(60), description: z.string().trim().max(200).optional(), cost: z.number().int().min(1).max(100_000), minutes: z.number().int().min(0).max(1440).optional(), people: z.array(person).max(40).nullable().optional(), hidden: z.boolean().optional() }),
   z.object({ action: z.literal('reward_remove'), id }),
   z.object({ action: z.literal('decide'), id, approve: z.boolean() }),
   z.object({ action: z.literal('decide_all') }),
@@ -154,7 +154,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       case 'period_labels_set': result = await setPeriodLabels(db, Object.fromEntries(Object.entries(b.labels).filter(([, v]) => v !== undefined)) as Partial<Record<Period, string>>); break;
       case 'period_hours_set': result = await setPeriodHours(db, b.hours as Parameters<typeof setPeriodHours>[1]); break;
       case 'bonus_set': await setBonus(db, b.person, b.period as Period, b.bonus); break;
-      case 'reward_save': result = await saveReward(db, { name: b.name, cost: b.cost, ...(b.minutes !== undefined ? { minutes: b.minutes } : {}), ...(b.people !== undefined ? { people: b.people } : {}), ...(b.hidden !== undefined ? { hidden: b.hidden } : {}) }, b.id); break;
+      case 'reward_save': result = await saveReward(db, { name: b.name, ...(b.description !== undefined ? { description: b.description } : {}), cost: b.cost, ...(b.minutes !== undefined ? { minutes: b.minutes } : {}), ...(b.people !== undefined ? { people: b.people } : {}), ...(b.hidden !== undefined ? { hidden: b.hidden } : {}) }, b.id); break;
       case 'reward_remove': if (!(await removeReward(db, b.id))) result = 'not_found'; break;
       case 'decide': result = await decideRedemption(db, manager, b.id, b.approve); break;
       case 'decide_all': await approveAffordable(db, manager); break;

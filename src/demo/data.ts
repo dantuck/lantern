@@ -229,14 +229,14 @@ export function demoChores(now = Date.now()): import('../lib/choreTypes').ChoreS
     },
     buyCap: { margo: { limit: 60, bought: 10 } }, // Margo has already bought 10 minutes today, so 50 are left
     rewards: [
-      { id: 'r1', name: 'Pick the movie', cost: 10, minutes: 0, people: null, hidden: false },
-      { id: 'r2', name: 'Screen time (5 minutes)', cost: 2, minutes: 5, people: null, hidden: false }, // take it several times: ×10 is 20 points for 50 minutes
-      { id: 'r4', name: 'New ballet shoes', cost: 30, minutes: 0, people: ['agnes'], hidden: false }, // only Agnes sees it
-      { id: 'r3', name: 'Ice cream trip', cost: 40, minutes: 0, people: null, hidden: false },
-      { id: 'r5', name: 'Stay up 30 minutes late', cost: 15, minutes: 0, people: null, hidden: false },
-      { id: 'r6', name: 'Choose dinner', cost: 25, minutes: 0, people: null, hidden: false },
-      { id: 'r8', name: 'Friend sleepover', cost: 60, minutes: 0, people: ['margo', 'edith'], hidden: false },
-      { id: 'r9', name: 'Skip one chore', cost: 35, minutes: 0, people: null, hidden: true }, // paused by a manager
+      { id: 'r1', name: 'Pick the movie', description: 'Family movie night, your choice', cost: 10, minutes: 0, people: null, hidden: false },
+      { id: 'r2', name: 'Screen time (5 minutes)', description: '', cost: 2, minutes: 5, people: null, hidden: false }, // take it several times: ×10 is 20 points for 50 minutes
+      { id: 'r4', name: 'New ballet shoes', description: '', cost: 30, minutes: 0, people: ['agnes'], hidden: false }, // only Agnes sees it
+      { id: 'r3', name: 'Ice cream trip', description: '', cost: 40, minutes: 0, people: null, hidden: false },
+      { id: 'r5', name: 'Stay up 30 minutes late', description: '', cost: 15, minutes: 0, people: null, hidden: false },
+      { id: 'r6', name: 'Choose dinner', description: '', cost: 25, minutes: 0, people: null, hidden: false },
+      { id: 'r8', name: 'Friend sleepover', description: '', cost: 60, minutes: 0, people: ['margo', 'edith'], hidden: false },
+      { id: 'r9', name: 'Skip one chore', description: '', cost: 35, minutes: 0, people: null, hidden: true }, // paused by a manager
     ],
     goals: [
       { id: 'g1', name: 'Family movie night out', target: 150, progress: 96, claimed: false },
@@ -245,8 +245,8 @@ export function demoChores(now = Date.now()): import('../lib/choreTypes').ChoreS
       { id: 'g4', name: 'Beach house snacks', target: 80, progress: 80, claimed: true },
     ],
     pending: [
-      { id: 'req1', person: 'margo', rewardName: 'Pick the movie', cost: 10, minutes: 0, requestedAt: now - 20 * 60_000 },
-      { id: 'req2', person: 'edith', rewardName: 'Choose dinner', cost: 25, minutes: 0, requestedAt: now - 3 * 60 * 60_000 },
+      { id: 'req1', person: 'margo', rewardName: 'Pick the movie', rewardDescription: '', cost: 10, minutes: 0, requestedAt: now - 20 * 60_000 },
+      { id: 'req2', person: 'edith', rewardName: 'Choose dinner', rewardDescription: '', cost: 25, minutes: 0, requestedAt: now - 3 * 60 * 60_000 },
     ],
     recent: [
       { id: 'e1', person: 'margo', delta: 2, kind: 'chore', note: 'Walk the dog', at: now - 60 * 60_000 },
