@@ -95,6 +95,8 @@ export interface Routine {
 export interface Reward {
   id: string;
   name: string;
+  /** A line of detail shown under the name ('' for none). */
+  description: string;
   cost: number;
   /** The people who may ask for it, or null when everyone may. An empty array means nobody. */
   people: string[] | null;
@@ -140,7 +142,7 @@ export const DEFAULT_SOUND: Sound = 'chime';
 export const SOUND_LABEL: Record<Sound, string> = { chime: 'Chime', bell: 'Bell', bubbles: 'Bubbles', fanfare: 'Fanfare', gentle: 'Gentle' };
 export const isPeriod = (p: unknown): p is Period => (PERIODS as readonly unknown[]).includes(p);
 export const isSound = (s: unknown): s is Sound => (SOUNDS as readonly unknown[]).includes(s);
-export interface Redemption { id: string; person: string; rewardName: string; cost: number; minutes: number; requestedAt: number }
+export interface Redemption { id: string; person: string; rewardName: string; rewardDescription: string; cost: number; minutes: number; requestedAt: number }
 export interface LedgerEntry { id: string; person: string; delta: number; kind: 'chore' | 'bonus' | 'redeem' | 'adjust'; note: string; at: number }
 
 export interface ChoreState {
@@ -334,6 +336,37 @@ export function typicalDailyPoints(routine: Pick<Routine, 'items' | 'bonuses'> |
 /** A starting price for a reward: `days` of a typical day's points, or, for screen time, the minutes at `minutesPerPoint`. */
 export const suggestedCost = (basis: { perDay: number; days: number } | { minutes: number; minutesPerPoint: number }): number =>
   Math.min(100_000, Math.max(1, Math.round('days' in basis ? basis.perDay * basis.days : basis.minutes / Math.max(1, basis.minutesPerPoint))));
+
+/**
+ * How far off a reward feels: the days of typical chores it takes to earn. A child should always have something close, something to
+ * save toward and, now and then, a big goal; past three weeks a reward starts to feel like it will never happen.
+ */
+export const REACH = [
+  { id: 'quick', label: 'Quick win', within: 2, aim: 1 },
+  { id: 'week', label: 'This week or so', within: 7, aim: 5 },
+  { id: 'big', label: 'Big goal', within: 21, aim: 14 },
+] as const;
+type ReachId = (typeof REACH)[number]['id'];
+/** The longest a reward should take to earn before it feels out of reach, in days. */
+export const FAR_DAYS = REACH[REACH.length - 1]!.within;
+
+/** Days of a typical day's points that `cost` takes to earn (Infinity when `perDay` is 0). */
+export const daysToEarn = (cost: number, perDay: number): number => (perDay > 0 ? cost / perDay : Infinity);
+
+/** Which step of the ladder a cost lands on, or 'far' when it takes longer than the last. */
+export function reachOf(cost: number, perDay: number): ReachId | 'far' {
+  const days = daysToEarn(cost, perDay);
+  return REACH.find((r) => days <= r.within)?.id ?? 'far';
+}
+
+/** For each step of the ladder: how many of the `costs` already sit on it, and the price that would fill it. A step with none is a gap. */
+export function reachLadder(costs: number[], perDay: number): { id: ReachId; label: string; within: number; count: number; cost: number }[] {
+  return REACH.map((r) => ({
+    id: r.id, label: r.label, within: r.within,
+    count: costs.filter((c) => reachOf(c, perDay) === r.id).length,
+    cost: suggestedCost({ perDay, days: r.aim }),
+  }));
+}
 
 /** What a person can spend now: their points, less what is promised to waiting requests and what an unfinished time of day holds back. */
 export function spendable(s: Pick<ChoreState, 'routines' | 'balances' | 'pending' | 'periodHours' | 'dayMs'>, person: string): number {

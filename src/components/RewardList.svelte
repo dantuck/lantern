@@ -37,7 +37,7 @@
     {@const n = Math.min(qty[r.id] ?? 1, max)}
     {@const stepper = r.minutes > 0 && max > 1 && short <= 0 && !atLimit}
     <li class="list-row flex-wrap">
-      <span class="min-w-0 flex-1 [overflow-wrap:anywhere] {size} font-medium">{r.name}{#if r.minutes > 0 && !stepper}<span class="block"><span class="pill mt-1"><FeatherIcon name="clock" /> +{r.minutes * n} min<span class="sr-only"> of screen time</span></span></span>{/if}
+      <span class="min-w-0 flex-1 [overflow-wrap:anywhere] {size} font-medium">{r.name}{#if r.description}<span class="note block font-normal">{r.description}</span>{/if}{#if r.minutes > 0 && !stepper}<span class="block"><span class="pill mt-1"><FeatherIcon name="clock" /> +{r.minutes * n} min<span class="sr-only"> of screen time</span></span></span>{/if}
         {#if short > 0 && holding !== '' && r.cost <= owned}<span class="note block"><FeatherIcon name="lock" /> Finish {holding} to spend your points</span>
         {:else if short > 0}<span class="note block">{short} more {short === 1 ? 'point' : 'points'} to go</span>
         {:else if atLimit}<span class="note block"><FeatherIcon name="clock" /> That is all the screen time you can get today</span>{/if}

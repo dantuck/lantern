@@ -32,6 +32,7 @@
         {@const who = people.find((p) => p.id === r.person)}
         <li class="edit-card" style:--c={who?.color ?? 'var(--muted)'}>
           <div><strong class="text-[color:var(--c)]">{nameOf(r.person)}</strong> <span class="note">asked for</span> <strong class="break-words">{r.rewardName}</strong></div>
+          {#if r.rewardDescription}<div class="note break-words">{r.rewardDescription}</div>{/if}
           <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span class="pill"><FeatherIcon name="star" /> {ptsLabel(r.cost)}</span>
             {#if r.minutes > 0}<span class="pill"><FeatherIcon name="clock" /> +{r.minutes} min<span class="sr-only"> of screen time</span></span>{/if}

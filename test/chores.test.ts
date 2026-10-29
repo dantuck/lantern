@@ -7,7 +7,7 @@ import { adjustPoints, approveAffordable, adjustMinutes, balanceOf, claimGoal, d
 import { zonedTimeMs } from '../src/lib/dates';
 import { householdZone } from '../src/lib/household';
 import { allDone } from '../src/lib/completion';
-import { buyRoom, canAsk, closedPeriods, DEFAULT_HOURS, phaseOf, tickBlock, choreSuggestions, describeSchedule, finishedBefore, itemDue, pointsOnWeekday, holdingLabel, lockedPoints, sections, spendable, suggestedCost, typicalDailyPoints, toggleDay, WEEKDAYS_MASK, type ChoreItem, type Routine } from '../src/lib/choreTypes';
+import { buyRoom, canAsk, closedPeriods, reachLadder, reachOf, DEFAULT_HOURS, phaseOf, tickBlock, choreSuggestions, describeSchedule, finishedBefore, itemDue, pointsOnWeekday, holdingLabel, lockedPoints, sections, spendable, suggestedCost, typicalDailyPoints, toggleDay, WEEKDAYS_MASK, type ChoreItem, type Routine } from '../src/lib/choreTypes';
 import { requiredRole } from '../src/lib/http';
 
 const T = 1_700_000_000_000;
@@ -234,6 +234,20 @@ describe('points and rewards', () => {
     expect(await removeReward(db, r.id)).toBe(true);
     expect(await removeReward(db, r.id)).toBe(false);
     expect((await choreState(db, WED, true)).pending[0]).toMatchObject({ rewardName: 'Tiny', cost: 1 });
+  });
+
+  it('gives a reward a description that a request keeps, and an edit that leaves it out keeps it', async () => {
+    await adjustPoints(db, manager, 'agnes', 100, '', T);
+    await saveReward(db, { name: 'Movie pick', description: 'Family night, your choice', cost: 10 }, undefined, T);
+    const r = (await choreState(db, WED, true)).rewards[0]!;
+    expect(r.description).toBe('Family night, your choice');
+    await saveReward(db, { name: 'Movie pick', cost: 12 }, r.id);
+    expect((await choreState(db, WED, true)).rewards[0]!.description).toBe('Family night, your choice');
+    expect(await requestRedemption(db, 'agnes', r.id, T)).toBe('ok');
+    await saveReward(db, { name: 'Movie pick', description: '', cost: 12 }, r.id);
+    const state = await choreState(db, WED, true);
+    expect(state.rewards[0]!.description).toBe('');
+    expect(state.pending[0]).toMatchObject({ rewardDescription: 'Family night, your choice' });
   });
 });
 
@@ -794,7 +808,7 @@ describe('spendable points on the client', () => {
   });
   it('takes held points and waiting requests off the balance', () => {
     const items = [item('morning', 3, true), item('morning', 1, false)] as ChoreItem[];
-    const state = { routines: [{ id: 'r', person: 'agnes', bonuses: {}, bonusEarned: {}, items }] as unknown as Routine[], balances: { agnes: 10 }, periodHours: DEFAULT_HOURS, dayMs: 8 * 3_600_000, pending: [{ id: 'p', person: 'agnes', rewardName: 'x', cost: 2, minutes: 0, requestedAt: 0 }] };
+    const state = { routines: [{ id: 'r', person: 'agnes', bonuses: {}, bonusEarned: {}, items }] as unknown as Routine[], balances: { agnes: 10 }, periodHours: DEFAULT_HOURS, dayMs: 8 * 3_600_000, pending: [{ id: 'p', person: 'agnes', rewardName: 'x', rewardDescription: '', cost: 2, minutes: 0, requestedAt: 0 }] };
     expect(spendable(state, 'agnes')).toBe(5);
     expect(spendable(state, 'margo')).toBe(0);
     expect(spendable({ ...state, dayMs: 13 * 3_600_000 }, 'agnes')).toBe(8); // the morning is over, so it no longer holds its points
@@ -818,6 +832,16 @@ describe('reward cost calculator', () => {
     expect(suggestedCost({ perDay: 6.4, days: 3 })).toBe(19);
     expect(suggestedCost({ minutes: 30, minutesPerPoint: 2 })).toBe(15);
     expect(suggestedCost({ perDay: 0, days: 1 })).toBe(1);
+  });
+  it('finds the gaps in what a child can reach, so a reward never feels out of reach', () => {
+    expect(reachOf(10, 10)).toBe('quick'); // a day of chores
+    expect(reachOf(50, 10)).toBe('week');
+    expect(reachOf(200, 10)).toBe('big');
+    expect(reachOf(300, 10)).toBe('far'); // a month of chores
+    expect(reachOf(5, 0)).toBe('far'); // nothing earned, nothing reachable
+    const ladder = reachLadder([10, 30], 10); // one quick win, one in a few days, no big goal
+    expect(ladder.map((l) => l.count)).toEqual([1, 1, 0]);
+    expect(ladder.map((l) => l.cost)).toEqual([10, 50, 140]); // 1, 5 and 14 days of chores
   });
 });
 

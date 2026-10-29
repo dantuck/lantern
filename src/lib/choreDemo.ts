@@ -66,7 +66,7 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
       const buy = r && scaled(r, p.quantity ?? 1);
       if (!r || !buy || r.hidden || redeemCheck(r, p.quantity ?? 1, { balance: spendable(s, p.person), held: 0, room: buyRoom(s, p.person) }) !== 'ok') break;
       if (r.minutes > 0) { log(p.person, -buy.cost, 'redeem', buy.name); s.minutes[p.person] = (s.minutes[p.person] ?? 0) + buy.minutes; const c = s.buyCap[p.person]; if (c) c.bought += buy.minutes; }
-      else s.pending.push({ id: uid('req'), person: p.person, rewardName: r.name, cost: r.cost, minutes: r.minutes, requestedAt: now });
+      else s.pending.push({ id: uid('req'), person: p.person, rewardName: r.name, rewardDescription: r.description, cost: r.cost, minutes: r.minutes, requestedAt: now });
       break;
     }
     case 'use_time': {
@@ -162,8 +162,8 @@ export function applyDemo(prev: ChoreState, p: Record<string, any>, now = Date.n
     case 'bonus_set': if (isPeriod(p.period)) routineOf(p.person).bonuses[p.period as Period] = p.bonus; break;
     case 'reward_save': {
       const r = p.id ? s.rewards.find((x) => x.id === p.id) : undefined;
-      if (r) { r.name = p.name; r.cost = p.cost; if (p.minutes !== undefined) r.minutes = p.minutes; if (p.people !== undefined) r.people = p.people; if (p.hidden !== undefined) r.hidden = p.hidden; }
-      else if (!p.id) s.rewards.push({ id: uid('r'), name: p.name, cost: p.cost, minutes: p.minutes ?? 0, people: p.people ?? null, hidden: p.hidden ?? false });
+      if (r) { r.name = p.name; if (p.description !== undefined) r.description = p.description; r.cost = p.cost; if (p.minutes !== undefined) r.minutes = p.minutes; if (p.people !== undefined) r.people = p.people; if (p.hidden !== undefined) r.hidden = p.hidden; }
+      else if (!p.id) s.rewards.push({ id: uid('r'), name: p.name, description: p.description ?? '', cost: p.cost, minutes: p.minutes ?? 0, people: p.people ?? null, hidden: p.hidden ?? false });
       s.rewards.sort((a, b) => a.cost - b.cost);
       break;
     }
