@@ -7,6 +7,13 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.26.0](https://github.com/dantuck/lantern/compare/v0.25.0...v0.26.0) (2026-10-30)
+
+
+### Added
+
+* **rewards:** show points waiting on a manager beside the balance ([e9f9ead](https://github.com/dantuck/lantern/commit/e9f9ead9bbfd4c429644cde8594531f13096d725))
+
 ## [0.25.0](https://github.com/dantuck/lantern/compare/v0.24.1...v0.25.0) (2026-10-29)
 
 
