@@ -368,11 +368,13 @@ export function reachLadder(costs: number[], perDay: number): { id: ReachId; lab
   }));
 }
 
+/** The points promised to a person's requests that a manager has not decided. */
+export const waitingPoints = (pending: Redemption[], person: string): number => pending.filter((r) => r.person === person).reduce((n, r) => n + r.cost, 0);
+
 /** What a person can spend now: their points, less what is promised to waiting requests and what an unfinished time of day holds back. */
 export function spendable(s: Pick<ChoreState, 'routines' | 'balances' | 'pending' | 'periodHours' | 'dayMs'>, person: string): number {
   const held = lockedPoints(s.routines.filter((r) => r.person === person).flatMap((r) => r.items), closedPeriods(s.periodHours, s.dayMs));
-  const waiting = s.pending.filter((r) => r.person === person).reduce((n, r) => n + r.cost, 0);
-  return Math.max(0, (s.balances[person] ?? 0) - held - waiting);
+  return Math.max(0, (s.balances[person] ?? 0) - held - waitingPoints(s.pending, person));
 }
 
 /** Minutes of today's allowance still unused. */

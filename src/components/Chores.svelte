@@ -4,7 +4,7 @@
   import RewardList from './RewardList.svelte';
   import { chorePipe } from '../lib/chorePipe.svelte';
   import { toggleIn } from '../lib/arrays';
-  import { allowanceLeft, blockFor, tally, canAsk, formatCountdown, timeAvailable, timeLeftMs, buyRoom, holdingLabel, hoursLabel, lockedPoints, PERIODS, onToday, sections, spendable, skippedToday, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
+  import { allowanceLeft, blockFor, tally, canAsk, formatCountdown, timeAvailable, timeLeftMs, buyRoom, holdingLabel, hoursLabel, lockedPoints, PERIODS, onToday, sections, spendable, waitingPoints, skippedToday, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
   import { liveTimers } from '../lib/timerClient.svelte';
   import { onMount } from 'svelte';
   import { celebrate } from '../lib/celebrate.svelte';
@@ -48,7 +48,7 @@
   const closed = $derived(day.closed);
   const available = (id: string) => spendable(choreState, id);
   /** Points a person has, less those promised to requests waiting for a manager. */
-  const owned = (id: string) => (choreState.balances[id] ?? 0) - pendingFor(id).reduce((n, r) => n + r.cost, 0);
+  const owned = (id: string) => (choreState.balances[id] ?? 0) - waitingPoints(choreState.pending, id);
   /** Why a person's points cannot be spent yet: the unfinished times of day holding them, or '' when nothing is held. */
   const holding = (id: string) => holdingLabel(choreState.routines.filter((r) => r.person === id).flatMap((r) => r.items), choreState.periodLabels, closed);
 
@@ -186,7 +186,7 @@
       <header class="flex items-center gap-[.7rem]">
         <span class="avatar size-10" aria-hidden="true">{#if col.person}{initialOf(col.person)}{:else}<FeatherIcon name="star" />{/if}</span>
         <h3 class="m-0 flex-1 text-[1.25rem] tracking-[-.02em]">{#if col.person}<a class="group inline-flex items-center gap-[.15rem] text-inherit underline [text-decoration-thickness:2px] [text-decoration-color:color-mix(in_srgb,var(--c)_55%,transparent)] underline-offset-[.22em] rounded-[.35rem] hover:[text-decoration-color:var(--c)] focus-visible:[outline:2px_solid_var(--c)] focus-visible:outline-offset-[3px]" href={`${personBase}/${col.person.id}`} title={`Open ${col.name}'s page`}>{col.name}<svg class="size-[1.1rem] flex-none fill-none [stroke:var(--c)] [stroke-width:3] [stroke-linecap:round] [stroke-linejoin:round] transition-transform duration-150 ease-out group-hover:translate-x-[3px]" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18" /></svg></a>{:else}{col.name}{/if}</h3>
-        {#if col.person}<span class="font-bold tabular-nums text-[color:var(--c)] text-[1.15rem]" title="Points to spend"><FeatherIcon name="star" /> {choreState.balances[col.person.id] ?? 0}<span class="sr-only"> points</span></span>{/if}
+        {#if col.person}{@const waiting = waitingPoints(choreState.pending, col.person.id)}<span class="font-bold tabular-nums text-[color:var(--c)] text-[1.15rem]" title="Points to spend"><FeatherIcon name="star" /> {choreState.balances[col.person.id] ?? 0}<span class="sr-only"> points</span>{#if waiting > 0}<span class="text-muted text-[.8rem] font-normal"> ({waiting} waiting)</span>{/if}</span>{/if}
       </header>
       {#if col.person && usesTime}
         {@const who = col.person}
@@ -271,7 +271,7 @@
           <summary class="cursor-pointer [font-weight:650] pointer-coarse:flex pointer-coarse:items-center pointer-coarse:min-h-11">Rewards{#if pendingFor(who.id).length > 0}<span class="count-badge ml-2 font-semibold bg-[var(--c)] text-white">{pendingFor(who.id).length}</span>{/if}</summary>
           {#each pendingFor(who.id) as r (r.id)}
             <div class="flex flex-wrap items-center gap-x-[.6rem] gap-y-[.4rem] py-2">
-              <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.05rem] font-medium">{r.rewardName} <span class="text-muted text-[.88rem] font-normal">({pts(r.cost)}{r.minutes > 0 ? `, ${mins(r.minutes)}` : ''}), waiting</span></span>
+              <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.05rem] font-medium">{r.rewardName} <span class="text-muted text-[.88rem] font-normal">({pts(r.cost)}{r.minutes > 0 ? `, ${mins(r.minutes)}` : ''}), waiting</span> <span class="text-muted text-[.88rem] tabular-nums">−{r.cost}</span></span>
               {#if choreState.manager}<a class="small" href={inboxHref}>Review in inbox</a>{/if}
             </div>
           {/each}

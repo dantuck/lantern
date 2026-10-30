@@ -10,7 +10,7 @@
   import AlarmSettings from './AlarmSettings.svelte';
   import RewardList from './RewardList.svelte';
   import AllowanceForm from './AllowanceForm.svelte';
-  import { allowanceLeft, blockFor, tally, canAsk, DEFAULT_SOUND, buyRoom, holdingLabel, hoursLabel, LEDGER_LABEL, lockedPoints, onToday, periodRecord, plural, sections, skippedToday, keptToday, spendable, timeAvailable, timerRunning, type ChoreState, type Sound } from '../lib/choreTypes';
+  import { allowanceLeft, blockFor, tally, canAsk, DEFAULT_SOUND, buyRoom, holdingLabel, hoursLabel, LEDGER_LABEL, lockedPoints, onToday, periodRecord, plural, sections, skippedToday, keptToday, spendable, timeAvailable, type ChoreState, type Sound } from '../lib/choreTypes';
   import { unlockAudio } from '../lib/chime';
   import { liveTimers } from '../lib/timerClient.svelte';
   import { celebrate } from '../lib/celebrate.svelte';
@@ -176,7 +176,7 @@
     <h1 class="m-0 text-[2rem] flex-[1_1_8rem] max-[34rem]:text-[1.5rem] max-[34rem]:basis-0 max-[34rem]:min-w-0">{me.name}</h1>
     <!-- On phones the wrapper dissolves: points and chores become pills beside the name, screen time a slim full-width row. -->
     <div class="flex flex-wrap gap-3 max-[34rem]:contents">
-      <div class="stat {pill}"><span class="stat-n max-[34rem]:text-[1rem]"><FeatherIcon name="star" /> {points}</span><span class="text-muted text-[.9rem] max-[34rem]:sr-only">points</span></div>
+      <div class="stat {pill}"><span class="stat-n max-[34rem]:text-[1rem]"><FeatherIcon name="star" /> {points}</span><span class="text-muted text-[.9rem] max-[34rem]:sr-only">points</span>{#if waiting > 0}<span class="text-muted text-[.8rem] tabular-nums" title="Points promised to requests a manager has not decided">({waiting} waiting)</span>{/if}</div>
       <div class="stat {pill}"><span class="stat-n max-[34rem]:text-[1rem]"><FeatherIcon name="check" /> {done}/{total}</span><span class="text-muted text-[.9rem] max-[34rem]:sr-only">chores today</span></div>
       <div class="stat max-[34rem]:order-last max-[34rem]:basis-full max-[34rem]:grid-cols-[1fr_auto] max-[34rem]:items-center max-[34rem]:gap-x-3 max-[34rem]:py-[.5rem]">
         <span class="stat-n max-[34rem]:text-[1.3rem]"><FeatherIcon name="clock" /> {minutes}</span><span class="text-muted text-[.9rem] max-[34rem]:text-[.8rem] max-[34rem]:[grid-column:1]">{allowance ? `min: ${left} left today + ${banked} banked` : 'min screen time'}</span>
@@ -340,7 +340,7 @@
       <ul class="plain-list">
         {#each pending as r (r.id)}
           <li class="list-row">
-            <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.1rem] font-medium">{r.rewardName} <span class="note">({r.cost} points{r.minutes > 0 ? `, ${r.minutes} min` : ''}), waiting for a manager</span></span>
+            <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.1rem] font-medium">{r.rewardName} <span class="note">({r.cost} points{r.minutes > 0 ? `, ${r.minutes} min` : ''}), waiting for a manager</span> <span class="note tabular-nums">−{r.cost}</span></span>
             {#if choreState.manager}
               <button type="button" class="small" disabled={busy || points < r.cost} onclick={() => send({ action: 'decide', id: r.id, approve: true })}>Approve</button>
               <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'decide', id: r.id, approve: false })}>Deny</button>
