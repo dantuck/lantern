@@ -7,6 +7,19 @@ Migrations are forward-only and must stay compatible with the previous release (
 just before the new code is deployed). A release that needs manual action says so under **Action required**
 (entries from 0.2.0 on are written by release-please from commit messages; a `BREAKING CHANGE:` footer lands there).
 
+## [0.27.0](https://github.com/dantuck/lantern/compare/v0.26.0...v0.27.0) (2026-10-31)
+
+
+### Added
+
+* **chores:** lay people out as equal-height cards with points in the header ([521355f](https://github.com/dantuck/lantern/commit/521355f65086454fedb36e38ef65d243fff35da3))
+* **chores:** quick-add chores under each time of day ([331c39c](https://github.com/dantuck/lantern/commit/331c39c9cdb579502ae33b0e8390b742948cc788))
+
+
+### Fixed
+
+* **chores:** keep the round add button off what is being edited on a phone ([aaddb5a](https://github.com/dantuck/lantern/commit/aaddb5aa2bec29e9cc19fde055be2484ff530dcf))
+
 ## [0.26.0](https://github.com/dantuck/lantern/compare/v0.25.0...v0.26.0) (2026-10-30)
 
 
