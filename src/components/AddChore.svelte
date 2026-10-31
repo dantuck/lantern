@@ -1,7 +1,8 @@
 <script lang="ts">
   import ScheduleFields from './ScheduleFields.svelte';
   import Stepper from './Stepper.svelte';
-  import { choreSuggestions, describeSchedule, EVERY_DAY, normalizeDays, PERIODS, PERIOD_LABEL, WEEKDAYS_MASK, WEEKENDS_MASK, weekStart, type ChoreTemplate, type Period, type Routine } from '../lib/choreTypes';
+  import { readAddDefaults, ScheduleDraft, writeAddDefaults } from '../lib/addChoreDraft.svelte';
+  import { choreSuggestions, describeSchedule, PERIODS, PERIOD_LABEL, type ChoreTemplate, type Period, type Routine } from '../lib/choreTypes';
 
   /**
    * The form for one new chore: what it is, what it is worth, when in the day, and which days.
@@ -14,42 +15,26 @@
   let title = $state('');
   let points = $state(1);
   let period = $state<Period>('any');
-  let once = $state(false);
-  let days = $state(EVERY_DAY);
-  let every = $state(1);
-  let untilDone = $state(false);
-  let kept = $state(0);
-  let optional = $state(false);
   // svelte-ignore state_referenced_locally
-  let from = $state(weekStart(day));
-  // svelte-ignore state_referenced_locally
-  let date = $state(day);
+  const draft = new ScheduleDraft(day);
 
   // The last points, time of day and repeat used are remembered in this browser, so a run of similar chores needs no re-picking.
-  const KEY = 'lantern:add-chore';
   let saved: string | null = null; // what storage holds, so loading it does not write it straight back
   let loaded = false;
   $effect(() => {
-    try {
-      saved = localStorage.getItem(KEY);
-      const v = JSON.parse(saved ?? 'null');
-      if (v && Number.isFinite(v.points)) points = Math.min(100, Math.max(0, v.points));
-      if (v && PERIODS.includes(v.period)) period = v.period;
-      // Only the repeating days are remembered, never "just once".
-      if (v && Number.isInteger(v.days) && v.days >= 1 && v.days <= EVERY_DAY) days = v.days;
-      else if (v && v.when === 'weekdays') days = WEEKDAYS_MASK; // an older save
-      else if (v && v.when === 'weekends') days = WEEKENDS_MASK;
-    } catch { /* private window or bad data: the usual defaults */ }
+    const d = readAddDefaults();
+    saved = d.raw;
+    if (d.points !== undefined) points = d.points;
+    if (d.period) period = d.period;
+    if (d.days !== undefined) draft.days = d.days;
     loaded = true;
   });
   $effect(() => {
-    const v = JSON.stringify({ points, period, days });
+    const v = JSON.stringify({ points, period, days: draft.days });
     if (!loaded || v === saved) return;
     saved = v;
-    try { localStorage.setItem(KEY, v); } catch { /* not saved; nothing breaks */ }
+    writeAddDefaults(v);
   });
-
-  /** Flips one weekday. The last day cannot be turned off. */
 
   // Opened in a drawer, the name is ready to type. A moment's wait lets the drawer settle its own focus first.
   $effect(() => {
@@ -115,8 +100,7 @@
   async function add() {
     const t = title.trim();
     if (!t) return;
-    const schedule = once ? { days: null, onceDate: date } : { days: normalizeDays(days), onceDate: null, everyWeeks: every, weekAnchor: every > 1 ? from : null, untilDone, keptPoints: kept };
-    if (await send({ action: 'item_add', person, title: t, points: Number(points) || 0, period, optional, ...schedule })) { title = ''; input?.focus(); }
+    if (await send({ action: 'item_add', person, title: t, points: Number(points) || 0, period, optional: draft.optional, ...draft.schedule })) { title = ''; input?.focus(); }
   }
 </script>
 
@@ -130,7 +114,7 @@
         {#if typed}
           <!-- svelte-ignore a11y_click_events_have_key_events -- as below: keyboards use the input itself, where Enter adds the typed chore -->
           <li id="{listId}-0" role="option" aria-selected={active === 0} class="flex items-center gap-2 px-2 py-2 rounded-[var(--radius-sm)] cursor-pointer pointer-coarse:min-h-11 {active === 0 ? 'bg-line' : ''}" onmousedown={(e) => e.preventDefault()} onclick={() => void add()}>
-            <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">Add “{typed}”<span class="note block text-[.85rem]">{labels[period]} · {describeSchedule(once ? { days: null, onceDate: date } : { days: normalizeDays(days), onceDate: null, everyWeeks: every, untilDone })}</span></span>
+            <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">Add “{typed}”<span class="note block text-[.85rem]">{labels[period]} · {describeSchedule(draft.schedule)}</span></span>
             <span class="text-[.9rem] [font-weight:650] tabular-nums">+{Number(points) || 0}</span>
             <span class="text-[.85rem] text-accent">Add</span>
           </li>
@@ -149,6 +133,6 @@
   </div>
   <Stepper caption="Points" bind:value={points} min={0} max={100} label="Points" />
   <label class="cap-field">Time of day <select class="m-0" bind:value={period} aria-label="Time of day">{#each PERIODS as p (p)}<option value={p}>{labels[p]}</option>{/each}</select></label>
-  <ScheduleFields class="col-span-2" {day} bind:once bind:days bind:date bind:every bind:from bind:untilDone bind:keptPoints={kept} bind:optional earns={person !== null} />
+  <ScheduleFields class="col-span-2" {day} bind:once={draft.once} bind:days={draft.days} bind:date={draft.date} bind:every={draft.every} bind:from={draft.from} bind:untilDone={draft.untilDone} bind:keptPoints={draft.kept} bind:optional={draft.optional} earns={person !== null} />
   <button class="small col-span-2 [&&&]:w-full" type="submit" disabled={busy || !title.trim()}>Add chore</button>
 </form>
