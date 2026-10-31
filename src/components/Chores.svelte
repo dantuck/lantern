@@ -1,10 +1,9 @@
 <script lang="ts">
   import { dayClock } from '../lib/dayClock.svelte';
   import FeatherIcon from './FeatherIcon.svelte';
-  import RewardList from './RewardList.svelte';
   import { chorePipe } from '../lib/chorePipe.svelte';
   import { toggleIn } from '../lib/arrays';
-  import { allowanceLeft, blockFor, tally, canAsk, formatCountdown, timeAvailable, timeLeftMs, buyRoom, holdingLabel, hoursLabel, lockedPoints, PERIODS, onToday, sections, spendable, waitingPoints, skippedToday, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
+  import { blockFor, tally, formatCountdown, timeLeftMs, hoursLabel, lockedPoints, PERIODS, onToday, sections, waitingPoints, skippedToday, todaysRoutines, type ChoreItem, type ChoreState, type Period, type Routine } from '../lib/choreTypes';
   import { liveTimers } from '../lib/timerClient.svelte';
   import { onMount } from 'svelte';
   import { celebrate } from '../lib/celebrate.svelte';
@@ -42,15 +41,8 @@
     // Confetti the moment someone's last chore gets ticked: big for the day, small for a time of day with a bonus.
   const party = celebrate(() => columns.flatMap((c) => celebrationKeys(c.id, c.items, c.routine?.bonuses)));
   const partyColor = $derived(columns.find((c) => party.key.startsWith(`${c.id}:`))?.person?.color ?? 'var(--accent)');
-  const pendingFor = (id: string | null) => choreState.pending.filter((r) => r.person === id);
-  const rewardsFor = (id: string) => choreState.rewards.filter((r) => !r.hidden && canAsk(r, id));
   const day = dayClock(() => choreState);
   const closed = $derived(day.closed);
-  const available = (id: string) => spendable(choreState, id);
-  /** Points a person has, less those promised to requests waiting for a manager. */
-  const owned = (id: string) => (choreState.balances[id] ?? 0) - waitingPoints(choreState.pending, id);
-  /** Why a person's points cannot be spent yet: the unfinished times of day holding them, or '' when nothing is held. */
-  const holding = (id: string) => holdingLabel(choreState.routines.filter((r) => r.person === id).flatMap((r) => r.items), choreState.periodLabels, closed);
 
   // --- Filters: whose chores, which time of day, and done or not. Remembered in this browser only. ---
   type Status = 'all' | 'todo' | 'done';
@@ -98,11 +90,6 @@
   // Countdowns started on the person's page or on any other device. The page with the person's name is the one that rings.
   // svelte-ignore state_referenced_locally
   const clock = liveTimers(() => choreState, (s) => (choreState = s), { demo, busy: () => pipe.busy });
-
-  const timeTitle = (id: string) => (choreState.allowance[id] ? `${allowanceLeft(choreState.allowance[id])} left of today's allowance + ${choreState.minutes[id] ?? 0} banked` : 'Screen time to use');
-  const usesTime = $derived(choreState.rewards.some((r) => r.minutes > 0) || Object.keys(choreState.allowance).length > 0 || Object.values(choreState.minutes).some((n) => n > 0));
-  const mins = (n: number) => `${n} min`;
-  const pts = (n: number) => `${n} ${n === 1 ? 'point' : 'points'}`;
 </script>
 
 {#key party.burst}{#if party.burst > 0}<Confetti color={partyColor} size={party.size} />{/if}{/key}
@@ -179,18 +166,18 @@
   <p class="text-muted text-[.88rem] font-normal" role="status">Nothing matches these filters. <button type="button" class="w-auto m-0 p-0 bg-transparent border-0 shadow-none text-accent underline [font:inherit]" onclick={clear}>Clear filters</button></p>
 {/if}
 
-<div class="columns-[17rem] gap-x-5 mb-6">
+<!-- Equal-height cards in rows, at most one column per card so two people split the width instead of leaving empty columns beside them. -->
+<div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-5 mb-6">
   {#each visibleColumns as col (col.id ?? 'anyone')}
     {@const earns = col.person !== undefined}
-    <section class="break-inside-avoid mb-5 bg-[color-mix(in_srgb,var(--c)_8%,var(--card))] [border:1px_dashed_color-mix(in_srgb,var(--c)_65%,transparent)] rounded-[var(--radius)] pt-[1.1rem] px-[1.1rem] pb-5 shadow-[var(--shadow-sm)]" style:--c={col.person?.color ?? 'var(--accent)'} aria-label={`${col.name}'s chores`}>
+    <section class="bg-[color-mix(in_srgb,var(--c)_8%,var(--card))] [border:1px_dashed_color-mix(in_srgb,var(--c)_65%,transparent)] rounded-[var(--radius)] pt-[1.1rem] px-[1.1rem] pb-5 shadow-[var(--shadow-sm)]" style:--c={col.person?.color ?? 'var(--accent)'} aria-label={`${col.name}'s chores`}>
       <header class="flex items-center gap-[.7rem]">
         <span class="avatar size-10" aria-hidden="true">{#if col.person}{initialOf(col.person)}{:else}<FeatherIcon name="star" />{/if}</span>
         <h3 class="m-0 flex-1 text-[1.25rem] tracking-[-.02em]">{#if col.person}<a class="group inline-flex items-center gap-[.15rem] text-inherit underline [text-decoration-thickness:2px] [text-decoration-color:color-mix(in_srgb,var(--c)_55%,transparent)] underline-offset-[.22em] rounded-[.35rem] hover:[text-decoration-color:var(--c)] focus-visible:[outline:2px_solid_var(--c)] focus-visible:outline-offset-[3px]" href={`${personBase}/${col.person.id}`} title={`Open ${col.name}'s page`}>{col.name}<svg class="size-[1.1rem] flex-none fill-none [stroke:var(--c)] [stroke-width:3] [stroke-linecap:round] [stroke-linejoin:round] transition-transform duration-150 ease-out group-hover:translate-x-[3px]" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18" /></svg></a>{:else}{col.name}{/if}</h3>
         {#if col.person}{@const waiting = waitingPoints(choreState.pending, col.person.id)}<span class="font-bold tabular-nums text-[color:var(--c)] text-[1.15rem]" title="Points to spend"><FeatherIcon name="star" /> {choreState.balances[col.person.id] ?? 0}<span class="sr-only"> points</span>{#if waiting > 0}<span class="text-muted text-[.8rem] font-normal"> ({waiting} waiting)</span>{/if}</span>{/if}
       </header>
-      {#if col.person && usesTime}
+      {#if col.person}
         {@const who = col.person}
-        {@const avail = timeAvailable(choreState, who.id)}
         {@const t = choreState.timers[who.id]}
         {#if t}
           {@const left = timeLeftMs(t, clock.now)}
@@ -199,15 +186,6 @@
             <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'timer_stop', person: who.id })}>{left > 0 ? 'Stop' : 'Done'}</button>
           </div>
         {/if}
-        <div class="flex flex-wrap items-center gap-x-2 gap-y-[.35rem] mt-[.6rem]">
-          <span class="mr-auto [font-weight:650] tabular-nums" title={timeTitle(who.id)}><FeatherIcon name="clock" /> {mins(avail)}<span class="sr-only"> of screen time</span></span>
-          {#each [15, 30] as m (m)}
-            {#if avail >= m}<button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'use_time', person: who.id, minutes: m })}>Use {m}</button>{/if}
-          {/each}
-          {#if avail > 0 && avail !== 15 && avail !== 30}
-            <button type="button" class="ghost small" disabled={busy} onclick={() => send({ action: 'use_time', person: who.id, minutes: avail })}>Use all</button>
-          {/if}
-        </div>
       {/if}
       <div class="track h-2 mt-[.8rem] mb-2" role="progressbar" aria-label="Done today" aria-valuemin={0} aria-valuemax={col.total} aria-valuenow={col.done}>
         <span class="fill bg-[var(--c)]" style:width={col.total ? `${(col.done / col.total) * 100}%` : '0%'}></span>
@@ -261,22 +239,6 @@
             {/each}
           </ul>
         </div>
-      {/if}
-
-      {#if col.person && (rewardsFor(col.person.id).length > 0 || pendingFor(col.person.id).length > 0)}
-        {@const who = col.person}
-        {@const free = available(who.id)}
-        {@const why = holding(who.id)}
-        <details id={`rewards-${who.id}`} class="mt-[1.1rem] pt-3 [border-top:1px_solid_var(--border)]">
-          <summary class="cursor-pointer [font-weight:650] pointer-coarse:flex pointer-coarse:items-center pointer-coarse:min-h-11">Rewards{#if pendingFor(who.id).length > 0}<span class="count-badge ml-2 font-semibold bg-[var(--c)] text-white">{pendingFor(who.id).length}</span>{/if}</summary>
-          {#each pendingFor(who.id) as r (r.id)}
-            <div class="flex flex-wrap items-center gap-x-[.6rem] gap-y-[.4rem] py-2">
-              <span class="min-w-0 flex-1 [overflow-wrap:anywhere] text-[1.05rem] font-medium">{r.rewardName} <span class="text-muted text-[.88rem] font-normal">({pts(r.cost)}{r.minutes > 0 ? `, ${mins(r.minutes)}` : ''}), waiting</span> <span class="text-muted text-[.88rem] tabular-nums">−{r.cost}</span></span>
-              {#if choreState.manager}<a class="small" href={inboxHref}>Review in inbox</a>{/if}
-            </div>
-          {/each}
-          <RewardList rewards={rewardsFor(who.id)} room={buyRoom(choreState, who.id)} {free} owned={owned(who.id)} holding={why} {busy} size="text-[1.05rem]" get={(r, quantity) => send({ action: 'redeem', person: who.id, rewardId: r.id, ...(quantity > 1 ? { quantity } : {}) })} />
-        </details>
       {/if}
     </section>
   {/each}
