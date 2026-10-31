@@ -31,7 +31,6 @@ describe('chores components render', () => {
     const r = p.initial.routines.find((x: { person: string }) => x.person === 'agnes');
     const html = render(await load('/src/components/RoutineEditor.svelte'), { props: { person: 'agnes', name: 'Agnes', items: r.items, bonuses: r.bonuses, day: p.initial.day, busy: false, send: async () => true, routines: p.initial.routines } }).body;
     expect(html).toContain('Make your bed');
-    expect(html).toContain('Points a day');
     expect(html).toContain('Points for Feed Fluffy');
   });
   it('the manager page, a person page and the board', async () => {

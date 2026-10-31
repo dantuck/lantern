@@ -4,12 +4,16 @@
   import { mediaQuery } from '../lib/media.svelte';
   import { keep, text } from '../lib/choreClient';
   import AddChore from './AddChore.svelte';
+  import CenteredPopover from './CenteredPopover.svelte';
   import BonusEditor from './BonusEditor.svelte';
   import CopyChores from './CopyChores.svelte';
+  import DayChips from './DayChips.svelte';
+  import InlineAddChore from './InlineAddChore.svelte';
   import Panel from './Panel.svelte';
   import Sheet from './Sheet.svelte';
-  import { EVERY_DAY, hasDay, inRotation, MAX_PERIOD_LABEL, isPastOnce, itemDueOnWeekday, normalizeDays, PERIOD_LABEL, PERIODS, plural, pointsOnWeekday, ptsLabel, sections, toggleDay, WEEKDAY_SHORT, type ChoreItem, type Owner, type Period, type Routine } from '../lib/choreTypes';
-  import { addDays, dayLabel, weekdayOf } from '../lib/dates';
+  import Stepper from './Stepper.svelte';
+  import { EVERY_DAY, inRotation, MAX_PERIOD_LABEL, isPastOnce, itemDueOnWeekday, normalizeDays, PERIOD_LABEL, PERIODS, plural, pointsOnWeekday, ptsLabel, toggleDay, WEEKDAY_SHORT, type ChoreItem, type Owner, type Period, type Routine } from '../lib/choreTypes';
+  import { addDays, dayLabel } from '../lib/dates';
   import ItemEditor from './ItemEditor.svelte';
 
   /**
@@ -67,7 +71,8 @@
   /** Chore points on each day; an until-done chore counts its points on its first day and its kept-up points after. */
   const dayPoints = $derived(perDay.map((cs, d) => cs.reduce((n, c) => n + pointsOnWeekday(c, d), 0)));
   const busiest = $derived(Math.max(0, ...dayPoints));
-  const groups = $derived(sections(live));
+  // Every time of day gets a section, even an empty one, so a chore can be added straight into it.
+  const groups = $derived(PERIODS.map((period) => ({ period, items: live.filter((i) => i.period === period) })));
   const openItem = $derived(live.find((c) => c.id === openId));
 
   /** Saves one change to a chore straight from its row. */
@@ -76,13 +81,11 @@
     const next = toggleDay(c.days ?? EVERY_DAY, weekday);
     return next === 0 ? Promise.resolve(false) : patch(c, { days: normalizeDays(next) }); // the last day cannot be turned off
   };
-  const setPoints = (c: ChoreItem, e: Event) => keep(e, patch(c, { points: Math.min(100, Math.max(0, Math.round(Number((e.currentTarget as HTMLInputElement).value) || 0))) }));
   const setTitle = (c: ChoreItem, e: Event) => { const t = text(e); if (!t) { (e.currentTarget as HTMLInputElement).value = c.title; return; } if (t !== c.title) keep(e, patch(c, { title: t })); };
 
-  /** The planner's columns on a wide screen (chore, time of day, seven days, points, actions); on a phone each chore stacks in three. */
-  // The last column is a fixed width, not `auto`: the header and the "points a day" footer are separate grids, and an auto column would size to each one's own contents and push the day columns out of line with the rows.
-  const COLS = 'min-[56rem]:grid min-[56rem]:grid-cols-[minmax(10rem,1fr)_9.5rem_repeat(7,2.1rem)_4.5rem_10rem]';
-  const COLS_PHONE = 'grid-cols-[minmax(0,1fr)_5.5rem_auto]';
+  /** The planner's columns on a wide screen (chore, time of day, seven days, points, actions); on a phone each chore stacks in rows of two. */
+  const COLS = 'min-[56rem]:grid min-[56rem]:grid-cols-[minmax(10rem,1fr)_9.5rem_repeat(7,2.1rem)_9.25rem_10rem]';
+  const COLS_PHONE = 'grid-cols-[minmax(0,1fr)_9.25rem]';
   /** Moves a one-off to another day, so a chore that came up once can be done again without retyping it. */
   const reuse = (c: ChoreItem, date: string) => send({ action: 'item_update', id: c.id, onceDate: date });
 
@@ -144,13 +147,7 @@
 {/if}
 
 {#if live.length === 0}
-  <p class="note">No chores yet. Type one above to start {name}'s list.</p>
-{:else}
-  <div class="hidden {COLS} items-end gap-2 pb-1 text-[.7rem] font-semibold uppercase tracking-[.06em] text-muted" aria-hidden="true">
-    <span>Chore</span><span>When</span>
-    {#each WEEKDAY_SHORT as d (d)}<span class="text-center">{d.charAt(0)}</span>{/each}
-    <span>Points</span><span></span>
-  </div>
+  <p class="note">No chores yet. Add one under a time of day to start {name}'s list.</p>
 {/if}
 
 {#each groups as sec (sec.period)}
@@ -165,17 +162,17 @@
       <h4 class="m-0 text-[.95rem]">{labels[sec.period]} <span class="note">· {sec.items.length}</span>
         <button type="button" class="ghost small ml-1" disabled={busy} aria-label={`Rename ${labels[sec.period]}`} onclick={() => { newName = labels[sec.period]; renaming = sec.period; }}>Rename</button></h4>
     {/if}
-    {#if person !== null}<BonusEditor {person} {name} period={sec.period} bonus={bonuses[sec.period]} {busy} {send} {labels} />{/if}
+    {#if person !== null && sec.items.length > 0}<BonusEditor {person} {name} period={sec.period} bonus={bonuses[sec.period]} {busy} {send} {labels} />{/if}
   </div>
   {#each sec.items as c (c.id)}
     {@const inline = openId === c.id && !narrow}
     <div class="grid {COLS_PHONE} {COLS} items-center gap-x-2 gap-y-2 py-2 [border-bottom:1px_solid_var(--border)] {isPast(c) ? 'opacity-70' : ''}">
-      <input class="m-0 col-span-3 min-[56rem]:col-span-1 font-medium" value={c.title} data-v={c.title} maxlength="80" aria-label="Chore" autocomplete="off" onchange={(e) => setTitle(c, e)} />
+      <input class="m-0 col-span-2 min-[56rem]:col-span-1 font-medium" value={c.title} data-v={c.title} maxlength="80" aria-label="Chore" autocomplete="off" onchange={(e) => setTitle(c, e)} />
       <select class="m-0" value={c.period} data-v={c.period} aria-label={`Time of day for ${c.title}`} onchange={(e) => keep(e, patch(c, { period: e.currentTarget.value }))}>
         {#each PERIODS as p (p)}<option value={p}>{labels[p]}</option>{/each}
       </select>
       {#if c.onceDate !== null}
-        <div class="col-span-3 min-[56rem]:col-span-7 max-[56rem]:order-last flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div class="col-span-2 min-[56rem]:col-span-7 max-[56rem]:order-last flex flex-wrap items-center gap-x-2 gap-y-1">
           <span class="note">Just once · {dayLabel(c.onceDate, day)}{isPast(c) ? ' (past)' : ''}</span>
           {#if isPast(c)}
             <span class="note">Do again:</span>
@@ -184,15 +181,14 @@
           {/if}
         </div>
       {:else}
-        <div class="col-span-3 grid grid-cols-7 gap-1 max-[56rem]:order-last min-[56rem]:contents" role="group" aria-label={`Days for ${c.title}${c.everyWeeks > 1 ? `, every ${c.everyWeeks} weeks` : ''}`}>
-          {#each WEEKDAY_SHORT as d, i (i)}
-            {@const on = c.days === null || hasDay(c.days, i)}
-            <button type="button" class="day-chip [&&&]:w-full [&&&]:px-0 [&&&]:min-h-9" aria-pressed={on} aria-label={d} disabled={busy || (on && (c.days ?? EVERY_DAY) === 1 << i)} onclick={() => setDay(c, i)}>{d.charAt(0)}</button>
-          {/each}
-        </div>
+        <DayChips class="col-span-2 grid grid-cols-7 gap-1 max-[56rem]:order-last min-[56rem]:contents" chip="[&&&]:w-full [&&&]:px-0 [&&&]:min-h-9" letters days={c.days ?? EVERY_DAY} disabled={busy} label={`Days for ${c.title}${c.everyWeeks > 1 ? `, every ${c.everyWeeks} weeks` : ''}`} onflip={(w) => setDay(c, w)} />
       {/if}
-      <input class="m-0 w-full text-center tabular-nums" type="number" min="0" max="100" value={c.points} data-v={c.points} aria-label={`Points for ${c.title}`} disabled={person === null} title={person === null ? 'Chores for Anyone earn no points' : undefined} onchange={(e) => setPoints(c, e)} />
-      <div class="flex items-center justify-end gap-1 max-[56rem]:[grid-column:3]">
+      {#if person === null}
+        <span class="note text-center" title="Chores for Anyone earn no points">No points</span>
+      {:else}
+        <Stepper class="w-[9.25rem]" value={c.points} min={0} max={100} label={`Points for ${c.title}`} onchange={(n) => patch(c, { points: n })} />
+      {/if}
+      <div class="flex items-center justify-end gap-1 max-[56rem]:col-span-2 max-[56rem]:order-last">
         {#if c.due}
           <!-- Skipping hides a chore for today only; it is back on its normal schedule tomorrow. Removing for good is under More. -->
           <button type="button" class="ghost small m-0" disabled={busy || openId !== null} aria-label={c.skipped ? `Put ${c.title} back on today's list` : `Skip ${c.title} today`} onclick={() => (c.skipped ? send({ action: 'item_skip', id: c.id, skipped: false }) : skip(c))}>{c.skipped ? 'Put back' : 'Skip'}</button>
@@ -200,19 +196,12 @@
         <button type="button" id={`edit-chore-${c.id}`} class="ghost small m-0" disabled={busy || openId !== null} aria-label={`More for ${c.title}: repeat, date, remove`} onclick={() => (openId = c.id)}>More</button>
       </div>
       {#if inline}
-        <div class="col-span-full edit-card"><ItemEditor {c} {day} {busy} {send} {labels} earns={person !== null} onremove={() => gone(c)} onclose={closeEdit} /></div>
+        <CenteredPopover label={`Edit ${c.title}`} width={26} onclose={closeEdit}><ItemEditor {c} {day} {busy} {send} {labels} earns={person !== null} onremove={() => gone(c)} onclose={closeEdit} /></CenteredPopover>
       {/if}
     </div>
   {/each}
+  <InlineAddChore {person} period={sec.period} label={labels[sec.period]} {day} {busy} send={sendAdd} />
 {/each}
-
-{#if live.length > 0}
-  <div class="hidden {COLS} items-center gap-2 pt-2 text-[.8rem] text-muted tabular-nums" aria-label="Points on each day">
-    <span class="col-span-2 text-right pr-1">{person === null ? 'Chores a day' : 'Points a day'}</span>
-    {#each WEEKDAY_SHORT as d, i (i)}<span class="text-center font-semibold {i === weekdayOf(day) ? 'text-accent' : ''}" title={d}>{person === null ? perDay[i]!.length : dayPoints[i]}</span>{/each}
-    <span></span><span></span>
-  </div>
-{/if}
 
 {#if narrow && openItem}
   <Sheet title={`Edit ${openItem.title}`} onclose={closeEdit}>

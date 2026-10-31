@@ -224,6 +224,8 @@ export const ownerKey = (id: string | null): string => id ?? 'anyone';
 /** Short weekday names from Sunday, matching the bit order of `days`. */
 export const WEEKDAY_SHORT: readonly string[] = Array.from({ length: 7 }, (_, i) => formatDay(`2023-01-0${1 + i}`, { weekday: 'short' }));
 export const toggleDay = (days: number, weekday: number): number => days ^ (1 << weekday);
+/** Flips one weekday in a chore's days, except that the last day cannot be turned off. */
+export const flipDay = (days: number, weekday: number): number => toggleDay(days, weekday) || days;
 
 /** "Every day", "Weekdays", "Mon, Wed", or the date for a one-off; with ", every other week" or ", every 3 weeks" when it skips weeks. `names` default to the seven short weekday names from Sunday. */
 export function describeSchedule(s: { days: number | null; onceDate: string | null; untilDone?: boolean; optional?: boolean } & Rotation, names: readonly string[] = WEEKDAY_SHORT): string {
