@@ -83,6 +83,7 @@
   };
   const setTitle = (c: ChoreItem, e: Event) => { const t = text(e); if (!t) { (e.currentTarget as HTMLInputElement).value = c.title; return; } if (t !== c.title) keep(e, patch(c, { title: t })); };
 
+  let typing = $state(false); // a field has focus, so the round add button steps aside
   /** The planner's columns on a wide screen (chore, time of day, seven days, points, actions); on a phone each chore stacks in rows of two. */
   const COLS = 'min-[56rem]:grid min-[56rem]:grid-cols-[minmax(10rem,1fr)_9.5rem_repeat(7,2.1rem)_9.25rem_10rem]';
   const COLS_PHONE = 'grid-cols-[minmax(0,1fr)_9.25rem]';
@@ -141,8 +142,11 @@
   </Sheet>
 {/if}
 
+<!-- Typing in a field (the quick add, a title) hides the round button below, so it never sits over what is being edited. -->
+<svelte:window onfocusin={(e) => (typing = e.target instanceof HTMLElement && e.target.matches('input, select, textarea'))} onfocusout={() => (typing = false)} />
+
 <!-- On a phone the button in the header scrolls away, so a round one stays in reach above the tab bar. -->
-{#if !adding}
+{#if !adding && !typing}
   <button type="button" class="md:!hidden fixed z-30 right-4 bottom-[calc(5.2rem+env(safe-area-inset-bottom))] size-14 [&&]:p-0 [&&]:m-0 rounded-full shadow-[var(--shadow-md)] inline-flex items-center justify-center [&_svg]:size-6" aria-label={`Add a chore for ${name}`} onclick={openAdd}><FeatherIcon name="plus" /></button>
 {/if}
 
@@ -220,3 +224,5 @@
     {/each}
   </div>
 {/if}
+
+<div class="h-20 md:hidden" aria-hidden="true"></div>
